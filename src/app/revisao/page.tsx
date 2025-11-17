@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/custom/Header";
 import ProtectedRoute from "@/components/custom/ProtectedRoute";
 import { supabase, isSupabaseConfigured, getCurrentUser } from "@/lib/supabase";
-import { Loader2, AlertCircle, BookOpen, Star, Trash2 } from "lucide-react";
+import { Loader2, AlertCircle, BookOpen, Star, XCircle } from "lucide-react";
 
 type Questao = {
   id: string;
@@ -14,17 +14,16 @@ type Questao = {
   subtema?: string;
 };
 
-type FiltroAtivo = "erradas" | "marcadas";
+type FiltroTipo = "erradas" | "marcadas";
 
 export default function RevisaoPage() {
   const router = useRouter();
-  const [filtroAtivo, setFiltroAtivo] = useState<FiltroAtivo>("erradas");
-  const [questoesErradas, setQuestoesErradas] = useState<Questao[]>([]);
-  const [questoesMarcadas, setQuestoesMarcadas] = useState<Questao[]>([]);
+  const [filtroAtivo, setFiltroAtivo] = useState<FiltroTipo>("erradas");
+  const [questoes, setQuestoes] = useState<Questao[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const carregarQuestoesErradas = async () => {
+  const buscarQuestoesErradas = async () => {
     if (!isSupabaseConfigured()) {
       setError("Supabase não está configurado. Vá em Configurações do Projeto → Integrações → Conectar Supabase.");
       setLoading(false);
@@ -42,8 +41,8 @@ export default function RevisaoPage() {
         return;
       }
 
-      // Buscar questões erradas recentemente
-      const { data: histData, error: histError } = await supabase!
+      // Buscar questões erradas do usuário (últimas 50)
+      const { data: historico, error: histError } = await supabase!
         .from('hist_questoes')
         .select('questao_id')
         .eq('user_id', user.id)
@@ -55,26 +54,26 @@ export default function RevisaoPage() {
         throw new Error(`Erro ao buscar histórico: ${histError.message}`);
       }
 
-      if (!histData || histData.length === 0) {
-        setQuestoesErradas([]);
+      if (!historico || historico.length === 0) {
+        setQuestoes([]);
         setLoading(false);
         return;
       }
 
-      // Extrair IDs únicos
-      const idsUnicos = Array.from(new Set(histData.map(item => item.questao_id)));
+      // Obter IDs únicos
+      const questaoIds = [...new Set(historico.map(h => h.questao_id))];
 
-      // Buscar questões correspondentes
+      // Buscar detalhes das questões
       const { data: questoesData, error: questoesError } = await supabase!
         .from('questoes')
         .select('id, enunciado, tema, subtema')
-        .in('id', idsUnicos);
+        .in('id', questaoIds);
 
       if (questoesError) {
         throw new Error(`Erro ao buscar questões: ${questoesError.message}`);
       }
 
-      setQuestoesErradas(questoesData || []);
+      setQuestoes(questoesData || []);
       setLoading(false);
     } catch (err: any) {
       setError(err.message || "Erro ao carregar questões erradas.");
@@ -82,7 +81,7 @@ export default function RevisaoPage() {
     }
   };
 
-  const carregarQuestoesMarcadas = async () => {
+  const buscarQuestoesMarcadas = async () => {
     if (!isSupabaseConfigured()) {
       setError("Supabase não está configurado. Vá em Configurações do Projeto → Integrações → Conectar Supabase.");
       setLoading(false);
@@ -100,37 +99,37 @@ export default function RevisaoPage() {
         return;
       }
 
-      // Buscar marcações de revisão
-      const { data: marcacoesData, error: marcacoesError } = await supabase!
+      // Buscar questões marcadas para revisão
+      const { data: marcacoes, error: marcError } = await supabase!
         .from('marcacoes_revisao')
         .select('questao_id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (marcacoesError) {
-        throw new Error(`Erro ao buscar marcações: ${marcacoesError.message}`);
+      if (marcError) {
+        throw new Error(`Erro ao buscar marcações: ${marcError.message}`);
       }
 
-      if (!marcacoesData || marcacoesData.length === 0) {
-        setQuestoesMarcadas([]);
+      if (!marcacoes || marcacoes.length === 0) {
+        setQuestoes([]);
         setLoading(false);
         return;
       }
 
-      // Extrair IDs
-      const ids = marcacoesData.map(item => item.questao_id);
+      // Obter IDs das questões marcadas
+      const questaoIds = marcacoes.map(m => m.questao_id);
 
-      // Buscar questões correspondentes
+      // Buscar detalhes das questões
       const { data: questoesData, error: questoesError } = await supabase!
         .from('questoes')
         .select('id, enunciado, tema, subtema')
-        .in('id', ids);
+        .in('id', questaoIds);
 
       if (questoesError) {
         throw new Error(`Erro ao buscar questões: ${questoesError.message}`);
       }
 
-      setQuestoesMarcadas(questoesData || []);
+      setQuestoes(questoesData || []);
       setLoading(false);
     } catch (err: any) {
       setError(err.message || "Erro ao carregar questões marcadas.");
@@ -156,8 +155,8 @@ export default function RevisaoPage() {
         return;
       }
 
-      // Atualizar lista local
-      setQuestoesMarcadas(prev => prev.filter(q => q.id !== questaoId));
+      // Atualizar lista removendo a questão
+      setQuestoes(prev => prev.filter(q => q.id !== questaoId));
     } catch (err) {
       console.error("Erro ao remover marcação:", err);
     }
@@ -165,13 +164,15 @@ export default function RevisaoPage() {
 
   useEffect(() => {
     if (filtroAtivo === "erradas") {
-      carregarQuestoesErradas();
+      buscarQuestoesErradas();
     } else {
-      carregarQuestoesMarcadas();
+      buscarQuestoesMarcadas();
     }
   }, [filtroAtivo]);
 
-  const questoesExibidas = filtroAtivo === "erradas" ? questoesErradas : questoesMarcadas;
+  const handlePraticarNovamente = (questaoId: string) => {
+    router.push(`/estudar?questaoId=${questaoId}`);
+  };
 
   const truncarTexto = (texto: string, maxLength: number = 150) => {
     if (texto.length <= maxLength) return texto;
@@ -180,55 +181,75 @@ export default function RevisaoPage() {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen" style={{ backgroundColor: "#0D1B2A" }}>
+      <div 
+        className="min-h-screen relative overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, #001C2D 0%, #06345F 100%)",
+        }}
+      >
+        {/* Textura de grade sutil */}
+        <div 
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+            `,
+            backgroundSize: "50px 50px"
+          }}
+        />
+
         <Header />
         
-        <main className="pt-24 px-6 max-w-6xl mx-auto pb-12">
-          <h1 className="text-4xl font-bold mb-2" style={{ color: "#C6A239" }}>
-            Revisão de Questões
-          </h1>
-          <p className="text-lg mb-8" style={{ color: "#E6E6E6" }}>
-            Revise questões que você errou ou que marcou para revisar depois.
-          </p>
+        <main className="pt-24 px-6 max-w-5xl mx-auto pb-12 relative z-10">
+          {/* Título */}
+          <div className="mb-8">
+            <h1 className="text-4xl font-bold mb-3" style={{ color: "#FFFFFF" }}>
+              Revisão de Questões
+            </h1>
+            <p className="text-lg" style={{ color: "#DCE6ED" }}>
+              Revise questões que você errou ou que marcou para revisar depois.
+            </p>
+          </div>
 
-          {/* Botões de Filtro */}
+          {/* Filtros (Abas) */}
           <div className="flex gap-4 mb-8">
             <button
               onClick={() => setFiltroAtivo("erradas")}
-              className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105"
+              className="px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
               style={{
-                backgroundColor: filtroAtivo === "erradas" ? "#C6A239" : "#1B4332",
-                color: filtroAtivo === "erradas" ? "#0D1B2A" : "#E6E6E6",
-                border: "2px solid #C6A239"
+                backgroundColor: filtroAtivo === "erradas" ? "#FF8A38" : "#1B4332",
+                color: filtroAtivo === "erradas" ? "#FFFFFF" : "#DCE6ED",
+                border: filtroAtivo === "erradas" ? "2px solid #FF8A38" : "2px solid #1B4332"
               }}
             >
-              Erradas Recentemente
+              <XCircle className="w-5 h-5 inline-block mr-2" />
+              Erradas recentemente
             </button>
+
             <button
               onClick={() => setFiltroAtivo("marcadas")}
-              className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105"
+              className="px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
               style={{
-                backgroundColor: filtroAtivo === "marcadas" ? "#C6A239" : "#1B4332",
-                color: filtroAtivo === "marcadas" ? "#0D1B2A" : "#E6E6E6",
-                border: "2px solid #C6A239"
+                backgroundColor: filtroAtivo === "marcadas" ? "#FF8A38" : "#1B4332",
+                color: filtroAtivo === "marcadas" ? "#FFFFFF" : "#DCE6ED",
+                border: filtroAtivo === "marcadas" ? "2px solid #FF8A38" : "2px solid #1B4332"
               }}
             >
-              Marcadas para Revisar
+              <Star className="w-5 h-5 inline-block mr-2" />
+              Marcadas para revisar
             </button>
           </div>
 
-          {/* Loading */}
-          {loading && (
+          {/* Conteúdo */}
+          {loading ? (
             <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="w-12 h-12 animate-spin mb-4" style={{ color: "#C6A239" }} />
-              <p className="text-xl" style={{ color: "#E6E6E6" }}>
+              <Loader2 className="w-12 h-12 animate-spin mb-4" style={{ color: "#FF8A38" }} />
+              <p className="text-xl" style={{ color: "#DCE6ED" }}>
                 Carregando questões...
               </p>
             </div>
-          )}
-
-          {/* Erro */}
-          {error && !loading && (
+          ) : error ? (
             <div className="p-8 rounded-lg text-center" style={{ backgroundColor: "#5F2D2D", border: "2px solid #FF6B6B" }}>
               <AlertCircle className="w-16 h-16 mx-auto mb-4" style={{ color: "#FF6B6B" }} />
               <h2 className="text-2xl font-bold mb-2" style={{ color: "#FF6B6B" }}>
@@ -237,71 +258,77 @@ export default function RevisaoPage() {
               <p className="mb-6" style={{ color: "#E6E6E6" }}>
                 {error}
               </p>
-              <button
-                onClick={() => filtroAtivo === "erradas" ? carregarQuestoesErradas() : carregarQuestoesMarcadas()}
-                className="px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105"
-                style={{ backgroundColor: "#C6A239", color: "#0D1B2A" }}
-              >
-                Tentar Novamente
-              </button>
             </div>
-          )}
-
-          {/* Lista Vazia */}
-          {!loading && !error && questoesExibidas.length === 0 && (
+          ) : questoes.length === 0 ? (
             <div className="p-8 rounded-lg text-center" style={{ backgroundColor: "#1B4332", border: "2px solid #C6A239" }}>
               <BookOpen className="w-16 h-16 mx-auto mb-4" style={{ color: "#C6A239" }} />
-              <p className="text-xl" style={{ color: "#E6E6E6" }}>
-                Você ainda não tem questões para revisar aqui. Continue estudando e volte depois.
+              <h2 className="text-2xl font-bold mb-2" style={{ color: "#FFFFFF" }}>
+                Nenhuma questão para revisar
+              </h2>
+              <p style={{ color: "#DCE6ED" }}>
+                {filtroAtivo === "erradas" 
+                  ? "Você ainda não tem questões erradas para revisar. Continue estudando e volte depois."
+                  : "Você ainda não marcou nenhuma questão para revisar. Marque questões durante seus estudos e elas aparecerão aqui."}
               </p>
             </div>
-          )}
-
-          {/* Lista de Questões */}
-          {!loading && !error && questoesExibidas.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {questoesExibidas.map((questao) => (
+          ) : (
+            <div className="space-y-4">
+              {questoes.map((questao) => (
                 <div
                   key={questao.id}
-                  className="p-6 rounded-lg"
-                  style={{ backgroundColor: "#1B4332", border: "2px solid #C6A239" }}
+                  className="p-6 rounded-lg transition-all duration-300 hover:scale-[1.02]"
+                  style={{
+                    backgroundColor: "#1B4332",
+                    border: "2px solid #C6A239",
+                    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)"
+                  }}
                 >
-                  {/* Cabeçalho do Card */}
-                  <div className="flex items-start justify-between mb-4">
+                  {/* Cabeçalho do card */}
+                  <div className="flex justify-between items-start mb-4">
                     <div>
                       <p className="text-sm font-semibold mb-1" style={{ color: "#C6A239" }}>
-                        {questao.tema}
+                        {questao.tema} {questao.subtema && `• ${questao.subtema}`}
                       </p>
                       <p className="text-xs" style={{ color: "#B7CBBF" }}>
                         ID: {questao.id}
                       </p>
                     </div>
-                    {filtroAtivo === "marcadas" && (
-                      <button
-                        onClick={() => removerMarcacao(questao.id)}
-                        className="p-2 rounded-lg hover:scale-110 transition-all"
-                        style={{ backgroundColor: "#5F2D2D", color: "#FF6B6B" }}
-                        title="Remover marcação"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
 
-                  {/* Enunciado */}
-                  <p className="text-sm mb-4 leading-relaxed" style={{ color: "#E6E6E6" }}>
+                  {/* Enunciado (truncado) */}
+                  <p className="mb-4 leading-relaxed" style={{ color: "#E6E6E6" }}>
                     {truncarTexto(questao.enunciado)}
                   </p>
 
-                  {/* Botão Praticar */}
-                  <button
-                    onClick={() => router.push(`/estudar?questaoId=${questao.id}`)}
-                    className="w-full px-4 py-3 rounded-lg font-semibold transition-all hover:scale-105 flex items-center justify-center gap-2"
-                    style={{ backgroundColor: "#C6A239", color: "#0D1B2A" }}
-                  >
-                    <BookOpen className="w-5 h-5" />
-                    Praticar Novamente
-                  </button>
+                  {/* Botões de ação */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handlePraticarNovamente(questao.id)}
+                      className="flex-1 px-4 py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
+                      style={{
+                        backgroundColor: "#FF8A38",
+                        color: "#FFFFFF"
+                      }}
+                    >
+                      <BookOpen className="w-4 h-4 inline-block mr-2" />
+                      Praticar novamente
+                    </button>
+
+                    {filtroAtivo === "marcadas" && (
+                      <button
+                        onClick={() => removerMarcacao(questao.id)}
+                        className="px-4 py-2 rounded-lg font-semibold transition-all duration-300 hover:scale-105"
+                        style={{
+                          backgroundColor: "#5F2D2D",
+                          color: "#FF6B6B",
+                          border: "2px solid #FF6B6B"
+                        }}
+                      >
+                        <XCircle className="w-4 h-4 inline-block mr-2" />
+                        Remover marcação
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

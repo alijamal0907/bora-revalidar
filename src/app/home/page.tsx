@@ -5,23 +5,16 @@ import { useRouter } from "next/navigation";
 import Header from "@/components/custom/Header";
 import ProtectedRoute from "@/components/custom/ProtectedRoute";
 import { getCurrentUser, supabase, isSupabaseConfigured } from "@/lib/supabase";
-import { TrendingUp, Target, Award } from "lucide-react";
+import { BookOpen, FileText, Crown, LogOut } from "lucide-react";
 
 export default function HomePage() {
   const router = useRouter();
   const [nomeUsuario, setNomeUsuario] = useState("");
-  const [progressoHoje, setProgressoHoje] = useState({
-    totalRespondidas: 0,
-    totalAcertos: 0,
-    percentual: 0
-  });
-  const [loadingProgresso, setLoadingProgresso] = useState(true);
 
   useEffect(() => {
     const loadUser = async () => {
       const { user } = await getCurrentUser();
       if (user) {
-        // Pega o nome do email (antes do @)
         const nome = user.email?.split("@")[0] || "Usuário";
         setNomeUsuario(nome);
       }
@@ -30,171 +23,133 @@ export default function HomePage() {
     loadUser();
   }, []);
 
-  useEffect(() => {
-    const carregarProgressoHoje = async () => {
-      if (!isSupabaseConfigured()) {
-        setLoadingProgresso(false);
-        return;
-      }
-
-      try {
-        const { user } = await getCurrentUser();
-        if (!user) {
-          setLoadingProgresso(false);
-          return;
-        }
-
-        // Pegar data de hoje no formato YYYY-MM-DD
-        const hoje = new Date().toISOString().split('T')[0];
-
-        // Buscar registros de hoje
-        const { data, error } = await supabase!
-          .from('hist_questoes')
-          .select('correta')
-          .eq('user_id', user.id)
-          .gte('created_at', `${hoje}T00:00:00`)
-          .lte('created_at', `${hoje}T23:59:59`);
-
-        // LOG para depuração
-        console.log("Histórico de hoje:", data);
-
-        if (error) {
-          console.error("Erro no histórico", error);
-          setLoadingProgresso(false);
-          return;
-        }
-
-        // SEMPRE atualizar o estado, mesmo se data estiver vazio
-        if (data && data.length > 0) {
-          const totalRespondidas = data.length;
-          const totalAcertos = data.filter(item => item.correta === true).length;
-          const percentual = Math.round((totalAcertos / totalRespondidas) * 100);
-
-          setProgressoHoje({
-            totalRespondidas,
-            totalAcertos,
-            percentual
-          });
-        } else {
-          // Se não houver dados, manter em 0
-          setProgressoHoje({
-            totalRespondidas: 0,
-            totalAcertos: 0,
-            percentual: 0
-          });
-        }
-
-        setLoadingProgresso(false);
-      } catch (err) {
-        console.error("Erro no histórico", err);
-        setLoadingProgresso(false);
-      }
-    };
-
-    carregarProgressoHoje();
-  }, []);
+  const cards = [
+    {
+      title: "Estudar",
+      description: "Acesse questões e materiais",
+      icon: BookOpen,
+      color: "#FF8A38", // Laranja vibrante
+      route: "/estudar"
+    },
+    {
+      title: "Simulados",
+      description: "Teste seus conhecimentos",
+      icon: FileText,
+      color: "#1F1A6E", // Roxo profundo
+      route: "/simulados"
+    },
+    {
+      title: "Premium",
+      description: "Desbloqueie todos os recursos",
+      icon: Crown,
+      color: "#024E63", // Azul petróleo
+      route: "/premium"
+    },
+    {
+      title: "Sair",
+      description: "Encerrar sessão",
+      icon: LogOut,
+      color: "#00121D", // Preto-azulado
+      route: "/"
+    }
+  ];
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen" style={{ backgroundColor: "#0D1B2A" }}>
+      {/* Fundo com degradê e textura ECG */}
+      <div 
+        className="min-h-screen relative overflow-hidden"
+        style={{
+          background: "linear-gradient(135deg, #001C2D 0%, #06345F 100%)",
+        }}
+      >
+        {/* Textura de grade sutil */}
+        <div 
+          className="absolute inset-0 opacity-5"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+            `,
+            backgroundSize: "50px 50px"
+          }}
+        />
+
+        {/* Linha ECG sutil */}
+        <div 
+          className="absolute top-1/3 left-0 right-0 h-32 opacity-10"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='1200' height='100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 50 L200 50 L220 20 L240 80 L260 50 L1200 50' stroke='%23FFFFFF' stroke-width='2' fill='none'/%3E%3C/svg%3E")`,
+            backgroundRepeat: "repeat-x",
+            backgroundPosition: "center"
+          }}
+        />
+
         <Header />
         
-        <main className="pt-24 px-6 max-w-7xl mx-auto">
-          <h1 className="text-4xl font-bold mb-4" style={{ color: "#C6A239" }}>
-            Bem-vindo, {nomeUsuario}!
-          </h1>
-          
-          <p className="text-xl mb-8" style={{ color: "#E6E6E6" }}>
-            Escolha uma opção para começar seus estudos
-          </p>
+        <main className="pt-32 px-6 max-w-6xl mx-auto relative z-10">
+          {/* Título de boas-vindas */}
+          <div className="text-center mb-16">
+            <h1 className="text-5xl font-bold mb-4" style={{ color: "#FFFFFF" }}>
+              Bem-vindo, {nomeUsuario}!
+            </h1>
+            <p className="text-xl" style={{ color: "#DCE6ED" }}>
+              Escolha uma opção para começar seus estudos
+            </p>
+          </div>
 
-          {/* Painel de Progresso Hoje - SEMPRE VISÍVEL */}
-          {!loadingProgresso && (
-            <div className="mb-8 p-6 rounded-lg" style={{ backgroundColor: "#1B4332", border: "2px solid #C6A239" }}>
-              <h2 className="text-2xl font-bold mb-4 flex items-center" style={{ color: "#C6A239" }}>
-                <TrendingUp className="w-6 h-6 mr-2" />
-                Seu Progresso Hoje
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg text-center" style={{ backgroundColor: "#0D1B2A" }}>
-                  <div className="flex items-center justify-center mb-2">
-                    <Target className="w-5 h-5 mr-2" style={{ color: "#C6A239" }} />
-                    <p className="text-sm font-semibold" style={{ color: "#B7CBBF" }}>
-                      Questões Respondidas
-                    </p>
+          {/* Grid 2x2 de cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {cards.map((card, index) => {
+              const Icon = card.icon;
+              return (
+                <button
+                  key={index}
+                  onClick={() => router.push(card.route)}
+                  className="group relative p-10 rounded-3xl transition-all duration-300 hover:scale-105 hover:shadow-2xl"
+                  style={{
+                    backgroundColor: card.color,
+                    boxShadow: "0 10px 40px rgba(0, 0, 0, 0.3)"
+                  }}
+                >
+                  {/* Ícone */}
+                  <div className="flex justify-center mb-6">
+                    <div 
+                      className="p-4 rounded-2xl transition-transform duration-300 group-hover:scale-110"
+                      style={{
+                        backgroundColor: "rgba(255, 255, 255, 0.1)"
+                      }}
+                    >
+                      <Icon className="w-12 h-12" style={{ color: "#FFFFFF" }} />
+                    </div>
                   </div>
-                  <p className="text-3xl font-bold" style={{ color: "#C6A239" }}>
-                    {progressoHoje.totalRespondidas}
+
+                  {/* Título */}
+                  <h2 
+                    className="text-3xl font-bold mb-3 text-center"
+                    style={{ color: "#FFFFFF" }}
+                  >
+                    {card.title}
+                  </h2>
+
+                  {/* Descrição */}
+                  <p 
+                    className="text-center text-sm"
+                    style={{ color: "#DCE6ED" }}
+                  >
+                    {card.description}
                   </p>
-                </div>
 
-                <div className="p-4 rounded-lg text-center" style={{ backgroundColor: "#0D1B2A" }}>
-                  <div className="flex items-center justify-center mb-2">
-                    <Award className="w-5 h-5 mr-2" style={{ color: "#90EE90" }} />
-                    <p className="text-sm font-semibold" style={{ color: "#B7CBBF" }}>
-                      Acertos
-                    </p>
-                  </div>
-                  <p className="text-3xl font-bold" style={{ color: "#90EE90" }}>
-                    {progressoHoje.totalAcertos}
-                  </p>
-                </div>
-
-                <div className="p-4 rounded-lg text-center" style={{ backgroundColor: "#0D1B2A" }}>
-                  <div className="flex items-center justify-center mb-2">
-                    <TrendingUp className="w-5 h-5 mr-2" style={{ color: "#C6A239" }} />
-                    <p className="text-sm font-semibold" style={{ color: "#B7CBBF" }}>
-                      Taxa de Acerto
-                    </p>
-                  </div>
-                  <p className="text-3xl font-bold" style={{ color: "#C6A239" }}>
-                    {progressoHoje.percentual}%
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-            <button
-              onClick={() => router.push("/estudar")}
-              className="p-8 rounded-lg hover:opacity-90 transition-all transform hover:scale-105"
-              style={{ backgroundColor: "#1B4332", border: "2px solid #C6A239" }}
-            >
-              <h2 className="text-2xl font-bold mb-2" style={{ color: "#C6A239" }}>
-                📚 Estudar
-              </h2>
-              <p style={{ color: "#E6E6E6" }}>
-                Acesse questões e materiais de estudo
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/simulados")}
-              className="p-8 rounded-lg hover:opacity-90 transition-all transform hover:scale-105"
-              style={{ backgroundColor: "#1B4332", border: "2px solid #C6A239" }}
-            >
-              <h2 className="text-2xl font-bold mb-2" style={{ color: "#C6A239" }}>
-                📝 Simulados
-              </h2>
-              <p style={{ color: "#E6E6E6" }}>
-                Faça simulados e teste seus conhecimentos
-              </p>
-            </button>
-
-            <button
-              onClick={() => router.push("/premium")}
-              className="p-8 rounded-lg hover:opacity-90 transition-all transform hover:scale-105"
-              style={{ backgroundColor: "#C6A239", border: "2px solid #C6A239" }}
-            >
-              <h2 className="text-2xl font-bold mb-2" style={{ color: "#0D1B2A" }}>
-                ⭐ Premium
-              </h2>
-              <p style={{ color: "#0D1B2A" }}>
-                Desbloqueie todos os recursos
-              </p>
-            </button>
+                  {/* Efeito de brilho no hover */}
+                  <div 
+                    className="absolute inset-0 rounded-3xl opacity-0 group-hover:opacity-20 transition-opacity duration-300"
+                    style={{
+                      background: "radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, transparent 70%)"
+                    }}
+                  />
+                </button>
+              );
+            })}
           </div>
         </main>
       </div>

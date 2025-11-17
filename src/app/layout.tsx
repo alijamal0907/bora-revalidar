@@ -27,7 +27,7 @@ export default function RootLayout({
       <body
         className={`${inter.variable} font-inter antialiased`}
         style={{
-          background: "linear-gradient(135deg, #0D1B2A 0%, #1B4332 100%)",
+          background: "linear-gradient(135deg, #001C2D 0%, #06345F 100%)",
           minHeight: "100vh",
         }}
       >

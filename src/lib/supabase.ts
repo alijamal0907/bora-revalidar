@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Validar variáveis de ambiente
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -11,12 +11,14 @@ const isValidConfig = supabaseUrl &&
                       supabaseAnonKey.length > 20;
 
 // Criar cliente apenas se configuração for válida
-export const supabase = isValidConfig 
+export const supabase: SupabaseClient | null = isValidConfig 
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true
+        detectSessionInUrl: true,
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        storageKey: 'supabase.auth.token',
       },
       global: {
         headers: {

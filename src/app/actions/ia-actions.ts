@@ -3,8 +3,8 @@
 import OpenAI from "openai";
 
 // Verificar se a API key está configurada
-const apiKey = process.env.OPENAI_API_KEY=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;
-const openai = apiKey new OpenAI({ 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 }) : null;
+const apiKey = process.env.OPENAI_API_KEY;
+const openai = apiKey ? new OpenAI({ apiKey }) : null;
 
 // (A) Explicação com Fontes
 export async function explicacaoComFontes(params: {
