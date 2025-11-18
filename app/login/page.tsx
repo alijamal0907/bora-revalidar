@@ -39,6 +39,14 @@ export default function LoginPage() {
         return;
       }
 
+      const subscriptionCheck = await checkSubscriptionStatus(email);
+      
+      if (!subscriptionCheck.isActive) {
+        setError('Acesso negado: ' + subscriptionCheck.message);
+        setIsLoading(false);
+        return;
+      }
+
       // Sign up with Supabase Auth
       const user = await signUpSupabase(email, password);
 
