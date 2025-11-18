@@ -517,96 +517,16 @@ export async function registerDeviceSession(
     deviceId: string
   }
 ): Promise<{ success: boolean; message: string }> {
-  try {
-    // Verificar se já existe sessão ativa em outro dispositivo
-    const { data: existingSessions, error: fetchError } = await supabase
-      .from('user_devices')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('active', true)
-
-    if (fetchError) {
-      console.error('[v0] Error fetching existing sessions:', fetchError)
-    }
-
-    // Se há sessões ativas em outros dispositivos, desativa-las
-    if (existingSessions && existingSessions.length > 0) {
-      const { error: deactivateError } = await supabase
-        .from('user_devices')
-        .update({ active: false, ended_at: new Date().toISOString() })
-        .eq('user_id', userId)
-        .eq('active', true)
-
-      if (deactivateError) {
-        console.error('[v0] Error deactivating old sessions:', deactivateError)
-      } else {
-        console.log('[v0] Deactivated sessions on other devices')
-      }
-    }
-
-    // Registrar nova sessão do dispositivo atual
-    const { error: insertError } = await supabase
-      .from('user_devices')
-      .insert([
-        {
-          user_id: userId,
-          email: email,
-          device_id: deviceInfo.deviceId,
-          user_agent: deviceInfo.userAgent,
-          platform: deviceInfo.platform,
-          active: true,
-          last_active: new Date().toISOString(),
-          started_at: new Date().toISOString(),
-        },
-      ])
-
-    if (insertError) {
-      console.error('[v0] Error registering device session:', insertError)
-      return {
-        success: false,
-        message: 'Erro ao registrar dispositivo',
-      }
-    }
-
-    return {
-      success: true,
-      message: 'Dispositivo registrado com sucesso',
-    }
-  } catch (error) {
-    console.error('[v0] Error in registerDeviceSession:', error)
-    return {
-      success: false,
-      message: 'Erro ao gerenciar sessão',
-    }
+  console.log('[v0] Device session registration disabled')
+  return {
+    success: true,
+    message: 'Sistema de controle de dispositivos desabilitado',
   }
 }
 
 export async function checkDeviceSession(userId: string, deviceId: string): Promise<boolean> {
-  try {
-    const { data, error } = await supabase
-      .from('user_devices')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('device_id', deviceId)
-      .eq('active', true)
-      .single()
-
-    if (error || !data) {
-      console.log('[v0] No active session found for this device')
-      return false
-    }
-
-    // Atualizar last_active
-    await supabase
-      .from('user_devices')
-      .update({ last_active: new Date().toISOString() })
-      .eq('id', data.id)
-
-    return true
-  } catch (error) {
-    console.error('[v0] Error checking device session:', error)
-    return false
-  }
+  console.log('[v0] Device session check disabled, returning true')
+  return true
 }
 
 export async function createSubscriptionFromCakto(
