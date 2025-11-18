@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { checkDeviceSession } from '@/lib/storage-supabase'
-import { getStoredDeviceId } from '@/lib/device-utils'
+import { getStoredDeviceId, generateDeviceId, storeDeviceId } from '@/lib/device-utils'
 import { useRouter } from 'next/navigation'
 
 export function useDeviceSession(userId: string | undefined) {
@@ -10,15 +10,16 @@ export function useDeviceSession(userId: string | undefined) {
   useEffect(() => {
     if (!userId) return
 
-    const deviceId = getStoredDeviceId()
+    let deviceId = getStoredDeviceId()
     if (!deviceId) {
-      console.error('[v0] No device ID found')
-      return
+      console.log('[v0] No device ID found, generating new one')
+      deviceId = generateDeviceId()
+      storeDeviceId(deviceId)
     }
 
     // Verificar sessão a cada 30 segundos
     const checkSession = async () => {
-      const isActive = await checkDeviceSession(userId, deviceId)
+      const isActive = await checkDeviceSession(userId, deviceId!)
       
       if (!isActive) {
         console.log('[v0] Session terminated on this device')
