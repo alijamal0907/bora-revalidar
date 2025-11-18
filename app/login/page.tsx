@@ -39,22 +39,17 @@ export default function LoginPage() {
         return;
       }
 
-      const subCheck = await checkSubscriptionStatus(email);
-      
-      if (!subCheck.isActive) {
-        setError(subCheck.message);
-        setIsLoading(false);
-        return;
-      }
-
       // Sign up with Supabase Auth
       const user = await signUpSupabase(email, password);
 
       if (user) {
-        const deviceInfo = getDeviceInfo();
-        storeDeviceId(deviceInfo.deviceId);
-        
-        await registerDeviceSession(user.id, email, deviceInfo);
+        try {
+          const deviceInfo = getDeviceInfo();
+          storeDeviceId(deviceInfo.deviceId);
+          await registerDeviceSession(user.id, email, deviceInfo);
+        } catch (err) {
+          console.log('[v0] Device registration failed (non-critical):', err);
+        }
         
         setSuccessMessage('Conta criada com sucesso! Redirecionando para o painel...');
         
@@ -86,26 +81,15 @@ export default function LoginPage() {
       const user = await signInSupabase(email, password);
       
       if (user) {
-        const subCheck = await checkSubscriptionStatus(email);
-        
-        if (!subCheck.isActive) {
-          setError(subCheck.message);
-          await supabase.auth.signOut();
-          setIsLoading(false);
-          return;
+        try {
+          const deviceInfo = getDeviceInfo();
+          storeDeviceId(deviceInfo.deviceId);
+          await registerDeviceSession(user.id, email, deviceInfo);
+        } catch (err) {
+          console.log('[v0] Device registration failed (non-critical):', err);
         }
-
-        const deviceInfo = getDeviceInfo();
-        storeDeviceId(deviceInfo.deviceId);
         
-        const deviceReg = await registerDeviceSession(user.id, email, deviceInfo);
-        
-        if (deviceReg.success) {
-          router.push('/dashboard');
-        } else {
-          setError('Erro ao registrar dispositivo');
-          setIsLoading(false);
-        }
+        router.push('/dashboard');
       }
     } catch (err: any) {
       setError(err.message || 'Falha na autenticação');

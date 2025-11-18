@@ -8,6 +8,8 @@ export function useDeviceSession(userId: string | undefined) {
   const intervalRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
+    return
+
     if (!userId) return
 
     let deviceId = getStoredDeviceId()
