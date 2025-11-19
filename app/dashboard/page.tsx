@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { getSupabaseUser } from '@/lib/auth-supabase';
 import { Navbar } from '@/components/navbar';
 import { getDueCards, StudyCard } from '@/lib/spaced-repetition';
-import { getQuestoesAsCards, getHistoricoQuestoes } from '@/lib/storage-supabase';
+import { getQuestoesAsCards, getHistoricoQuestoes, getUserStreak, getProgressByTheme } from '@/lib/storage-supabase';
 import { useDeviceSession } from '@/hooks/use-device-session';
 import Link from 'next/link';
 import { Activity, BookOpen, Zap, TrendingUp } from 'lucide-react';
@@ -15,6 +15,8 @@ export default function DashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [cards, setCards] = useState<StudyCard[]>([]);
   const [stats, setStats] = useState({ total: 0, dueNow: 0, totalReviews: 0 });
+  const [streak, setStreak] = useState(0);
+  const [themeProgress, setThemeProgress] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useDeviceSession(user?.id);
@@ -30,18 +32,55 @@ export default function DashboardPage() {
 
         setUser(currentUser);
 
-        const allCards = await getQuestoesAsCards(currentUser.usuario_id || currentUser.id);
+        const [allCards, reviews, userStreak, progress] = await Promise.all([
+          getQuestoesAsCards(currentUser.usuario_id || currentUser.id),
+          getHistoricoQuestoes(currentUser.usuario_id || currentUser.id),
+          getUserStreak(currentUser.id),
+          getProgressByTheme(currentUser.usuario_id || currentUser.id)
+        ]);
+
         setCards(allCards);
 
         const dueCards = getDueCards(allCards);
         
-        const reviews = await getHistoricoQuestoes(currentUser.usuario_id || currentUser.id);
+        setStreak(userStreak);
 
         setStats({
           total: allCards.length,
           dueNow: dueCards.length,
           totalReviews: reviews.length,
         });
+
+        const targetThemes = [
+          { key: 'clinica medica', label: 'Clínica Médica' },
+          { key: 'cirurgia', label: 'Cirurgia' },
+          { key: 'medicina preventiva', label: 'Medicina Preventiva' },
+          { key: 'pediatria', label: 'Pediatria' },
+          { key: 'ginecologia e obstetricia', label: 'Ginecologia e Obstetrícia' }
+        ];
+
+        const processedProgress = targetThemes.map(target => {
+          const matches = progress.filter(p => {
+            const normalizedP = p.theme.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return normalizedP === target.key;
+          });
+
+          const stats = matches.reduce((acc, curr) => ({
+            total: acc.total + curr.total,
+            correct: acc.correct + curr.correct,
+            wrong: acc.wrong + curr.wrong
+          }), { total: 0, correct: 0, wrong: 0 });
+
+          return {
+            theme: target.label,
+            total: stats.total,
+            correct: stats.correct,
+            wrong: stats.wrong,
+            percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0
+          };
+        }).filter(p => p.total > 0);
+        
+        setThemeProgress(processedProgress);
 
         setIsLoading(false);
       } catch (error) {
@@ -121,13 +160,42 @@ export default function DashboardPage() {
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-muted-foreground text-sm">Sequência Ativa</p>
-                <p className="text-3xl font-bold text-primary mt-2">0 dias</p>
+                <p className="text-3xl font-bold text-primary mt-2">{streak} {streak === 1 ? 'dia' : 'dias'}</p>
               </div>
               <div className="bg-primary/10 p-3 rounded-lg">
                 <Activity className="w-6 h-6 text-primary" />
               </div>
             </div>
           </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-lg p-8 mb-12">
+          <h2 className="text-2xl font-bold text-foreground mb-8">Progresso por Matéria</h2>
+          {themeProgress.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {themeProgress.map((theme) => (
+                <div key={theme.theme}>
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <span className="font-bold text-foreground capitalize">{theme.theme}</span>
+                      <span className="ml-4 text-sm text-muted-foreground">
+                        {theme.correct}/{theme.total} corretas
+                      </span>
+                    </div>
+                    <span className="text-2xl font-bold text-primary">{theme.percentage}%</span>
+                  </div>
+                  <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
+                      style={{ width: `${theme.percentage}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-8">Nenhum dado de progresso disponível ainda. Comece a estudar para ver suas estatísticas!</p>
+          )}
         </div>
 
         {/* Action Buttons */}
@@ -147,13 +215,13 @@ export default function DashboardPage() {
           {/* Practice Simulation Button */}
           <Link
             href="/simulations"
-            className="bg-gradient-to-br from-accent to-accent/80 text-accent-foreground rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
+            className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold">Simulado</h3>
               <Activity className="w-6 h-6 group-hover:scale-110 transition-transform" />
             </div>
-            <p className="text-accent-foreground/90 text-sm">Teste seu conhecimento com simulados</p>
+            <p className="text-white/90 text-sm">Teste seu conhecimento com simulados</p>
           </Link>
 
           {/* Review Progress Button */}

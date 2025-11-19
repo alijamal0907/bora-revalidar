@@ -11,8 +11,6 @@ const THEME_MAPPING: { [key: string]: string } = {
   'Pediatria': 'pediatria',
   'Ginecologia e Obstetrícia': 'ginecologia e obstetricia',
   'Medicina Preventiva': 'medicina preventiva',
-  'Medicina da Família': 'medicina da familia',
-  'Psiquiatria': 'psiquiatria',
 };
 
 interface MultiThemeSelectorProps {
@@ -30,7 +28,41 @@ export function MultiThemeSelector({ selectedThemes, onThemesChange }: MultiThem
       try {
         const themes = await getUniqueThemes();
         console.log('[v0] Real themes from Supabase:', themes);
-        setAvailableThemes(themes);
+        
+        const allowedThemes = [
+          'clinica medica',
+          'cirurgia',
+          'pediatria',
+          'ginecologia e obstetricia',
+          'medicina preventiva'
+        ];
+
+        const uniqueThemes = new Set<string>();
+        const themeMap = new Map<string, string>();
+        
+        themes.forEach(theme => {
+          // Normalizar: lowercase, trim, remover acentos e espaços extras
+          const normalized = theme
+            .toLowerCase()
+            .trim()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Remove acentos
+            .replace(/\s+/g, ' '); // Normaliza espaços múltiplos
+          
+          if (allowedThemes.includes(normalized) && !themeMap.has(normalized)) {
+            themeMap.set(normalized, theme);
+            uniqueThemes.add(theme);
+          }
+        });
+        
+        const deduplicatedThemes = Array.from(uniqueThemes);
+        console.log('[v0] Deduplicated themes:', deduplicatedThemes);
+        
+        if (deduplicatedThemes.length === 0) {
+           setAvailableThemes(Object.values(THEME_MAPPING));
+        } else {
+           setAvailableThemes(deduplicatedThemes);
+        }
       } catch (error) {
         console.error('[v0] Error loading themes:', error);
         // Fallback para temas do mapeamento se falhar

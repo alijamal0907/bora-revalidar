@@ -6,7 +6,7 @@ export async function getQuestoesAsCards(usuarioId: string): Promise<StudyCard[]
     const { data: questoes, error } = await supabase
       .from('questoes')
       .select('*')
-      .limit(100)
+      .limit(2000)
 
     if (error) {
       console.error('[v0] Error fetching questoes:', error)
@@ -165,7 +165,7 @@ export async function getUniqueThemes(): Promise<string[]> {
     const { data, error } = await supabase
       .from('questoes')
       .select('tema')
-      .limit(1000)
+      .limit(2000)
 
     if (error) {
       console.error('[v0] Error fetching themes:', error)
@@ -205,7 +205,7 @@ export async function getQuestoesAsCardsByTheme(
       query = query.eq('tema', tema)
     }
 
-    const { data: questoes, error } = await query.limit(500)
+    const { data: questoes, error } = await query.limit(2000)
 
     if (error) {
       console.error('[v0] Error fetching questoes by theme:', error)
@@ -251,7 +251,7 @@ export async function getQuestoesAsCardsByMultipleThemes(
       query = query.in('tema', temas)
     }
 
-    const { data: questoes, error } = await query.limit(500)
+    const { data: questoes, error } = await query.limit(2000)
 
     if (error) {
       console.error('[v0] Error fetching questoes by themes:', error)
@@ -324,7 +324,7 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
       .select('*')
       .eq('correta', false)
       .order('created_at', { ascending: false })
-      .limit(100)
+      .limit(1000) // Increased limit from 100 to 1000 to capture more wrong answers
 
     if (histError) {
       console.error('[v0] Error fetching wrong answers from hist:', histError)
@@ -413,7 +413,7 @@ export async function getProgressByTheme(userId: string): Promise<any[]> {
 export async function getQuestoesWithAlternatives(
   usuarioId: string,
   temas?: string[],
-  limit: number = 500
+  limit: number = 2000
 ): Promise<any[]> {
   try {
     console.log('[v0] getQuestoesWithAlternatives called with temas:', temas)
@@ -517,10 +517,61 @@ export async function registerDeviceSession(
     deviceId: string
   }
 ): Promise<{ success: boolean; message: string }> {
-  console.log('[v0] Device session registration disabled')
-  return {
-    success: true,
-    message: 'Sistema de controle de dispositivos desabilitado',
+  try {
+    const now = new Date()
+    
+    // Verificar se já existe uma sessão para este dispositivo
+    const { data: existingDevice, error: checkError } = await supabase
+      .from('user_devices')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('device_id', deviceInfo.deviceId)
+      .single()
+
+    if (existingDevice) {
+      // Atualizar last_active
+      const { error: updateError } = await supabase
+        .from('user_devices')
+        .update({
+          last_active: now.toISOString(),
+          user_agent: deviceInfo.userAgent,
+          platform: deviceInfo.platform,
+        })
+        .eq('id', existingDevice.id)
+
+      if (updateError) {
+        console.error('[v0] Error updating device session:', updateError)
+        return { success: false, message: 'Erro ao atualizar sessão' }
+      }
+
+      return { success: true, message: 'Sessão atualizada' }
+    }
+
+    // Criar nova sessão se não existe
+    const { error: insertError } = await supabase
+      .from('user_devices')
+      .insert([
+        {
+          user_id: userId,
+          email: email,
+          device_id: deviceInfo.deviceId,
+          user_agent: deviceInfo.userAgent,
+          platform: deviceInfo.platform,
+          active: true,
+          last_active: now.toISOString(),
+          started_at: now.toISOString(),
+        },
+      ])
+
+    if (insertError) {
+      console.error('[v0] Error creating device session:', insertError)
+      return { success: false, message: 'Erro ao criar sessão' }
+    }
+
+    return { success: true, message: 'Sessão criada com sucesso' }
+  } catch (error) {
+    console.error('[v0] Error in registerDeviceSession:', error)
+    return { success: false, message: 'Erro ao processar sessão' }
   }
 }
 
@@ -583,5 +634,68 @@ export async function createSubscriptionFromCakto(
   } catch (error) {
     console.error('[v0] Error in createSubscriptionFromCakto:', error)
     return { success: false, message: 'Erro ao processar assinatura' }
+  }
+}
+
+export async function getUserStreak(userId: string): Promise<number> {
+  try {
+    // Buscar todas as sessões do usuário ordenadas por data
+    const { data: sessions, error } = await supabase
+      .from('user_devices')
+      .select('last_active')
+      .eq('user_id', userId)
+      .order('last_active', { ascending: false })
+
+    if (error || !sessions || sessions.length === 0) {
+      return 0
+    }
+
+    // Extrair datas únicas (apenas dia, ignorar hora)
+    const uniqueDates = new Set<string>()
+    sessions.forEach((session) => {
+      if (session.last_active) {
+        const date = new Date(session.last_active)
+        const dateString = date.toISOString().split('T')[0] // YYYY-MM-DD
+        uniqueDates.add(dateString)
+      }
+    })
+
+    const sortedDates = Array.from(uniqueDates).sort().reverse()
+    
+    if (sortedDates.length === 0) {
+      return 0
+    }
+
+    // Verificar se o último login foi hoje ou ontem
+    const today = new Date().toISOString().split('T')[0]
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+    
+    const lastLogin = sortedDates[0]
+    
+    // Se o último login não foi hoje nem ontem, a sequência acabou
+    if (lastLogin !== today && lastLogin !== yesterday) {
+      return 0
+    }
+
+    // Contar dias consecutivos
+    let streak = 0
+    let currentDate = new Date(lastLogin)
+    
+    for (const dateStr of sortedDates) {
+      const expectedDate = new Date(currentDate)
+      expectedDate.setDate(expectedDate.getDate() - streak)
+      const expectedDateStr = expectedDate.toISOString().split('T')[0]
+      
+      if (dateStr === expectedDateStr) {
+        streak++
+      } else {
+        break
+      }
+    }
+
+    return streak
+  } catch (error) {
+    console.error('[v0] Error calculating streak:', error)
+    return 0
   }
 }
