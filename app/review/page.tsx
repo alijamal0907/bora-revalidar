@@ -1,176 +1,179 @@
-'use client';
+"use client"
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getSupabaseUser } from '@/lib/auth-supabase';
-import { Navbar } from '@/components/navbar';
-import { 
-  getHistoricoQuestoes,
-  getWrongAnswers,
-  getProgressByTheme,
-  getQuestoesWithAlternatives,
-  saveQuizAnswer,
-} from '@/lib/storage-supabase';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Calendar, BookOpen, CheckCircle, ArrowLeft, AlertCircle, Play, Filter } from 'lucide-react';
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { getSupabaseUser } from "@/lib/auth-supabase"
+import { Navbar } from "@/components/navbar"
+import { getWrongAnswers, getProgressByTheme, saveQuizAnswer } from "@/lib/storage-supabase"
+import { TrendingUp, Calendar, BookOpen, ArrowLeft, AlertCircle, Play, Filter } from "lucide-react"
+import { UpgradeModal } from "@/components/upgrade-modal"
+import { getUserPlan } from "@/lib/storage-supabase"
+import { canAccessReview } from "@/lib/plan-utils"
+import type { UserPlan } from "@/lib/plan-utils"
 
 interface Question {
-  id: string;
-  enunciado: string;
-  alternativaA: string;
-  alternativaB: string;
-  alternativaC: string;
-  alternativaD: string;
-  alternativaE: string;
-  respostaCorreta: string;
-  wrongCount: number;
-  [key: string]: any;
+  id: string
+  enunciado: string
+  alternativaA: string
+  alternativaB: string
+  alternativaC: string
+  alternativaD: string
+  alternativaE: string
+  respostaCorreta: string
+  wrongCount: number
+  [key: string]: any
 }
 
-const ALLOWED_THEMES = [
-  'Clínica Médica',
-  'Cirurgia',
-  'Medicina Preventiva',
-  'Pediatria',
-  'Ginecologia e Obstetrícia'
-];
+const ALLOWED_THEMES = ["Clínica Médica", "Cirurgia", "Medicina Preventiva", "Pediatria", "Ginecologia e Obstetrícia"]
 
 function normalizeThemeName(theme: string): string {
   return theme
     .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim();
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
 }
 
 function mapToAllowedTheme(dbTheme: string): string | null {
-  const normalized = normalizeThemeName(dbTheme);
-  
+  const normalized = normalizeThemeName(dbTheme)
+
   for (const allowed of ALLOWED_THEMES) {
-    const normalizedAllowed = normalizeThemeName(allowed);
+    const normalizedAllowed = normalizeThemeName(allowed)
     if (normalized.includes(normalizedAllowed) || normalizedAllowed.includes(normalized)) {
-      return allowed;
+      return allowed
     }
   }
-  
-  return null;
+
+  return null
 }
 
 export default function ReviewPage() {
-  const router = useRouter();
-  const [user, setUser] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [themeProgress, setThemeProgress] = useState<any[]>([]);
-  const [wrongAnswers, setWrongAnswers] = useState<Question[]>([]);
-  const [activeTab, setActiveTab] = useState<'overview' | 'wrong' | 'review'>('overview');
-  const [reviewingWrong, setReviewingWrong] = useState(false);
-  const [reviewIndex, setReviewIndex] = useState(0);
-  const [reviewStats, setReviewStats] = useState({ reviewed: 0, correct: 0 });
-  const [reviewAnswered, setReviewAnswered] = useState(false);
-  const [reviewSelected, setReviewSelected] = useState<string | null>(null);
-  
-  const [filteredReviewQuestions, setFilteredReviewQuestions] = useState<Question[]>([]);
-  const [selectedReviewTheme, setSelectedReviewTheme] = useState<string | null>(null);
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [themeProgress, setThemeProgress] = useState<any[]>([])
+  const [wrongAnswers, setWrongAnswers] = useState<Question[]>([])
+  const [activeTab, setActiveTab] = useState<"overview" | "wrong" | "review">("overview")
+  const [reviewingWrong, setReviewingWrong] = useState(false)
+  const [reviewIndex, setReviewIndex] = useState(0)
+  const [reviewStats, setReviewStats] = useState({ reviewed: 0, correct: 0 })
+  const [reviewAnswered, setReviewAnswered] = useState(false)
+  const [reviewSelected, setReviewSelected] = useState<string | null>(null)
+
+  const [filteredReviewQuestions, setFilteredReviewQuestions] = useState<Question[]>([])
+  const [selectedReviewTheme, setSelectedReviewTheme] = useState<string | null>(null)
+
+  const [userPlan, setUserPlan] = useState<UserPlan>("free")
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
 
   useEffect(() => {
     const loadReviewData = async () => {
       try {
-        const currentUser = await getSupabaseUser();
+        const currentUser = await getSupabaseUser()
         if (!currentUser) {
-          router.push('/login');
-          return;
+          router.push("/login")
+          return
         }
-        setUser(currentUser);
+        setUser(currentUser)
+
+        const plan = await getUserPlan(currentUser.email)
+        setUserPlan(plan)
+
+        if (!canAccessReview(plan)) {
+          setShowUpgradeModal(true)
+          setIsLoading(false)
+          return
+        }
 
         const [progress, wrong] = await Promise.all([
           getProgressByTheme(currentUser.usuario_id || currentUser.id),
           getWrongAnswers(currentUser.usuario_id || currentUser.id),
-        ]);
-        
-        const themeMap = new Map<string, { correct: number; wrong: number; total: number }>();
-        
-        progress.forEach(p => {
-          const mappedTheme = mapToAllowedTheme(p.theme);
+        ])
+
+        const themeMap = new Map<string, { correct: number; wrong: number; total: number }>()
+
+        progress.forEach((p) => {
+          const mappedTheme = mapToAllowedTheme(p.theme)
           if (mappedTheme) {
-            const existing = themeMap.get(mappedTheme) || { correct: 0, wrong: 0, total: 0 };
+            const existing = themeMap.get(mappedTheme) || { correct: 0, wrong: 0, total: 0 }
             themeMap.set(mappedTheme, {
               correct: existing.correct + p.correct,
               wrong: existing.wrong + p.wrong,
-              total: existing.total + p.total
-            });
+              total: existing.total + p.total,
+            })
           }
-        });
-        
+        })
+
         const consolidatedProgress = Array.from(themeMap.entries()).map(([theme, stats]) => ({
           theme,
           correct: stats.correct,
           wrong: stats.wrong,
           total: stats.total,
-          percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0
-        }));
-        
-        console.log('[v0] Consolidated progress to 5 main themes:', consolidatedProgress);
-        setThemeProgress(consolidatedProgress);
-        setWrongAnswers(wrong);
-        setIsLoading(false);
+          percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+        }))
+
+        console.log("[v0] Consolidated progress to 5 main themes:", consolidatedProgress)
+        setThemeProgress(consolidatedProgress)
+        setWrongAnswers(wrong)
+        setIsLoading(false)
       } catch (error) {
-        console.error('[v0] Error loading review data:', error);
-        setIsLoading(false);
+        console.error("[v0] Error loading review data:", error)
+        setIsLoading(false)
       }
-    };
-
-    loadReviewData();
-  }, [router]);
-
-  const startReview = (theme: string | null = null) => {
-    let questionsToReview = wrongAnswers;
-    
-    if (theme) {
-      questionsToReview = wrongAnswers.filter(q => {
-        const qTheme = (q.tema || q.category || '').toLowerCase().trim();
-        const targetTheme = theme.toLowerCase().trim();
-        return qTheme.includes(targetTheme) || targetTheme.includes(qTheme);
-      });
     }
 
-    if (questionsToReview.length === 0) return;
+    loadReviewData()
+  }, [router])
 
-    setFilteredReviewQuestions(questionsToReview);
-    setSelectedReviewTheme(theme);
-    setReviewingWrong(true);
-    setReviewIndex(0);
-    setReviewStats({ reviewed: 0, correct: 0 });
-    setReviewAnswered(false);
-    setReviewSelected(null);
-    setActiveTab('review');
-  };
+  const startReview = (theme: string | null = null) => {
+    let questionsToReview = wrongAnswers
+
+    if (theme) {
+      questionsToReview = wrongAnswers.filter((q) => {
+        const qTheme = (q.tema || q.category || "").toLowerCase().trim()
+        const targetTheme = theme.toLowerCase().trim()
+        return qTheme.includes(targetTheme) || targetTheme.includes(qTheme)
+      })
+    }
+
+    if (questionsToReview.length === 0) return
+
+    setFilteredReviewQuestions(questionsToReview)
+    setSelectedReviewTheme(theme)
+    setReviewingWrong(true)
+    setReviewIndex(0)
+    setReviewStats({ reviewed: 0, correct: 0 })
+    setReviewAnswered(false)
+    setReviewSelected(null)
+    setActiveTab("review")
+  }
 
   const getWrongQuestionsByTheme = () => {
-    const grouped: { [key: string]: Question[] } = {};
-    
-    ALLOWED_THEMES.forEach(theme => {
-      grouped[theme] = [];
-    });
+    const grouped: { [key: string]: Question[] } = {}
 
-    wrongAnswers.forEach(q => {
-      const qTheme = (q.tema || q.category || '').toLowerCase().trim();
-      
+    ALLOWED_THEMES.forEach((theme) => {
+      grouped[theme] = []
+    })
+
+    wrongAnswers.forEach((q) => {
+      const qTheme = (q.tema || q.category || "").toLowerCase().trim()
+
       // Find matching allowed theme
-      const matchedTheme = ALLOWED_THEMES.find(allowed => {
-        const allowedLower = allowed.toLowerCase();
-        return qTheme.includes(allowedLower) || allowedLower.includes(qTheme);
-      });
+      const matchedTheme = ALLOWED_THEMES.find((allowed) => {
+        const allowedLower = allowed.toLowerCase()
+        return qTheme.includes(allowedLower) || allowedLower.includes(qTheme)
+      })
 
       if (matchedTheme) {
-        grouped[matchedTheme].push(q);
+        grouped[matchedTheme].push(q)
       } else {
         // Optional: Put in 'Outros' or ignore if we strictly only want the 5 themes
         // For now, let's ignore or put in a generic bucket if needed, but user asked for specific themes
       }
-    });
+    })
 
-    return grouped;
-  };
+    return grouped
+  }
 
   if (!user || isLoading) {
     return (
@@ -180,17 +183,34 @@ export default function ReviewPage() {
           <p className="text-muted-foreground">Carregando dados de revisão...</p>
         </div>
       </div>
-    );
+    )
+  }
+
+  // Modal de upgrade para revisão bloqueada
+  if (showUpgradeModal) {
+    return (
+      <div>
+        <Navbar user={user} />
+        <UpgradeModal
+          isOpen={showUpgradeModal}
+          onClose={() => {
+            setShowUpgradeModal(false)
+            router.push("/dashboard")
+          }}
+          reason="review_blocked"
+        />
+      </div>
+    )
   }
 
   // Overview tab content
-  if (activeTab === 'overview' && !reviewingWrong) {
+  if (activeTab === "overview" && !reviewingWrong) {
     return (
       <div>
         <Navbar user={user} />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push("/dashboard")}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -203,21 +223,21 @@ export default function ReviewPage() {
           {/* Tabs */}
           <div className="flex gap-4 mb-8 border-b border-border">
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => setActiveTab("overview")}
               className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === 'overview'
-                  ? 'text-primary border-b-2 border-primary -mb-2'
-                  : 'text-muted-foreground hover:text-foreground'
+                activeTab === "overview"
+                  ? "text-primary border-b-2 border-primary -mb-2"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Visão Geral
             </button>
             <button
-              onClick={() => setActiveTab('wrong')}
+              onClick={() => setActiveTab("wrong")}
               className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === 'wrong'
-                  ? 'text-primary border-b-2 border-primary -mb-2'
-                  : 'text-muted-foreground hover:text-foreground'
+                activeTab === "wrong"
+                  ? "text-primary border-b-2 border-primary -mb-2"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               Questões Erradas ({wrongAnswers.length})
@@ -229,12 +249,12 @@ export default function ReviewPage() {
             <h2 className="text-2xl font-bold text-foreground mb-8">Progresso por Matéria</h2>
             <div className="space-y-6">
               {ALLOWED_THEMES.map((themeName) => {
-                const themeData = themeProgress.find(t => t.theme === themeName);
-                const correct = themeData?.correct || 0;
-                const wrong = themeData?.wrong || 0;
-                const total = themeData?.total || 0;
-                const percentage = themeData?.percentage || 0;
-                
+                const themeData = themeProgress.find((t) => t.theme === themeName)
+                const correct = themeData?.correct || 0
+                const wrong = themeData?.wrong || 0
+                const total = themeData?.total || 0
+                const percentage = themeData?.percentage || 0
+
                 return (
                   <div key={themeName}>
                     <div className="flex justify-between items-center mb-2">
@@ -257,7 +277,7 @@ export default function ReviewPage() {
                       <span>Erradas: {wrong}</span>
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
           </div>
@@ -284,9 +304,7 @@ export default function ReviewPage() {
                   <div>
                     <p className="text-muted-foreground text-sm">Média de Acerto</p>
                     <p className="text-3xl font-bold text-accent mt-2">
-                      {Math.round(
-                        themeProgress.reduce((sum, t) => sum + t.percentage, 0) / themeProgress.length
-                      )}%
+                      {Math.round(themeProgress.reduce((sum, t) => sum + t.percentage, 0) / themeProgress.length)}%
                     </p>
                   </div>
                   <div className="bg-accent/10 p-3 rounded-lg">
@@ -299,9 +317,7 @@ export default function ReviewPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-muted-foreground text-sm">Matérias Estudadas</p>
-                    <p className="text-3xl font-bold text-secondary mt-2">
-                      {themeProgress.length}
-                    </p>
+                    <p className="text-3xl font-bold text-secondary mt-2">{themeProgress.length}</p>
                   </div>
                   <div className="bg-secondary/10 p-3 rounded-lg">
                     <Calendar className="w-6 h-6 text-secondary" />
@@ -312,19 +328,19 @@ export default function ReviewPage() {
           )}
         </main>
       </div>
-    );
+    )
   }
 
   // Wrong Answers tab
-  if (activeTab === 'wrong' && !reviewingWrong) {
-    const groupedQuestions = getWrongQuestionsByTheme();
+  if (activeTab === "wrong" && !reviewingWrong) {
+    const groupedQuestions = getWrongQuestionsByTheme()
 
     return (
       <div>
         <Navbar user={user} />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <button
-            onClick={() => router.push('/dashboard')}
+            onClick={() => router.push("/dashboard")}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -332,20 +348,18 @@ export default function ReviewPage() {
           </button>
 
           <h1 className="text-3xl font-bold text-foreground mb-2">Questões Erradas</h1>
-          <p className="text-muted-foreground mb-8">
-            Revise suas questões erradas por tema ou todas de uma vez
-          </p>
+          <p className="text-muted-foreground mb-8">Revise suas questões erradas por tema ou todas de uma vez</p>
 
           {/* Tabs */}
           <div className="flex gap-4 mb-8 border-b border-border">
             <button
-              onClick={() => setActiveTab('overview')}
+              onClick={() => setActiveTab("overview")}
               className="px-4 py-2 font-medium transition-colors text-muted-foreground hover:text-foreground"
             >
               Visão Geral
             </button>
             <button
-              onClick={() => setActiveTab('wrong')}
+              onClick={() => setActiveTab("wrong")}
               className="px-4 py-2 font-medium transition-colors text-primary border-b-2 border-primary -mb-2"
             >
               Questões Erradas ({wrongAnswers.length})
@@ -357,7 +371,8 @@ export default function ReviewPage() {
             <div>
               <h2 className="text-2xl font-bold text-foreground mb-2">Revisão Geral</h2>
               <p className="text-muted-foreground">
-                Você tem um total de <span className="font-bold text-destructive">{wrongAnswers.length}</span> questões erradas para revisar.
+                Você tem um total de <span className="font-bold text-destructive">{wrongAnswers.length}</span> questões
+                erradas para revisar.
               </p>
             </div>
             <button
@@ -377,20 +392,25 @@ export default function ReviewPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
             {ALLOWED_THEMES.map((theme) => {
-              const count = groupedQuestions[theme]?.length || 0;
+              const count = groupedQuestions[theme]?.length || 0
               return (
-                <div key={theme} className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 transition-all hover:shadow-md">
+                <div
+                  key={theme}
+                  className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 transition-all hover:shadow-md"
+                >
                   <div className="flex justify-between items-start mb-4">
                     <h4 className="font-bold text-lg text-foreground">{theme}</h4>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold ${count > 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-bold ${count > 0 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}
+                    >
                       {count} erradas
                     </span>
                   </div>
-                  
+
                   <div className="mb-6">
                     <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-destructive transition-all" 
+                      <div
+                        className="h-full bg-destructive transition-all"
                         style={{ width: `${Math.min((count / (wrongAnswers.length || 1)) * 100, 100)}%` }}
                       />
                     </div>
@@ -405,7 +425,7 @@ export default function ReviewPage() {
                     Revisar {theme}
                   </button>
                 </div>
-              );
+              )
             })}
           </div>
 
@@ -415,7 +435,10 @@ export default function ReviewPage() {
               <h3 className="text-xl font-bold text-foreground mb-6">Últimas Questões Erradas</h3>
               <div className="space-y-4">
                 {wrongAnswers.slice(0, 5).map((question) => (
-                  <div key={question.id} className="bg-card border border-border rounded-lg p-6 opacity-75 hover:opacity-100 transition-opacity">
+                  <div
+                    key={question.id}
+                    className="bg-card border border-border rounded-lg p-6 opacity-75 hover:opacity-100 transition-opacity"
+                  >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
                         <h3 className="font-medium text-foreground mb-2 line-clamp-2">{question.enunciado}</h3>
@@ -425,7 +448,7 @@ export default function ReviewPage() {
                         </div>
                       </div>
                       <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full ml-4 whitespace-nowrap">
-                        {question.tema || 'Geral'}
+                        {question.tema || "Geral"}
                       </span>
                     </div>
                   </div>
@@ -440,69 +463,63 @@ export default function ReviewPage() {
           )}
         </main>
       </div>
-    );
+    )
   }
 
   // Review mode for wrong answers
   if (reviewingWrong && filteredReviewQuestions.length > 0) {
-    const currentQuestion = filteredReviewQuestions[reviewIndex];
+    const currentQuestion = filteredReviewQuestions[reviewIndex]
     const alternatives = [
-      { letter: 'A', text: currentQuestion.alternativaA },
-      { letter: 'B', text: currentQuestion.alternativaB },
-      { letter: 'C', text: currentQuestion.alternativaC },
-      { letter: 'D', text: currentQuestion.alternativaD },
-      { letter: 'E', text: currentQuestion.alternativaE },
-    ].sort(() => Math.random() - 0.5);
+      { letter: "A", text: currentQuestion.alternativaA },
+      { letter: "B", text: currentQuestion.alternativaB },
+      { letter: "C", text: currentQuestion.alternativaC },
+      { letter: "D", text: currentQuestion.alternativaD },
+      { letter: "E", text: currentQuestion.alternativaE },
+    ].sort(() => Math.random() - 0.5)
 
-    const correctLetter = currentQuestion.respostaCorreta?.toUpperCase() || 'A';
-    const isCorrect = reviewSelected === correctLetter;
+    const correctLetter = currentQuestion.respostaCorreta?.toUpperCase() || "A"
+    const isCorrect = reviewSelected === correctLetter
 
     const handleSelectAnswer = async (letter: string) => {
       if (!reviewAnswered && !isLoading) {
-        setReviewSelected(letter);
-        setReviewAnswered(true);
+        setReviewSelected(letter)
+        setReviewAnswered(true)
 
-        const correct = letter === correctLetter;
+        const correct = letter === correctLetter
         if (correct) {
           setReviewStats({
             reviewed: reviewStats.reviewed + 1,
             correct: reviewStats.correct + 1,
-          });
+          })
         } else {
           setReviewStats({
             reviewed: reviewStats.reviewed + 1,
             correct: reviewStats.correct,
-          });
+          })
         }
 
         try {
-          await saveQuizAnswer(
-            user.usuario_id || user.id,
-            currentQuestion.id,
-            letter,
-            correct,
-            'estudo'
-          );
+          await saveQuizAnswer(user.usuario_id || user.id, currentQuestion.id, letter, correct, "estudo")
         } catch (error) {
-          console.error('[v0] Error saving answer:', error);
+          console.error("[v0] Error saving answer:", error)
         }
       }
-    };
+    }
 
     const handleNext = () => {
       if (reviewIndex < filteredReviewQuestions.length - 1) {
-        setReviewIndex(reviewIndex + 1);
-        setReviewSelected(null);
-        setReviewAnswered(false);
+        setReviewIndex(reviewIndex + 1)
+        setReviewSelected(null)
+        setReviewAnswered(false)
       } else {
-        setReviewingWrong(false);
-        setReviewIndex(0);
-        setReviewStats({ reviewed: 0, correct: 0 });
-        setFilteredReviewQuestions([]);
-        setSelectedReviewTheme(null);
-        setActiveTab('wrong'); // Go back to wrong list instead of overview
+        setReviewingWrong(false)
+        setReviewIndex(0)
+        setReviewStats({ reviewed: 0, correct: 0 })
+        setFilteredReviewQuestions([])
+        setSelectedReviewTheme(null)
+        setActiveTab("wrong") // Go back to wrong list instead of overview
       }
-    };
+    }
 
     return (
       <div>
@@ -510,11 +527,11 @@ export default function ReviewPage() {
         <main className="max-w-3xl mx-auto px-4 py-12">
           <button
             onClick={() => {
-              setReviewingWrong(false);
-              setReviewIndex(0);
-              setReviewStats({ reviewed: 0, correct: 0 });
-              setFilteredReviewQuestions([]);
-              setSelectedReviewTheme(null);
+              setReviewingWrong(false)
+              setReviewIndex(0)
+              setReviewStats({ reviewed: 0, correct: 0 })
+              setFilteredReviewQuestions([])
+              setSelectedReviewTheme(null)
             }}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
           >
@@ -526,7 +543,7 @@ export default function ReviewPage() {
             <div className="flex justify-between items-center mb-2">
               <div>
                 <span className="text-sm font-medium text-foreground block">
-                  Revisando: {selectedReviewTheme || 'Todas as Erradas'}
+                  Revisando: {selectedReviewTheme || "Todas as Erradas"}
                 </span>
                 <span className="text-xs text-muted-foreground">
                   Questão {reviewIndex + 1} de {filteredReviewQuestions.length}
@@ -547,7 +564,7 @@ export default function ReviewPage() {
           <div className="bg-card border border-border rounded-lg p-8 mb-8">
             <div className="flex justify-between items-start mb-6">
               <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                {currentQuestion.tema || 'Geral'}
+                {currentQuestion.tema || "Geral"}
               </span>
               <div className="flex items-center gap-1 text-destructive text-xs">
                 <AlertCircle className="w-3 h-3" />
@@ -559,9 +576,9 @@ export default function ReviewPage() {
 
             <div className="space-y-3 mb-8">
               {alternatives.map((alt) => {
-                const altLetter = alt.letter;
-                const isSelected = reviewSelected === altLetter;
-                const isCorrectAlt = altLetter === correctLetter;
+                const altLetter = alt.letter
+                const isSelected = reviewSelected === altLetter
+                const isCorrectAlt = altLetter === correctLetter
 
                 return (
                   <button
@@ -571,28 +588,32 @@ export default function ReviewPage() {
                     className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
                       isSelected
                         ? isCorrect
-                          ? 'border-accent bg-accent/10'
-                          : 'border-destructive bg-destructive/10'
+                          ? "border-accent bg-accent/10"
+                          : "border-destructive bg-destructive/10"
                         : reviewAnswered && isCorrectAlt
-                        ? 'border-accent bg-accent/10'
-                        : 'border-input hover:border-muted'
-                    } ${reviewAnswered ? 'cursor-default' : 'cursor-pointer'}`}
+                          ? "border-accent bg-accent/10"
+                          : "border-input hover:border-muted"
+                    } ${reviewAnswered ? "cursor-default" : "cursor-pointer"}`}
                   >
                     <div className="flex items-center gap-3">
                       <span className="font-bold text-foreground w-6">{altLetter}</span>
                       <span className="text-foreground flex-1">{alt.text}</span>
                       {reviewAnswered && isCorrectAlt && <span className="text-accent font-bold">✓</span>}
-                      {reviewAnswered && isSelected && !isCorrect && <span className="text-destructive font-bold">✗</span>}
+                      {reviewAnswered && isSelected && !isCorrect && (
+                        <span className="text-destructive font-bold">✗</span>
+                      )}
                     </div>
                   </button>
-                );
+                )
               })}
             </div>
 
             {reviewAnswered && (
-              <div className={`p-4 rounded-lg ${isCorrect ? 'bg-accent/10 border border-accent' : 'bg-destructive/10 border border-destructive'}`}>
-                <p className={`text-sm font-medium ${isCorrect ? 'text-accent' : 'text-destructive'}`}>
-                  {isCorrect ? 'Resposta Correta!' : 'Resposta Incorreta'}
+              <div
+                className={`p-4 rounded-lg ${isCorrect ? "bg-accent/10 border border-accent" : "bg-destructive/10 border border-destructive"}`}
+              >
+                <p className={`text-sm font-medium ${isCorrect ? "text-accent" : "text-destructive"}`}>
+                  {isCorrect ? "Resposta Correta!" : "Resposta Incorreta"}
                 </p>
               </div>
             )}
@@ -603,13 +624,13 @@ export default function ReviewPage() {
               onClick={handleNext}
               className="w-full px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
             >
-              {reviewIndex < filteredReviewQuestions.length - 1 ? 'Próxima' : 'Finalizar Revisão'}
+              {reviewIndex < filteredReviewQuestions.length - 1 ? "Próxima" : "Finalizar Revisão"}
             </button>
           )}
         </main>
       </div>
-    );
+    )
   }
 
-  return null;
+  return null
 }

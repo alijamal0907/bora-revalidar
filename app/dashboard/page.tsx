@@ -16,10 +16,13 @@ import {
 } from "@/lib/storage-supabase"
 import { useDeviceSession } from "@/hooks/use-device-session"
 import Link from "next/link"
-import { Activity, Zap, TrendingUp, Target, Calendar } from "lucide-react"
+import { Zap, TrendingUp, Target, Calendar } from "lucide-react"
 import { GoalSettingsButton } from "@/components/goal-settings-button"
 import { getDeviceInfo, storeDeviceId } from "@/lib/device-utils"
 import { registerDeviceSession } from "@/lib/storage-supabase"
+import { PlanStatusCard } from "@/components/plan-status-card"
+import { getUserPlan, getDailyQuestionCount } from "@/lib/storage-supabase"
+import type { UserPlan } from "@/lib/plan-utils"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -33,8 +36,31 @@ export default function DashboardPage() {
   const [monthlyGoal, setMonthlyGoal] = useState(300)
   const [dailyProgress, setDailyProgress] = useState(0)
   const [monthlyProgress, setMonthlyProgress] = useState(0)
+  const [userPlan, setUserPlan] = useState<UserPlan>("free")
+  const [questionsToday, setQuestionsToday] = useState(0)
 
   useDeviceSession(user?.id)
+
+  const reloadGoalsAndProgress = async () => {
+    if (!user) return
+
+    try {
+      const [userGoals, dailyProg, monthlyProg] = await Promise.all([
+        getUserGoals(user.id),
+        getDailyProgress(user.id),
+        getMonthlyProgress(user.id),
+      ])
+
+      if (userGoals) {
+        setDailyGoal(userGoals.daily_questions_goal)
+        setMonthlyGoal(userGoals.monthly_questions_goal)
+      }
+      setDailyProgress(dailyProg)
+      setMonthlyProgress(monthlyProg)
+    } catch (error) {
+      console.error("Error reloading goals:", error)
+    }
+  }
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -55,15 +81,18 @@ export default function DashboardPage() {
 
         setUser(currentUser)
 
-        const [allCards, reviews, userStreak, progress, userGoals, dailyProg, monthlyProg] = await Promise.all([
-          getQuestoesAsCards(currentUser.usuario_id || currentUser.id),
-          getHistoricoQuestoes(currentUser.usuario_id || currentUser.id),
-          getUserStreak(currentUser.id),
-          getProgressByTheme(currentUser.usuario_id || currentUser.id),
-          getUserGoals(currentUser.id),
-          getDailyProgress(currentUser.id),
-          getMonthlyProgress(currentUser.id),
-        ])
+        const [allCards, reviews, userStreak, progress, userGoals, dailyProg, monthlyProg, plan, todayCount] =
+          await Promise.all([
+            getQuestoesAsCards(currentUser.usuario_id || currentUser.id),
+            getHistoricoQuestoes(currentUser.usuario_id || currentUser.id),
+            getUserStreak(currentUser.id),
+            getProgressByTheme(currentUser.usuario_id || currentUser.id),
+            getUserGoals(currentUser.id),
+            getDailyProgress(currentUser.id),
+            getMonthlyProgress(currentUser.id),
+            getUserPlan(currentUser.email),
+            getDailyQuestionCount(currentUser.id),
+          ])
 
         if (userGoals) {
           setDailyGoal(userGoals.daily_questions_goal)
@@ -83,6 +112,9 @@ export default function DashboardPage() {
           dueNow: dueCards.length,
           totalReviews: reviews.length,
         })
+
+        setUserPlan(plan)
+        setQuestionsToday(todayCount)
 
         const targetThemes = [
           { key: "clinica medica", label: "Clínica Médica" },
@@ -155,46 +187,38 @@ export default function DashboardPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Welcome Section */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Bem-vindo de volta, {user?.email?.split("@")[0]}!</h1>
+          <h1 className="text-4xl font-bold text-foreground mb-2">Bem-vindo de volta!</h1>
           <p className="text-muted-foreground text-lg">Mantenha seu conhecimento fresco com repetição espaçada</p>
+        </div>
+
+        <div className="mb-12">
+          <PlanStatusCard plan={userPlan} questionsToday={questionsToday} />
         </div>
 
         {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          {/* Start Study Button */}
           <Link
             href="/study"
-            className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
+            className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group border border-primary/20"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold">Iniciar Estudo</h3>
-              <Zap className="w-6 h-6 group-hover:scale-110 transition-transform" />
+              <h3 className="text-2xl font-bold">Iniciar Estudo</h3>
+              <Zap className="w-8 h-8 group-hover:scale-110 transition-transform" />
             </div>
-            <p className="text-primary-foreground/90 text-sm">Revise {stats.dueNow} cartões vencidos hoje</p>
-          </Link>
-
-          {/* Practice Simulation Button */}
-          <Link
-            href="/simulations"
-            className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold">Simulado</h3>
-              <Activity className="w-6 h-6 group-hover:scale-110 transition-transform" />
-            </div>
-            <p className="text-white/90 text-sm">Teste seu conhecimento com simulados</p>
+            <p className="text-primary-foreground/90 text-sm mb-2">Revise questões do Revalida hoje</p>
+            <p className="text-primary-foreground/70 text-xs">Continue sua jornada de aprendizado</p>
           </Link>
 
           {/* Review Progress Button */}
           <Link
             href="/review"
-            className="bg-gradient-to-br from-secondary to-secondary/80 text-secondary-foreground rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
+            className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold">Revisão</h3>
               <TrendingUp className="w-6 h-6 group-hover:scale-110 transition-transform" />
             </div>
-            <p className="text-secondary-foreground/90 text-sm">Veja seu progresso e análise</p>
+            <p className="text-white/90 text-sm">Veja seu progresso geral e análise por Matéria</p>
           </Link>
         </div>
 
@@ -202,11 +226,16 @@ export default function DashboardPage() {
         <div className="bg-gradient-to-br from-primary/10 to-accent/10 border border-border rounded-lg p-8 mb-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-foreground">Progresso Diário</h2>
-            <GoalSettingsButton currentDailyGoal={dailyGoal} currentMonthlyGoal={monthlyGoal} />
+            <GoalSettingsButton
+              currentDailyGoal={dailyGoal}
+              currentMonthlyGoal={monthlyGoal}
+              onGoalsSaved={reloadGoalsAndProgress}
+              userPlan={userPlan}
+            />
           </div>
 
           {/* Meta Diária */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-card border border-border rounded-lg p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-primary/10 rounded-lg">
@@ -271,26 +300,6 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-
-            {/* Sequência Ativa */}
-            <div className="bg-card border border-border rounded-lg p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-secondary/10 rounded-lg">
-                  <Activity className="h-6 w-6 text-secondary" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">Sequência Ativa</h3>
-                  <p className="text-sm text-muted-foreground">Dias consecutivos de estudo</p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-4xl font-bold text-secondary">
-                  {streak} {streak === 1 ? "dia" : "dias"}
-                </p>
-                <p className="text-xs text-muted-foreground mt-2">Continue assim para manter sua sequência</p>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -308,13 +317,21 @@ export default function DashboardPage() {
                         {theme.correct}/{theme.total} corretas
                       </span>
                     </div>
-                    <span className="text-2xl font-bold text-primary">{theme.percentage}%</span>
+                    {userPlan === "premium" ? (
+                      <span className="text-2xl font-bold text-primary">{theme.percentage}%</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground px-3 py-1 bg-muted rounded-full">Premium</span>
+                    )}
                   </div>
                   <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
-                      style={{ width: `${theme.percentage}%` }}
-                    />
+                    {userPlan === "premium" ? (
+                      <div
+                        className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
+                        style={{ width: `${theme.percentage}%` }}
+                      />
+                    ) : (
+                      <div className="h-full bg-gradient-to-r from-muted-foreground/20 to-muted-foreground/10 blur-sm" />
+                    )}
                   </div>
                 </div>
               ))}
@@ -323,36 +340,6 @@ export default function DashboardPage() {
             <p className="text-muted-foreground text-center py-8">
               Nenhum dado de progresso disponível ainda. Comece a estudar para ver suas estatísticas!
             </p>
-          )}
-        </div>
-
-        {/* Recent Cards Section */}
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-lg font-bold text-foreground mb-4">Cartões Recentes</h2>
-          {cards.length > 0 ? (
-            <div className="space-y-2">
-              {cards.slice(0, 5).map((card) => (
-                <div key={card.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-md">
-                  <div>
-                    <p className="font-medium text-foreground">{card.question}</p>
-                    <p className="text-sm text-muted-foreground">{card.category}</p>
-                  </div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      card.difficulty === "easy"
-                        ? "bg-accent/20 text-accent"
-                        : card.difficulty === "medium"
-                          ? "bg-secondary/20 text-secondary"
-                          : "bg-destructive/20 text-destructive"
-                    }`}
-                  >
-                    {card.difficulty}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-center py-8">Nenhum cartão disponível ainda</p>
           )}
         </div>
       </main>

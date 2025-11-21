@@ -24,7 +24,7 @@ export default function Home() {
       <div className="text-center">
         <div className="mb-8">
           <Image
-            src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Imagem%20do%20WhatsApp%20de%202025-11-12%20%C3%A0%28s%29%2016.54.36_e2b89511-fO4Fvth3crm7NHkUGnR0odWfKNRsIo.jpg"
+            src="/images/design-mode/Imagem%20do%20WhatsApp%20de%202025-11-12%20%C3%A0%28s%29%2016.54.36_e2b89511.jpg"
             alt="Bora Revalidar"
             width={400}
             height={200}

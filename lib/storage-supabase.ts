@@ -266,6 +266,11 @@ export async function saveQuizAnswer(
   correta: boolean,
   origem: "estudo" | "simulado",
 ): Promise<void> {
+  if (!questaoId) {
+    console.error("[v0] Cannot save answer: questaoId is null or undefined")
+    throw new Error("questaoId is required")
+  }
+
   try {
     const { error } = await supabase.from("hist_questoes").insert([
       {
@@ -667,12 +672,17 @@ export async function getUserGoals(userId: string) {
 export async function setUserGoals(userId: string, dailyGoal: number, monthlyGoal: number) {
   const { data, error } = await supabase
     .from("user_goals")
-    .upsert({
-      user_id: userId,
-      daily_questions_goal: dailyGoal,
-      monthly_questions_goal: monthlyGoal,
-      updated_at: new Date().toISOString(),
-    })
+    .upsert(
+      {
+        user_id: userId,
+        daily_questions_goal: dailyGoal,
+        monthly_questions_goal: monthlyGoal,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "user_id",
+      },
+    )
     .select()
     .single()
 
@@ -721,4 +731,83 @@ export async function getMonthlyProgress(userId: string) {
 
   const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
   return uniqueQuestions.size
+}
+
+export async function getUserPlan(email: string): Promise<"free" | "premium"> {
+  try {
+    const { data, error } = await supabase
+      .from("assinaturas")
+      .select("plano")
+      .eq("email", email.toLowerCase().trim())
+      .single()
+
+    if (error || !data) {
+      console.log("[v0] No subscription found for", email, "- defaulting to free")
+      return "free"
+    }
+
+    return (data.plano as "free" | "premium") || "free"
+  } catch (error) {
+    console.error("[v0] Error getting user plan:", error)
+    return "free"
+  }
+}
+
+export async function getDailyQuestionCount(userId: string): Promise<number> {
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const { data, error } = await supabase
+      .from("hist_questoes")
+      .select("id")
+      .eq("user_id", userId)
+      .gte("created_at", today.toISOString())
+
+    if (error) {
+      console.error("[v0] Error counting daily questions:", error)
+      return 0
+    }
+
+    return data?.length || 0
+  } catch (error) {
+    console.error("[v0] Error in getDailyQuestionCount:", error)
+    return 0
+  }
+}
+
+export async function getDailyQuestionCountByTheme(userId: string, theme: string): Promise<number> {
+  try {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    const { data: histData, error: histError } = await supabase
+      .from("hist_questoes")
+      .select("questao_id")
+      .eq("user_id", userId)
+      .gte("created_at", today.toISOString())
+
+    if (histError || !histData || histData.length === 0) {
+      return 0
+    }
+
+    const questaoIds = histData.map((h) => h.questao_id)
+
+    const { data: questoesData, error: questoesError } = await supabase
+      .from("questoes")
+      .select("id, tema")
+      .in("id", questaoIds)
+
+    if (questoesError || !questoesData) {
+      return 0
+    }
+
+    const normalizedTheme = theme.toLowerCase().trim()
+    const count = questoesData.filter((q) => q.tema?.toLowerCase().trim() === normalizedTheme).length
+
+    return count
+  } catch (error) {
+    console.error("[v0] Error in getDailyQuestionCountByTheme:", error)
+    return 0
+  }
 }

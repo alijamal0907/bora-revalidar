@@ -1,31 +1,41 @@
-'use client';
+"use client"
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { useState, useEffect } from 'react';
-import { signOutSupabase } from '@/lib/auth-supabase';
-import { useRouter } from 'next/navigation';
+import Link from "next/link"
+import Image from "next/image"
+import { useState, useEffect } from "react"
+import { signOutSupabase } from "@/lib/auth-supabase"
+import { useRouter } from "next/navigation"
+import { PlanBadge } from "./plan-badge"
+import { getUserPlan } from "@/lib/storage-supabase"
+import type { UserPlan } from "@/lib/plan-utils"
 
 interface NavbarProps {
   user?: {
-    id: string;
-    email: string;
-    usuario_id?: string;
-  } | null;
+    id: string
+    email: string
+    usuario_id?: string
+  } | null
 }
 
 export function Navbar({ user }: NavbarProps) {
-  const router = useRouter();
+  const router = useRouter()
+
+  const [userPlan, setUserPlan] = useState<UserPlan>("free")
 
   const handleLogout = async () => {
-    try {
-      await signOutSupabase();
-      router.push('/login');
-    } catch (error) {
-      console.error('[v0] Logout error:', error);
-      router.push('/login');
+    await signOutSupabase()
+    router.push("/")
+  }
+
+  useEffect(() => {
+    const loadPlan = async () => {
+      if (user?.email) {
+        const plan = await getUserPlan(user.email)
+        setUserPlan(plan)
+      }
     }
-  };
+    loadPlan()
+  }, [user])
 
   return (
     <nav className="border-b border-border bg-card">
@@ -48,6 +58,8 @@ export function Navbar({ user }: NavbarProps) {
 
           {user && (
             <div className="flex items-center gap-4">
+              <PlanBadge plan={userPlan} />
+
               <span className="text-sm text-muted-foreground">{user.email}</span>
               <button
                 onClick={handleLogout}
@@ -60,5 +72,5 @@ export function Navbar({ user }: NavbarProps) {
         </div>
       </div>
     </nav>
-  );
+  )
 }
