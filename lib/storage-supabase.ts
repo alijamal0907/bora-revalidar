@@ -330,6 +330,9 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
 
 export async function getProgressByTheme(userId: string): Promise<any[]> {
   try {
+    console.log("[v0] Fetching progress by theme for user:", userId)
+
+    // Fetch historico with error handling
     const { data: historico, error: histError } = await supabase.from("hist_questoes").select("*")
 
     if (histError) {
@@ -337,21 +340,32 @@ export async function getProgressByTheme(userId: string): Promise<any[]> {
       return []
     }
 
-    const { data: questoes, error: questError } = await supabase.from("questoes").select("*")
+    if (!historico || historico.length === 0) {
+      console.log("[v0] No historico found for user")
+      return []
+    }
+
+    // Fetch questoes with error handling
+    const { data: questoes, error: questError } = await supabase.from("questoes").select("*").limit(2000)
 
     if (questError) {
       console.error("[v0] Error fetching questoes:", questError)
       return []
     }
 
-    if (!historico || !questoes) return []
+    if (!questoes || questoes.length === 0) {
+      console.log("[v0] No questoes found in database")
+      return []
+    }
+
+    console.log(`[v0] Found ${historico.length} history entries and ${questoes.length} questions`)
 
     const themeMap: { [key: string]: { total: number; correct: number; wrong: number } } = {}
 
     historico.forEach((h: any) => {
       const questao = questoes.find((q: any) => q.id === h.questao_id)
-      if (questao) {
-        const theme = questao.tema || "Sem Tema"
+      if (questao && questao.tema) {
+        const theme = questao.tema
 
         if (!themeMap[theme]) {
           themeMap[theme] = { total: 0, correct: 0, wrong: 0 }
@@ -366,13 +380,16 @@ export async function getProgressByTheme(userId: string): Promise<any[]> {
       }
     })
 
-    return Object.entries(themeMap).map(([theme, stats]) => ({
+    const result = Object.entries(themeMap).map(([theme, stats]) => ({
       theme,
       total: stats.total,
       correct: stats.correct,
       wrong: stats.wrong,
       percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
     }))
+
+    console.log("[v0] Progress by theme calculated:", result)
+    return result
   } catch (error) {
     console.error("[v0] Error in getProgressByTheme:", error)
     return []

@@ -81,8 +81,18 @@ export default function DashboardPage() {
 
         setUser(currentUser)
 
-        const [allCards, reviews, userStreak, progress, userGoals, dailyProg, monthlyProg, plan, todayCount] =
-          await Promise.all([
+        let allCards: any[] = []
+        let reviews: any[] = []
+        let userStreak = 0
+        let progress: any[] = []
+        let userGoals: any = null
+        let dailyProg = 0
+        let monthlyProg = 0
+        let plan: UserPlan = "free"
+        let todayCount = 0
+
+        try {
+          const results = await Promise.allSettled([
             getQuestoesAsCards(currentUser.usuario_id || currentUser.id),
             getHistoricoQuestoes(currentUser.usuario_id || currentUser.id),
             getUserStreak(currentUser.id),
@@ -94,12 +104,24 @@ export default function DashboardPage() {
             getDailyQuestionCount(currentUser.id),
           ])
 
-        if (userGoals) {
-          setDailyGoal(userGoals.daily_questions_goal)
-          setMonthlyGoal(userGoals.monthly_questions_goal)
+          if (results[0].status === "fulfilled") allCards = results[0].value
+          if (results[1].status === "fulfilled") reviews = results[1].value
+          if (results[2].status === "fulfilled") userStreak = results[2].value
+          if (results[3].status === "fulfilled") progress = results[3].value
+          if (results[4].status === "fulfilled") userGoals = results[4].value
+          if (results[5].status === "fulfilled") dailyProg = results[5].value
+          if (results[6].status === "fulfilled") monthlyProg = results[6].value
+          if (results[7].status === "fulfilled") plan = results[7].value
+          if (results[8].status === "fulfilled") todayCount = results[8].value
+
+          results.forEach((result, index) => {
+            if (result.status === "rejected") {
+              console.error(`[v0] Promise ${index} failed:`, result.reason)
+            }
+          })
+        } catch (err) {
+          console.error("[v0] Error loading dashboard data:", err)
         }
-        setDailyProgress(dailyProg)
-        setMonthlyProgress(monthlyProg)
 
         setCards(allCards)
 

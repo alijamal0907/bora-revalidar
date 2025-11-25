@@ -220,7 +220,6 @@ export default function SimulationsPage() {
     { letter: "B", text: currentQuestion.alternativaB },
     { letter: "C", text: currentQuestion.alternativaC },
     { letter: "D", text: currentQuestion.alternativaD },
-    { letter: "E", text: currentQuestion.alternativaE },
   ]
 
   const isCorrect = selectedAnswer === correctLetter

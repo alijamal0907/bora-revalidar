@@ -23,7 +23,9 @@ export function Navbar({ user }: NavbarProps) {
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
 
   const handleLogout = async () => {
+    console.log("[v0] Logout button clicked, signing out user:", user?.email)
     await signOutSupabase()
+    console.log("[v0] User signed out, redirecting to home")
     router.push("/")
   }
 

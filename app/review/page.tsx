@@ -18,7 +18,6 @@ interface Question {
   alternativaB: string
   alternativaC: string
   alternativaD: string
-  alternativaE: string
   respostaCorreta: string
   wrongCount: number
   [key: string]: any
@@ -474,7 +473,6 @@ export default function ReviewPage() {
       { letter: "B", text: currentQuestion.alternativaB },
       { letter: "C", text: currentQuestion.alternativaC },
       { letter: "D", text: currentQuestion.alternativaD },
-      { letter: "E", text: currentQuestion.alternativaE },
     ].sort(() => Math.random() - 0.5)
 
     const correctLetter = currentQuestion.respostaCorreta?.toUpperCase() || "A"
