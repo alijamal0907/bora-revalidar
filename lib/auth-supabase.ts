@@ -13,7 +13,17 @@ export async function getSupabaseUser(): Promise<User | null> {
       error,
     } = await supabase.auth.getSession()
 
-    if (error || !session?.user) {
+    if (error) {
+      if (error.message.includes("Invalid Refresh Token") || error.message.includes("Refresh Token Not Found")) {
+        console.log("[v0] Invalid refresh token, clearing session")
+        await supabase.auth.signOut()
+        return null
+      }
+      console.log("[v0] No active session found:", error.message)
+      return null
+    }
+
+    if (!session?.user) {
       console.log("[v0] No active session found")
       return null
     }
@@ -26,7 +36,16 @@ export async function getSupabaseUser(): Promise<User | null> {
       email: user.email || "",
       usuario_id: usuarioId,
     }
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.message?.includes("Invalid Refresh Token") || error?.message?.includes("Refresh Token Not Found")) {
+      console.log("[v0] Invalid refresh token caught, clearing session")
+      try {
+        await supabase.auth.signOut()
+      } catch (e) {
+        // Ignore signout errors
+      }
+      return null
+    }
     console.error("[v0] Error in getSupabaseUser:", error)
     return null
   }
@@ -94,12 +113,52 @@ export async function signInSupabase(email: string, password: string): Promise<U
 
 export async function signOutSupabase(): Promise<void> {
   try {
-    const { error } = await supabase.auth.signOut()
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession()
+
     if (error) {
-      console.error("[v0] Signout error:", error)
-      throw error
+      if (error.message.includes("Invalid Refresh Token") || error.message.includes("Refresh Token Not Found")) {
+        console.log("[v0] Invalid token during logout, clearing local storage")
+        // Clear local storage manually
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("supabase.auth.token")
+        }
+        return
+      }
     }
-  } catch (error) {
+
+    // If there's no session, just return successfully
+    if (!session) {
+      console.log("[v0] No session to sign out from")
+      return
+    }
+
+    const { error: signoutError } = await supabase.auth.signOut()
+    if (signoutError) {
+      // Ignore AuthSessionMissingError and refresh token errors
+      if (
+        signoutError.message.includes("Auth session missing") ||
+        signoutError.message.includes("Invalid Refresh Token") ||
+        signoutError.message.includes("Refresh Token Not Found")
+      ) {
+        console.log("[v0] Session already cleared")
+        return
+      }
+      console.error("[v0] Signout error:", signoutError)
+      throw signoutError
+    }
+  } catch (error: any) {
+    // Gracefully handle session missing and refresh token errors
+    if (
+      error?.message?.includes("Auth session missing") ||
+      error?.message?.includes("Invalid Refresh Token") ||
+      error?.message?.includes("Refresh Token Not Found")
+    ) {
+      console.log("[v0] Session already cleared, continuing with logout")
+      return
+    }
     console.error("[v0] Error in signOutSupabase:", error)
     throw error
   }

@@ -4,7 +4,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect } from "react"
 import { signOutSupabase } from "@/lib/auth-supabase"
-import { useRouter } from "next/navigation"
 import { PlanBadge } from "./plan-badge"
 import { getUserPlan } from "@/lib/storage-supabase"
 import type { UserPlan } from "@/lib/plan-utils"
@@ -18,15 +17,19 @@ interface NavbarProps {
 }
 
 export function Navbar({ user }: NavbarProps) {
-  const router = useRouter()
-
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
 
   const handleLogout = async () => {
     console.log("[v0] Logout button clicked, signing out user:", user?.email)
-    await signOutSupabase()
-    console.log("[v0] User signed out, redirecting to home")
-    router.push("/")
+    try {
+      await signOutSupabase()
+      console.log("[v0] Signout successful, redirecting to login")
+    } catch (error) {
+      console.error("[v0] Error in handleLogout:", error)
+      // Continue with redirect even if error occurs
+    } finally {
+      window.location.href = "/login"
+    }
   }
 
   useEffect(() => {

@@ -178,6 +178,13 @@ export default function DashboardPage() {
 
         setThemeProgress(processedProgress)
 
+        if (userGoals) {
+          setDailyGoal(userGoals.daily_questions_goal)
+          setMonthlyGoal(userGoals.monthly_questions_goal)
+        }
+        setDailyProgress(dailyProg)
+        setMonthlyProgress(monthlyProg)
+
         setIsLoading(false)
       } catch (error) {
         console.error("[v0] Error loading dashboard:", error)
@@ -186,15 +193,7 @@ export default function DashboardPage() {
     }
 
     loadDashboard()
-
-    const interval = setInterval(() => {
-      if (user) {
-        reloadGoalsAndProgress()
-      }
-    }, 30000) // 30 segundos
-
-    return () => clearInterval(interval)
-  }, [router, user])
+  }, [router]) // Removed user from dependencies to prevent re-render loop
 
   if (isLoading) {
     return (
