@@ -164,7 +164,15 @@ export default function DashboardPage() {
     }
 
     loadDashboard()
-  }, [router])
+
+    const interval = setInterval(() => {
+      if (user) {
+        reloadGoalsAndProgress()
+      }
+    }, 30000) // 30 segundos
+
+    return () => clearInterval(interval)
+  }, [router, user])
 
   if (isLoading) {
     return (

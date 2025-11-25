@@ -20,6 +20,8 @@ interface Question {
   alternativaD: string
   alternativaE: string
   correta: string
+  tema?: string
+  subtema?: string
   [key: string]: any
 }
 
@@ -106,7 +108,7 @@ export default function StudyPage() {
               return
             }
 
-            const remaining = getRemainingQuestions(todayCount, plan)
+            const remaining = getRemainingQuestions(dailyQuestionsCount, plan)
             if (remaining !== "unlimited") {
               setNumQuestions(Math.min(numQuestions, remaining as number))
             }
@@ -381,6 +383,8 @@ export default function StudyPage() {
       alternativaD: currentQuestion.alternativaD,
       alternativaE: currentQuestion.alternativaE,
       correta: currentQuestion.correta,
+      tema: currentQuestion.tema,
+      subtema: currentQuestion.subtema,
       normalizedCorrectLetter: correctLetter,
     })
   }
@@ -422,6 +426,7 @@ export default function StudyPage() {
         try {
           const userId = user?.id || user?.usuario_id
           await saveQuizAnswer(userId, currentQuestion.id, letter, correct, "estudo")
+          console.log("[v0] Answer saved successfully - progress updated in database")
         } catch (error) {
           console.error("Error saving answer:", error)
         }
@@ -481,6 +486,21 @@ export default function StudyPage() {
         </div>
 
         <div className="bg-card border border-border rounded-lg p-8 mb-8">
+          {(currentQuestion?.tema || currentQuestion?.subtema) && (
+            <div className="flex gap-2 mb-6">
+              {currentQuestion?.tema && (
+                <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                  {currentQuestion.tema}
+                </span>
+              )}
+              {currentQuestion?.subtema && (
+                <span className="px-3 py-1 bg-secondary/10 text-secondary text-xs font-medium rounded-full">
+                  {currentQuestion.subtema}
+                </span>
+              )}
+            </div>
+          )}
+
           <h2 className="text-xl font-bold text-foreground mb-8 whitespace-pre-wrap break-words">
             {currentQuestion?.enunciado}
           </h2>
