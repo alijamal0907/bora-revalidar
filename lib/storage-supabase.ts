@@ -1,5 +1,7 @@
 import { supabase } from "./supabase"
 import type { StudyCard, ReviewResult } from "./spaced-repetition"
+import { createServerClient } from "@supabase/ssr"
+import { cookies } from "next/headers"
 
 export async function getQuestoesAsCards(usuarioId: string): Promise<StudyCard[]> {
   try {
@@ -655,7 +657,27 @@ export async function getUserGoals(userId: string) {
 }
 
 export async function setUserGoals(userId: string, dailyGoal: number, monthlyGoal: number) {
-  const { data, error } = await supabase
+  const cookieStore = await cookies()
+  const supabaseServer = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+          } catch {
+            // Ignore if called from Server Component
+          }
+        },
+      },
+    },
+  )
+
+  const { data, error } = await supabaseServer
     .from("user_goals")
     .upsert(
       {
