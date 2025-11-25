@@ -238,7 +238,6 @@ export default function SimulationsPage() {
 
       try {
         await saveQuizAnswer(user.usuario_id || user.id, currentQuestion.id, letter, correct, "simulado")
-        console.log("[v0] Answer saved successfully - progress updated in database")
       } catch (error) {
         console.error("[v0] Error saving answer:", error)
       }

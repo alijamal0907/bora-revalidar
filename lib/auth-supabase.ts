@@ -70,6 +70,30 @@ export async function signUpSupabase(email: string, password: string): Promise<U
       throw new Error("No user returned from signup")
     }
 
+    try {
+      const { error: subscriptionError } = await supabase.from("assinaturas").upsert(
+        [
+          {
+            email: user.email?.toLowerCase().trim(),
+            nome: user.email?.split("@")[0] || "Usuário",
+            status: "ativo",
+            data_cadastro: new Date().toISOString(),
+          },
+        ],
+        {
+          onConflict: "email",
+        },
+      )
+
+      if (subscriptionError) {
+        console.error("[v0] Database error saving new user:", subscriptionError)
+      } else {
+        console.log("[v0] New user registered in assinaturas table:", user.email)
+      }
+    } catch (subError) {
+      console.error("[v0] Exception creating subscription:", subError)
+    }
+
     return {
       id: user.id,
       email: user.email || "",

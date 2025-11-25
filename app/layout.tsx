@@ -1,5 +1,6 @@
 import type React from "react"
 import "./globals.css"
+import { PWAInstaller } from "./pwa-installer"
 
 export default function RootLayout({
   children,
@@ -33,7 +34,10 @@ export default function RootLayout({
         <title>Bora Revalidar</title>
         <meta name="description" content="App de estudos para o REVALIDA, com questões, progresso e revisão." />
       </head>
-      <body>{children}</body>
+      <body>
+        <PWAInstaller />
+        {children}
+      </body>
     </html>
   )
 }

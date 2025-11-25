@@ -373,22 +373,6 @@ export default function StudyPage() {
     .toUpperCase()
     .trim()
 
-  if (currentQuestion) {
-    console.log("[v0] Current question:", {
-      id: currentQuestion.id,
-      enunciado: currentQuestion.enunciado,
-      alternativaA: currentQuestion.alternativaA,
-      alternativaB: currentQuestion.alternativaB,
-      alternativaC: currentQuestion.alternativaC,
-      alternativaD: currentQuestion.alternativaD,
-      alternativaE: currentQuestion.alternativaE,
-      correta: currentQuestion.correta,
-      tema: currentQuestion.tema,
-      subtema: currentQuestion.subtema,
-      normalizedCorrectLetter: correctLetter,
-    })
-  }
-
   const alternatives = [
     { letter: "A", text: currentQuestion?.alternativaA },
     { letter: "B", text: currentQuestion?.alternativaB },
@@ -425,12 +409,9 @@ export default function StudyPage() {
         try {
           const userId = user?.id || user?.usuario_id
           await saveQuizAnswer(userId, currentQuestion.id, letter, correct, "estudo")
-          console.log("[v0] Answer saved successfully - progress updated in database")
         } catch (error) {
           console.error("Error saving answer:", error)
         }
-      } else {
-        console.warn("Skipping save - question has no ID:", currentQuestion)
       }
     }
   }

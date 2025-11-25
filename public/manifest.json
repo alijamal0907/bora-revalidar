@@ -2,7 +2,7 @@
   "name": "Bora Revalidar",
   "short_name": "Revalidar",
   "description": "App de estudos para o REVALIDA com questões e progresso",
-  "start_url": "/dashboard",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f172a",

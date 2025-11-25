@@ -330,7 +330,7 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
 
 export async function getProgressByTheme(userId: string): Promise<any[]> {
   try {
-    const { data: historico, error: histError } = await supabase.from("hist_questoes").select("*")
+    const { data: historico, error: histError } = await supabase.from("hist_questoes").select("*").eq("user_id", userId)
 
     if (histError) {
       console.error("[v0] Error fetching historico:", histError)
@@ -389,9 +389,6 @@ export async function getProgressByTheme(userId: string): Promise<any[]> {
 
 export async function getQuestoesWithAlternatives(usuarioId: string, temas?: string[], limit = 2000): Promise<any[]> {
   try {
-    console.log("[v0] getQuestoesWithAlternatives called with temas:", temas)
-
-    // Buscar todas as questões primeiro
     const { data: allQuestoes, error: fetchError } = await supabase.from("questoes").select("*").limit(limit)
 
     if (fetchError) {
@@ -399,42 +396,22 @@ export async function getQuestoesWithAlternatives(usuarioId: string, temas?: str
       return []
     }
 
-    console.log("[v0] Total questions fetched from database:", allQuestoes?.length)
-
     if (!allQuestoes || allQuestoes.length === 0) {
-      console.log("[v0] No questions found in database")
       return []
     }
 
-    // Se nenhum tema foi selecionado, retornar todas
     if (!temas || temas.length === 0) {
-      console.log("[v0] No theme filter, returning all questions")
       return allQuestoes
     }
 
-    // Normalizar temas selecionados
     const normalizedTemas = temas.map((t) => t.trim().toLowerCase())
-    console.log("[v0] Normalized theme filters:", normalizedTemas)
 
-    // Filtrar por tema normalizado
     const filtered = allQuestoes.filter((q: any) => {
       const questaoTema = String(q.tema || "")
         .trim()
         .toLowerCase()
-      const matches = normalizedTemas.includes(questaoTema)
-
-      if (!matches && questaoTema) {
-        console.log("[v0] Question tema not matching:", questaoTema, "Looking for:", normalizedTemas)
-      }
-
-      return matches
+      return normalizedTemas.includes(questaoTema)
     })
-
-    console.log("[v0] Questions after theme filter:", filtered.length)
-    console.log(
-      "[v0] Sample filtered question themes:",
-      filtered.slice(0, 3).map((q) => q.tema),
-    )
 
     return filtered
   } catch (error) {
@@ -745,7 +722,7 @@ export async function getUserPlan(email: string): Promise<"free" | "premium"> {
   try {
     const { data, error } = await supabase
       .from("assinaturas")
-      .select("plano")
+      .select("status, transaction_id, data_pagamento")
       .eq("email", email.toLowerCase().trim())
       .single()
 
@@ -754,7 +731,12 @@ export async function getUserPlan(email: string): Promise<"free" | "premium"> {
       return "free"
     }
 
-    return (data.plano as "free" | "premium") || "free"
+    // Usuário é premium se tiver pagamento registrado
+    if (data.transaction_id || data.data_pagamento) {
+      return "premium"
+    }
+
+    return "free"
   } catch (error) {
     console.error("[v0] Error getting user plan:", error)
     return "free"
