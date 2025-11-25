@@ -1,5 +1,12 @@
-const CACHE_NAME = "bora-revalidar-v1"
-const urlsToCache = ["/", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"]
+const CACHE_NAME = "bora-revalidar-v2"
+const urlsToCache = [
+  "/",
+  "/dashboard",
+  "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/apple-touch-icon.png",
+]
 
 // Install event - cache essential files
 self.addEventListener("install", (event) => {
@@ -37,22 +44,17 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   event.respondWith(
     caches.match(event.request).then((response) => {
-      // Cache hit - return response
       if (response) {
         return response
       }
-      // Clone the request
       const fetchRequest = event.request.clone()
 
       return fetch(fetchRequest).then((response) => {
-        // Check if valid response
         if (!response || response.status !== 200 || response.type !== "basic") {
           return response
         }
 
-        // Clone the response
         const responseToCache = response.clone()
-
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseToCache)
         })

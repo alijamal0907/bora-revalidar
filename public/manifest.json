@@ -1,61 +1,28 @@
 {
   "name": "Bora Revalidar",
   "short_name": "Revalidar",
-  "description": "App de estudos para o REVALIDA, com questões, progresso e revisão.",
-  "start_url": "/",
+  "description": "App de estudos para o REVALIDA com questões e progresso",
+  "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
   "background_color": "#0f172a",
   "theme_color": "#f97316",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icons/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "maskable"
+      "purpose": "any maskable"
     },
     {
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    },
-    {
-      "src": "/icons/apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png"
+      "purpose": "any maskable"
     }
   ],
-  "categories": ["education", "medical"],
-  "lang": "pt-BR",
-  "dir": "ltr",
-  "shortcuts": [
-    {
-      "name": "Iniciar Estudo",
-      "short_name": "Estudar",
-      "description": "Começar sessão de estudos",
-      "url": "/study",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Dashboard",
-      "short_name": "Início",
-      "description": "Ver progresso",
-      "url": "/dashboard",
-      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
-    }
-  ]
+  "categories": ["education", "medical", "productivity"],
+  "lang": "pt-BR"
 }
