@@ -466,18 +466,11 @@ export default function StudyPage() {
         </div>
 
         <div className="bg-card border border-border rounded-lg p-8 mb-8">
-          {(currentQuestion?.tema || currentQuestion?.subtema) && (
+          {currentQuestion?.tema && (
             <div className="flex gap-2 mb-6">
-              {currentQuestion?.tema && (
-                <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                  {currentQuestion.tema}
-                </span>
-              )}
-              {currentQuestion?.subtema && (
-                <span className="px-3 py-1 bg-secondary/10 text-secondary text-xs font-medium rounded-full">
-                  {currentQuestion.subtema}
-                </span>
-              )}
+              <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                {currentQuestion.tema}
+              </span>
             </div>
           )}
 

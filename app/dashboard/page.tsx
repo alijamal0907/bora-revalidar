@@ -195,6 +195,23 @@ export default function DashboardPage() {
     loadDashboard()
   }, [router]) // Removed user from dependencies to prevent re-render loop
 
+  useEffect(() => {
+    if (!user) return
+
+    // Atualizar progresso a cada 10 segundos
+    const interval = setInterval(async () => {
+      try {
+        const [dailyProg, monthlyProg] = await Promise.all([getDailyProgress(user.id), getMonthlyProgress(user.id)])
+        setDailyProgress(dailyProg)
+        setMonthlyProgress(monthlyProg)
+      } catch (error) {
+        console.error("[v0] Error updating progress:", error)
+      }
+    }, 10000) // Atualiza a cada 10 segundos
+
+    return () => clearInterval(interval)
+  }, [user])
+
   if (isLoading) {
     return (
       <div>
