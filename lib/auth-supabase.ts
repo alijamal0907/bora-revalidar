@@ -1,5 +1,4 @@
 import { supabase } from "./supabase"
-import { createBrowserClient } from "@supabase/ssr"
 
 interface User {
   id: string
@@ -56,58 +55,58 @@ export async function signUpSupabase(email: string, password: string): Promise<U
   try {
     console.log("[v0] Starting signup for:", email)
 
+    const response = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    })
+
+    const data = await response.json()
+
+    if (!response.ok) {
+      console.error("[v0] Signup error from API:", data.error)
+      throw new Error(`Signup failed: ${data.error}`)
+    }
+
+    if (!data.user) {
+      throw new Error("No user returned from signup")
+    }
+
+    console.log("[v0] User created successfully:", data.user.id)
+
+    if (data.subscription) {
+      console.log("[v0] User added to assinaturas:", data.subscription)
+    } else if (data.warning) {
+      console.warn("[v0]", data.warning)
+    }
+
+    // Fazer login após criar conta
     const {
-      data: { user },
-      error,
-    } = await supabase.auth.signUp({
+      data: { user: signedInUser },
+      error: signInError,
+    } = await supabase.auth.signInWithPassword({
       email,
       password,
     })
 
-    if (error) {
-      console.error("[v0] Signup error from Supabase Auth:", error.message)
-      throw new Error(`Signup failed: ${error.message}`)
-    }
-
-    if (!user) {
-      throw new Error("No user returned from signup")
-    }
-
-    console.log("[v0] User created successfully:", user.id)
-
-    try {
-      console.log("[v0] Adding user to assinaturas table...")
-
-      const supabaseAdmin = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      )
-
-      const { data: insertData, error: insertError } = await supabaseAdmin
-        .from("assinaturas")
-        .insert({
-          email: email.toLowerCase().trim(),
-          nome: email.split("@")[0],
-          plano: "free",
-          status: "ativo",
-          data_cadastro: new Date().toISOString(),
-        })
-        .select()
-
-      if (insertError) {
-        console.error("[v0] Error adding to assinaturas:", insertError)
-        console.log("[v0] Continuing - user will be treated as FREE by default")
-      } else {
-        console.log("[v0] User added to assinaturas successfully:", insertData)
+    if (signInError) {
+      console.error("[v0] Auto-login error:", signInError.message)
+      // Retornar usuário mesmo se auto-login falhar
+      return {
+        id: data.user.id,
+        email: data.user.email || "",
+        usuario_id: data.user.id,
       }
-    } catch (err) {
-      console.error("[v0] Exception adding to assinaturas:", err)
     }
+
+    console.log("[v0] User auto-logged in successfully")
 
     return {
-      id: user.id,
-      email: user.email || "",
-      usuario_id: user.id,
+      id: signedInUser!.id,
+      email: signedInUser!.email || "",
+      usuario_id: signedInUser!.id,
     }
   } catch (error: any) {
     console.error("[v0] Fatal error in signUpSupabase:", error?.message || error)
