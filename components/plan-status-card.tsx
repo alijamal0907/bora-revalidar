@@ -75,7 +75,7 @@ export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
       </div>
 
       <Dialog open={showPlansModal} onOpenChange={setShowPlansModal}>
-        <DialogContent className="sm:max-w-4xl bg-gradient-to-br from-slate-950 to-slate-900 border-slate-800">
+        <DialogContent className="sm:max-w-4xl bg-gradient-to-br from-slate-950 to-slate-900 border-slate-800 max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-3xl font-bold text-center text-white mb-2">
               Escolha seu plano Premium

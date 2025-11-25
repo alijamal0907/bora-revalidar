@@ -70,7 +70,7 @@ export function UpgradeModal({ isOpen, onClose, reason = "general" }: UpgradeMod
   if (showPlans) {
     return (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200 overflow-y-auto">
-        <div className="bg-card border border-border rounded-lg max-w-4xl w-full p-6 relative animate-in zoom-in-95 duration-200 my-8">
+        <div className="bg-card border border-border rounded-lg max-w-4xl w-full p-6 relative animate-in zoom-in-95 duration-200 my-8 max-h-[90vh] overflow-y-auto">
           <button
             onClick={() => {
               setShowPlans(false)
