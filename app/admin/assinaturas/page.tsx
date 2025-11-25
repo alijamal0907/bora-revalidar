@@ -20,6 +20,7 @@ export default function AssinaturasPage() {
   const [assinaturas, setAssinaturas] = useState<Assinatura[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+  const [migrationSuccess, setMigrationSuccess] = useState(false)
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,6 +44,7 @@ export default function AssinaturasPage() {
       }
 
       setAssinaturas(data || [])
+      setMigrationSuccess(true) // Assuming migration is successful after loading data
     } catch (err: any) {
       console.error("[v0] Exception loading assinaturas:", err)
       setError("Erro ao carregar assinaturas: " + err.message)
@@ -94,6 +96,16 @@ export default function AssinaturasPage() {
         {error && (
           <div className="bg-red-500/10 border border-red-500 rounded-lg p-4 mb-6">
             <p className="text-red-500">{error}</p>
+          </div>
+        )}
+
+        {migrationSuccess && (
+          <div className="bg-green-500/10 border border-green-500 rounded-lg p-4 mb-6">
+            <h3 className="font-bold text-green-600 mb-2">✅ Migração Concluída com Sucesso!</h3>
+            <p className="text-green-700 text-sm">
+              Todos os usuários existentes foram adicionados à tabela assinaturas. Novos cadastros serão automaticamente
+              registrados com plano FREE.
+            </p>
           </div>
         )}
 

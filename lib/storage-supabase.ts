@@ -722,7 +722,7 @@ export async function getUserPlan(email: string): Promise<"free" | "premium"> {
   try {
     const { data, error } = await supabase
       .from("assinaturas")
-      .select("status, transaction_id, data_pagamento")
+      .select("plano, status, transaction_id, data_pagamento")
       .eq("email", email.toLowerCase().trim())
       .single()
 
@@ -731,8 +731,7 @@ export async function getUserPlan(email: string): Promise<"free" | "premium"> {
       return "free"
     }
 
-    // Usuário é premium se tiver pagamento registrado
-    if (data.transaction_id || data.data_pagamento) {
+    if (data.plano === "premium" || data.transaction_id || data.data_pagamento) {
       return "premium"
     }
 
