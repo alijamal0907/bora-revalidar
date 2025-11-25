@@ -2,7 +2,6 @@
 
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
-import { setUserGoals } from "@/lib/storage-supabase"
 
 export async function saveUserGoals(dailyGoal: number, monthlyGoal: number) {
   try {
@@ -38,8 +37,28 @@ export async function saveUserGoals(dailyGoal: number, monthlyGoal: number) {
 
     console.log("[v0] User authenticated:", user.id)
 
-    await setUserGoals(user.id, dailyGoal, monthlyGoal)
+    const { data, error } = await supabase
+      .from("user_goals")
+      .upsert(
+        {
+          user_id: user.id,
+          daily_questions_goal: dailyGoal,
+          monthly_questions_goal: monthlyGoal,
+          updated_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "user_id",
+        },
+      )
+      .select()
+      .single()
 
+    if (error) {
+      console.error("[v0] Erro ao salvar metas:", error)
+      return { success: false, error: "Erro ao salvar metas" }
+    }
+
+    console.log("[v0] Goals saved successfully:", data)
     return { success: true }
   } catch (error) {
     console.error("[v0] Erro ao salvar metas:", error)
