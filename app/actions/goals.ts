@@ -5,8 +5,6 @@ import { cookies } from "next/headers"
 
 export async function saveUserGoals(dailyGoal: number, monthlyGoal: number) {
   try {
-    console.log("[v0] saveUserGoals called with:", { dailyGoal, monthlyGoal })
-
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,11 +31,8 @@ export async function saveUserGoals(dailyGoal: number, monthlyGoal: number) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      console.error("[v0] Authentication error:", authError?.message || "No user")
       return { success: false, error: "Usuário não autenticado. Faça login novamente." }
     }
-
-    console.log("[v0] User authenticated:", user.id, user.email)
 
     const { data, error } = await supabase
       .from("user_goals")
@@ -60,7 +55,6 @@ export async function saveUserGoals(dailyGoal: number, monthlyGoal: number) {
       return { success: false, error: `Erro ao salvar metas: ${error.message}` }
     }
 
-    console.log("[v0] Goals saved successfully:", data)
     return { success: true, data }
   } catch (error) {
     console.error("[v0] Exception in saveUserGoals:", error)

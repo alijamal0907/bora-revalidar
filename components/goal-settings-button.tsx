@@ -35,6 +35,7 @@ export function GoalSettingsButton({
   const [monthlyGoal, setMonthlyGoal] = useState(currentMonthlyGoal)
   const [loading, setLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState("")
 
   const maxDailyGoal = userPlan === "free" ? 20 : 10000
   const maxMonthlyGoal = userPlan === "free" ? 600 : 10000
@@ -62,6 +63,7 @@ export function GoalSettingsButton({
 
   const handleSave = async () => {
     setLoading(true)
+    setSuccessMessage("")
     try {
       const result = await saveUserGoals(dailyGoal, monthlyGoal)
 
@@ -70,10 +72,14 @@ export function GoalSettingsButton({
         return
       }
 
-      setOpen(false)
-      if (onGoalsSaved) {
-        onGoalsSaved()
-      }
+      setSuccessMessage("✓ Metas salvas com sucesso!")
+      setTimeout(() => {
+        setOpen(false)
+        setSuccessMessage("")
+        if (onGoalsSaved) {
+          onGoalsSaved()
+        }
+      }, 1500)
     } catch (error) {
       console.error("Erro ao salvar metas:", error)
       alert("Erro ao salvar metas. Tente novamente.")
@@ -100,6 +106,11 @@ export function GoalSettingsButton({
                 : "Configure suas metas diárias e mensais de estudo."}
             </DialogDescription>
           </DialogHeader>
+          {successMessage && (
+            <div className="rounded-md bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/20 dark:text-green-400">
+              {successMessage}
+            </div>
+          )}
           <div className="grid gap-6 py-4">
             <div className="space-y-2">
               <Label htmlFor="daily-goal">Meta Diária (questões por dia)</Label>
