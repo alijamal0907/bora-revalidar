@@ -35,7 +35,7 @@ export function GoalSettingsButton({
   const [monthlyGoal, setMonthlyGoal] = useState(currentMonthlyGoal)
   const [loading, setLoading] = useState(false)
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
-  const [successMessage, setSuccessMessage] = useState("")
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
   const maxDailyGoal = userPlan === "free" ? 20 : 10000
   const maxMonthlyGoal = userPlan === "free" ? 600 : 10000
@@ -63,26 +63,41 @@ export function GoalSettingsButton({
 
   const handleSave = async () => {
     setLoading(true)
-    setSuccessMessage("")
+    setMessage(null)
     try {
       const result = await saveUserGoals(dailyGoal, monthlyGoal)
 
       if (!result.success) {
-        alert(result.error || "Erro ao salvar metas. Tente novamente.")
+        const errorMessage = result.error || "Erro ao salvar metas. Tente novamente."
+
+        if (errorMessage.includes("autenticado") || errorMessage.includes("login")) {
+          setMessage({
+            type: "error",
+            text: "Sessão expirada. Por favor, faça login novamente para salvar suas metas.",
+          })
+          setTimeout(() => {
+            window.location.href = "/login"
+          }, 3000)
+        } else {
+          setMessage({ type: "error", text: errorMessage })
+        }
         return
       }
 
-      setSuccessMessage("✓ Metas salvas com sucesso!")
+      setMessage({ type: "success", text: "✓ Metas salvas com sucesso!" })
       setTimeout(() => {
         setOpen(false)
-        setSuccessMessage("")
+        setMessage(null)
         if (onGoalsSaved) {
           onGoalsSaved()
         }
-      }, 2500) // Aumentado de 1500ms para 2500ms para melhor visualização no mobile
+      }, 2500)
     } catch (error) {
-      console.error("Erro ao salvar metas:", error)
-      alert("Erro ao salvar metas. Verifique sua conexão e tente novamente.")
+      console.error("[v0] Erro ao salvar metas:", error)
+      setMessage({
+        type: "error",
+        text: "Erro de conexão. Verifique sua internet e tente novamente.",
+      })
     } finally {
       setLoading(false)
     }
@@ -106,9 +121,13 @@ export function GoalSettingsButton({
                 : "Configure suas metas diárias e mensais de estudo."}
             </DialogDescription>
           </DialogHeader>
-          {successMessage && (
-            <div className="rounded-lg bg-green-500 p-4 text-center text-base font-semibold text-white shadow-lg">
-              {successMessage}
+          {message && (
+            <div
+              className={`rounded-lg p-4 text-center text-base font-semibold shadow-lg ${
+                message.type === "success" ? "bg-green-500 text-white" : "bg-red-500 text-white"
+              }`}
+            >
+              {message.text}
             </div>
           )}
           <div className="grid gap-6 py-4">
