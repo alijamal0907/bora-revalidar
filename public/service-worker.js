@@ -1,5 +1,5 @@
 const CACHE_NAME = "bora-revalidar-v1"
-const urlsToCache = ["/", "/manifest.json", "/icons/icon-192.jpg", "/icons/icon-512.jpg"]
+const urlsToCache = ["/", "/manifest.json", "/icons/icon-192.png", "/icons/icon-512.png"]
 
 // Install event - cache essential files
 self.addEventListener("install", (event) => {
