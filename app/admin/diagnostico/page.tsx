@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createBrowserClient } from "@supabase/ssr"
+import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,15 +23,10 @@ export default function DiagnosticoPage() {
     setLoading(true)
 
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const supabase = createClient()
 
-      // Teste 1: Conexão com Supabase
       addResult("Conexão Supabase", true, "Cliente Supabase inicializado com sucesso")
 
-      // Teste 2: Buscar questões
       const { data: questoes, error: erroQuestoes } = await supabase
         .from("questoes")
         .select("id, tema, subtema")
@@ -43,7 +38,6 @@ export default function DiagnosticoPage() {
         addResult("Buscar Questões", true, `${questoes?.length || 0} questões encontradas`, questoes)
       }
 
-      // Teste 3: Buscar assinaturas
       const { data: assinaturas, error: erroAssinaturas } = await supabase.from("assinaturas").select("*")
 
       if (erroAssinaturas) {
@@ -52,7 +46,6 @@ export default function DiagnosticoPage() {
         addResult("Buscar Assinaturas", true, `${assinaturas?.length || 0} assinaturas encontradas`, assinaturas)
       }
 
-      // Teste 4: Verificar sessão
       const {
         data: { session },
         error: erroSessao,
@@ -69,7 +62,6 @@ export default function DiagnosticoPage() {
         addResult("Verificar Sessão", true, "Nenhum usuário logado no momento")
       }
 
-      // Teste 5: Verificar histórico
       const { data: historico, error: erroHistorico } = await supabase.from("hist_questoes").select("*").limit(5)
 
       if (erroHistorico) {
@@ -92,10 +84,7 @@ export default function DiagnosticoPage() {
 
     setLoading(true)
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const supabase = createClient()
 
       addResult("Teste de Cadastro", true, `Tentando cadastrar: ${testEmail}`)
 
@@ -115,7 +104,6 @@ export default function DiagnosticoPage() {
           email: data.user?.email,
         })
 
-        // Tentar adicionar na tabela assinaturas
         if (data.user) {
           const { error: erroAssinatura } = await supabase.from("assinaturas").upsert({
             email: data.user.email,

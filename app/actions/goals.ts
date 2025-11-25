@@ -33,7 +33,7 @@ export async function saveUserGoals(dailyGoal: number, monthlyGoal: number) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
-      console.error("[v0] Authentication error:", authError)
+      console.error("[v0] Authentication error:", authError?.message || "No user")
       return { success: false, error: "Usuário não autenticado. Faça login novamente." }
     }
 
