@@ -33,6 +33,17 @@ export async function POST(request: NextRequest) {
       },
     )
 
+    const { data: existingSubscription } = await supabase
+      .from("assinaturas")
+      .select("*")
+      .eq("email", email.toLowerCase().trim())
+      .single()
+
+    console.log(
+      "[v0] Existing subscription check:",
+      existingSubscription ? `Found ${existingSubscription.plano}` : "Not found",
+    )
+
     console.log("[v0] Creating user with Supabase Auth")
 
     // Criar usuário no Supabase Auth
@@ -55,7 +66,23 @@ export async function POST(request: NextRequest) {
 
     console.log("[v0] User created successfully:", authData.user.id)
 
-    // O RLS permite INSERT para usuários autenticados
+    if (existingSubscription) {
+      console.log("[v0] User already has subscription, skipping insert")
+
+      return NextResponse.json(
+        {
+          user: {
+            id: authData.user.id,
+            email: authData.user.email,
+          },
+          subscription: existingSubscription,
+          message: `Welcome! Your ${existingSubscription.plano} plan is already active.`,
+        },
+        { status: 200 },
+      )
+    }
+
+    // Se não existe assinatura, criar uma nova com plano free
     const newAssinatura = {
       email: email.toLowerCase().trim(),
       nome: email.split("@")[0],
@@ -74,7 +101,6 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error("[v0] Error inserting into assinaturas:", insertError.message)
-      // Usuário foi criado, mas não foi adicionado à tabela assinaturas
       return NextResponse.json(
         {
           user: {

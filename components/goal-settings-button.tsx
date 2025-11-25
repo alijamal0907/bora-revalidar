@@ -68,7 +68,7 @@ export function GoalSettingsButton({
       const result = await saveUserGoals(dailyGoal, monthlyGoal)
 
       if (!result.success) {
-        alert(result.error || "Erro ao salvar metas")
+        alert(result.error || "Erro ao salvar metas. Tente novamente.")
         return
       }
 
@@ -79,10 +79,10 @@ export function GoalSettingsButton({
         if (onGoalsSaved) {
           onGoalsSaved()
         }
-      }, 1500)
+      }, 2500) // Aumentado de 1500ms para 2500ms para melhor visualização no mobile
     } catch (error) {
       console.error("Erro ao salvar metas:", error)
-      alert("Erro ao salvar metas. Tente novamente.")
+      alert("Erro ao salvar metas. Verifique sua conexão e tente novamente.")
     } finally {
       setLoading(false)
     }
@@ -107,7 +107,7 @@ export function GoalSettingsButton({
             </DialogDescription>
           </DialogHeader>
           {successMessage && (
-            <div className="rounded-md bg-green-50 p-3 text-sm text-green-800 dark:bg-green-900/20 dark:text-green-400">
+            <div className="rounded-lg bg-green-500 p-4 text-center text-base font-semibold text-white shadow-lg">
               {successMessage}
             </div>
           )}

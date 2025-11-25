@@ -6,6 +6,7 @@ import { cookies } from "next/headers"
 export async function saveUserGoals(dailyGoal: number, monthlyGoal: number) {
   try {
     const cookieStore = await cookies()
+
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -51,13 +52,13 @@ export async function saveUserGoals(dailyGoal: number, monthlyGoal: number) {
       .single()
 
     if (error) {
-      console.error("[v0] Database error saving goals:", error)
-      return { success: false, error: `Erro ao salvar metas: ${error.message}` }
+      console.error("Error saving goals:", error)
+      return { success: false, error: "Erro ao salvar metas. Verifique sua conexão." }
     }
 
     return { success: true, data }
   } catch (error) {
-    console.error("[v0] Exception in saveUserGoals:", error)
-    return { success: false, error: "Erro inesperado ao salvar metas" }
+    console.error("Exception in saveUserGoals:", error)
+    return { success: false, error: "Erro ao salvar metas. Tente novamente." }
   }
 }
