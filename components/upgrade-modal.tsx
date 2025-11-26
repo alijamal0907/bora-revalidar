@@ -12,7 +12,7 @@ interface UpgradeModalProps {
 const PLANS = [
   {
     name: "Plano Mensal",
-    price: "R$ 35,50",
+    price: "R$ 35,00",
     period: "/ mês",
     link: "https://pay.cakto.com.br/upkbydv_655583",
     benefits: [
@@ -25,7 +25,7 @@ const PLANS = [
   },
   {
     name: "Plano Trimestral",
-    price: "R$ 94,57",
+    price: "R$ 70,00",
     period: "a cada 3 meses",
     link: "https://pay.cakto.com.br/gyksd75",
     benefits: ["15% de economia comparado ao mensal", "Tudo do plano mensal incluído"],
@@ -33,7 +33,7 @@ const PLANS = [
   },
   {
     name: "Plano Anual",
-    price: "R$ 347,50",
+    price: "R$ 300,00",
     period: "/ ano",
     link: "https://pay.cakto.com.br/j5jtax8",
     benefits: ["Mais de 30% de economia", "Acesso anual ilimitado", "Bônus exclusivos futuros"],

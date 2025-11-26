@@ -13,7 +13,7 @@ const PLANS = [
   {
     id: "monthly",
     name: "Plano Mensal",
-    price: "R$ 35,50",
+    price: "R$ 35,00",
     period: "/ mês",
     paymentUrl: "https://pay.cakto.com.br/upkbydv_655583",
     popular: false,
@@ -27,7 +27,7 @@ const PLANS = [
   {
     id: "quarterly",
     name: "Plano Trimestral",
-    price: "R$ 94,57",
+    price: "R$ 70,00",
     period: "a cada 3 meses",
     paymentUrl: "https://pay.cakto.com.br/gyksd75",
     popular: true,
@@ -36,7 +36,7 @@ const PLANS = [
   {
     id: "annual",
     name: "Plano Anual",
-    price: "R$ 347,50",
+    price: "R$ 300,00",
     period: "/ ano",
     paymentUrl: "https://pay.cakto.com.br/j5jtax8",
     popular: false,
