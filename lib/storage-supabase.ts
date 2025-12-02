@@ -1,5 +1,7 @@
-import { supabase } from "./supabase"
+import { createClient } from "@/lib/supabase/client"
 import type { StudyCard, ReviewResult } from "./spaced-repetition"
+
+const supabase = createClient()
 
 export async function getQuestoesAsCards(usuarioId: string): Promise<StudyCard[]> {
   try {

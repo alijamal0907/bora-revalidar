@@ -1,4 +1,4 @@
-import { supabase } from "./supabase"
+import { createClient } from "@/lib/supabase/client"
 
 interface User {
   id: string
@@ -8,6 +8,7 @@ interface User {
 
 export async function getSupabaseUser(): Promise<User | null> {
   try {
+    const supabase = createClient()
     const {
       data: { session },
       error,
@@ -40,6 +41,7 @@ export async function getSupabaseUser(): Promise<User | null> {
     if (error?.message?.includes("Invalid Refresh Token") || error?.message?.includes("Refresh Token Not Found")) {
       console.log("[v0] Invalid refresh token caught, clearing session")
       try {
+        const supabase = createClient()
         await supabase.auth.signOut()
       } catch (e) {
         // Ignore signout errors
@@ -83,6 +85,7 @@ export async function signUpSupabase(email: string, password: string): Promise<U
     }
 
     // Fazer login após criar conta
+    const supabase = createClient()
     const {
       data: { user: signedInUser },
       error: signInError,
@@ -116,6 +119,7 @@ export async function signUpSupabase(email: string, password: string): Promise<U
 
 export async function signInSupabase(email: string, password: string): Promise<User | null> {
   try {
+    const supabase = createClient()
     const {
       data: { user },
       error,
@@ -146,6 +150,7 @@ export async function signInSupabase(email: string, password: string): Promise<U
 
 export async function signOutSupabase(): Promise<void> {
   try {
+    const supabase = createClient()
     const {
       data: { session },
       error,
@@ -198,6 +203,7 @@ export async function signOutSupabase(): Promise<void> {
 }
 
 export function listenToAuthStateChange(callback: (user: User | null) => void) {
+  const supabase = createClient()
   const {
     data: { subscription },
   } = supabase.auth.onAuthStateChange((_event, session) => {
