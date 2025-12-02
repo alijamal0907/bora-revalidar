@@ -1,10 +1,9 @@
 import { createClient } from "@/lib/supabase/client"
 import type { StudyCard, ReviewResult } from "./spaced-repetition"
 
-const supabase = createClient()
-
 export async function getQuestoesAsCards(usuarioId: string): Promise<StudyCard[]> {
   try {
+    const supabase = createClient()
     const { data: questoes, error } = await supabase.from("questoes").select("*").limit(2000)
 
     if (error) {
@@ -46,6 +45,7 @@ export async function saveReviewToHistory(
   timestamp: number,
 ): Promise<void> {
   try {
+    const supabase = createClient()
     const { error } = await supabase.from("hist_questoes").insert([
       {
         questao_id: cardId,
@@ -69,6 +69,7 @@ export async function saveReviewToHistory(
 
 export async function getMarcacoesRevisaoData(usuarioId: string): Promise<any[]> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase.from("marcacoes_revisao").select("*").eq("usuario_id", usuarioId)
 
     if (error) {
@@ -85,6 +86,7 @@ export async function getMarcacoesRevisaoData(usuarioId: string): Promise<any[]>
 
 export async function getHistoricoQuestoes(usuarioId: string): Promise<ReviewResult[]> {
   try {
+    const supabase = createClient()
     const { data: historico, error } = await supabase.from("hist_questoes").select("*")
 
     if (error) {
@@ -112,6 +114,7 @@ export async function initializeCardsFromSupabase(usuarioId: string): Promise<St
 
 export async function markForLaterReview(usuarioId: string, cardId: string): Promise<void> {
   try {
+    const supabase = createClient()
     const { error } = await supabase.from("marcacoes_revisao").insert([
       {
         questao_id: cardId,
@@ -132,6 +135,7 @@ export async function markForLaterReview(usuarioId: string, cardId: string): Pro
 
 export async function unmarkForLaterReview(cardId: string): Promise<void> {
   try {
+    const supabase = createClient()
     const { error } = await supabase.from("marcacoes_revisao").delete().eq("questao_id", cardId)
 
     if (error) {
@@ -146,6 +150,7 @@ export async function unmarkForLaterReview(cardId: string): Promise<void> {
 
 export async function getUniqueThemes(): Promise<string[]> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase.from("questoes").select("tema").limit(2000)
 
     if (error) {
@@ -177,6 +182,7 @@ export async function getUniqueThemes(): Promise<string[]> {
 
 export async function getQuestoesAsCardsByTheme(usuarioId: string, tema?: string): Promise<StudyCard[]> {
   try {
+    const supabase = createClient()
     let query = supabase.from("questoes").select("*")
 
     if (tema) {
@@ -220,6 +226,7 @@ export async function getQuestoesAsCardsByTheme(usuarioId: string, tema?: string
 
 export async function getQuestoesAsCardsByMultipleThemes(usuarioId: string, temas?: string[]): Promise<StudyCard[]> {
   try {
+    const supabase = createClient()
     let query = supabase.from("questoes").select("*")
 
     if (temas && temas.length > 0) {
@@ -274,6 +281,7 @@ export async function saveQuizAnswer(
   }
 
   try {
+    const supabase = createClient()
     const { error } = await supabase.from("hist_questoes").insert([
       {
         user_id: userId,
@@ -297,6 +305,7 @@ export async function saveQuizAnswer(
 
 export async function getWrongAnswers(userId: string): Promise<any[]> {
   try {
+    const supabase = createClient()
     const { data: historico, error: histError } = await supabase
       .from("hist_questoes")
       .select("*")
@@ -332,6 +341,7 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
 
 export async function getProgressByTheme(userId: string): Promise<any[]> {
   try {
+    const supabase = createClient()
     const { data: historico, error: histError } = await supabase.from("hist_questoes").select("*").eq("user_id", userId)
 
     if (histError) {
@@ -391,6 +401,7 @@ export async function getProgressByTheme(userId: string): Promise<any[]> {
 
 export async function getQuestoesWithAlternatives(usuarioId: string, temas?: string[], limit = 2000): Promise<any[]> {
   try {
+    const supabase = createClient()
     const { data: allQuestoes, error: fetchError } = await supabase.from("questoes").select("*").limit(limit)
 
     if (fetchError) {
@@ -428,6 +439,7 @@ export async function checkSubscriptionStatus(email: string): Promise<{
   subscription?: any
 }> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from("assinaturas")
       .select("*")
@@ -472,6 +484,7 @@ export async function registerDeviceSession(
   },
 ): Promise<{ success: boolean; message: string }> {
   try {
+    const supabase = createClient()
     const now = new Date()
 
     // Verificar se já existe uma sessão para este dispositivo
@@ -538,6 +551,7 @@ export async function createSubscriptionFromCakto(
   transactionId?: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
+    const supabase = createClient()
     const { data: existing, error: checkError } = await supabase
       .from("assinaturas")
       .select("*")
@@ -589,6 +603,7 @@ export async function createSubscriptionFromCakto(
 
 export async function getUserStreak(userId: string): Promise<number> {
   try {
+    const supabase = createClient()
     const { data: sessions, error } = await supabase
       .from("user_devices")
       .select("last_active")
@@ -646,6 +661,7 @@ export async function getUserStreak(userId: string): Promise<number> {
 }
 
 export async function getUserGoals(userId: string) {
+  const supabase = createClient()
   const { data, error } = await supabase.from("user_goals").select("*").eq("user_id", userId).single()
 
   if (error && error.code !== "PGRST116") {
@@ -657,6 +673,7 @@ export async function getUserGoals(userId: string) {
 }
 
 export async function getDailyProgress(userId: string) {
+  const supabase = createClient()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
@@ -676,6 +693,7 @@ export async function getDailyProgress(userId: string) {
 }
 
 export async function getMonthlyProgress(userId: string) {
+  const supabase = createClient()
   const firstDayOfMonth = new Date()
   firstDayOfMonth.setDate(1)
   firstDayOfMonth.setHours(0, 0, 0, 0)
@@ -697,6 +715,7 @@ export async function getMonthlyProgress(userId: string) {
 
 export async function getUserPlan(email: string): Promise<"free" | "premium"> {
   try {
+    const supabase = createClient()
     const { data, error } = await supabase
       .from("assinaturas")
       .select("plano, status, transaction_id, data_pagamento")
@@ -721,6 +740,7 @@ export async function getUserPlan(email: string): Promise<"free" | "premium"> {
 
 export async function getDailyQuestionCount(userId: string): Promise<number> {
   try {
+    const supabase = createClient()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -744,6 +764,7 @@ export async function getDailyQuestionCount(userId: string): Promise<number> {
 
 export async function getDailyQuestionCountByTheme(userId: string, theme: string): Promise<number> {
   try {
+    const supabase = createClient()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
