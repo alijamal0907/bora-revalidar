@@ -7,15 +7,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error("[v0] Missing Supabase environment variables")
 }
 
-// Exportar função ao invés de instância global
-export const getSupabaseClient = () => createClient(supabaseUrl || "", supabaseAnonKey || "")
-
-// Manter compatibilidade com código existente
-export const supabase = createClient(supabaseUrl || "", supabaseAnonKey || "")
+export const getSupabaseClient = createClient
+export const supabase = createClient()
 
 // Helper functions for database operations
 export async function getQuestoes(limit = 100) {
-  const client = getSupabaseClient()
+  const client = supabase
   const { data, error } = await client.from("questoes").select("*").limit(limit)
 
   if (error) {
@@ -26,7 +23,7 @@ export async function getQuestoes(limit = 100) {
 }
 
 export async function getHistQuestoes(usuarioId: string) {
-  const client = getSupabaseClient()
+  const client = supabase
   const { data, error } = await client.from("hist_questoes").select("*").eq("usuario_id", usuarioId)
 
   if (error) {
@@ -37,7 +34,7 @@ export async function getHistQuestoes(usuarioId: string) {
 }
 
 export async function getMarcacoesRevisao(usuarioId: string) {
-  const client = getSupabaseClient()
+  const client = supabase
   const { data, error } = await client.from("marcacoes_revisao").select("*").eq("usuario_id", usuarioId)
 
   if (error) {
@@ -48,7 +45,7 @@ export async function getMarcacoesRevisao(usuarioId: string) {
 }
 
 export async function getAssinaturas(usuarioId: string) {
-  const client = getSupabaseClient()
+  const client = supabase
   const { data, error } = await client.from("assinaturas").select("*").eq("usuario_id", usuarioId)
 
   if (error) {
@@ -59,7 +56,7 @@ export async function getAssinaturas(usuarioId: string) {
 }
 
 export async function getUserDevices(usuarioId: string) {
-  const client = getSupabaseClient()
+  const client = supabase
   const { data, error } = await client.from("user_devices").select("*").eq("usuario_id", usuarioId)
 
   if (error) {
@@ -70,7 +67,7 @@ export async function getUserDevices(usuarioId: string) {
 }
 
 export async function getUserMetas(usuarioId: string) {
-  const client = getSupabaseClient()
+  const client = supabase
   const { data, error } = await client.from("user_metas").select("*").eq("usuario_id", usuarioId)
 
   if (error) {
@@ -81,7 +78,7 @@ export async function getUserMetas(usuarioId: string) {
 }
 
 export async function insertHistQuestao(histQuestao: any) {
-  const client = getSupabaseClient()
+  const client = supabase
   const { data, error } = await client.from("hist_questoes").insert([histQuestao])
 
   if (error) {
@@ -92,7 +89,7 @@ export async function insertHistQuestao(histQuestao: any) {
 }
 
 export async function updateMarcacaoRevisao(id: string, updates: any) {
-  const client = getSupabaseClient()
+  const client = supabase
   const { data, error } = await client.from("marcacoes_revisao").update(updates).eq("id", id)
 
   if (error) {
