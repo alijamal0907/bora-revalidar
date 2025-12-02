@@ -24,19 +24,6 @@ export function PWAInstaller() {
     setIsIOS(ios)
     setIsStandalone(standalone)
 
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker
-          .register("/service-worker.js")
-          .then((registration) => {
-            console.log("[PWA] Service Worker registered:", registration.scope)
-          })
-          .catch((error) => {
-            console.error("[PWA] Service Worker registration failed:", error)
-          })
-      })
-    }
-
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault()
       setDeferredPrompt(e as BeforeInstallPromptEvent)
@@ -93,8 +80,8 @@ export function PWAInstaller() {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 pb-safe animate-in slide-in-from-bottom-5">
-      <div className="mx-auto max-w-md bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg shadow-2xl p-4">
+    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 animate-in slide-in-from-bottom-5">
+      <div className="mx-auto max-w-md bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg shadow-2xl p-4 relative">
         <button
           onClick={handleDismiss}
           className="absolute top-2 right-2 p-1 hover:bg-white/20 rounded-full transition-colors"
