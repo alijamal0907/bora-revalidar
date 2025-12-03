@@ -24,6 +24,10 @@ export default function Home() {
     }
   }, [user, isLoading, error, router])
 
+  useEffect(() => {
+    router.replace("/login")
+  }, [router])
+
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-red-50 to-red-100 dark:from-gray-900 dark:to-gray-800">
@@ -54,7 +58,7 @@ export default function Home() {
           <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
           <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce"></div>
         </div>
-        <p className="text-muted-foreground mt-4">Carregando...</p>
+        <p className="text-muted-foreground mt-4">Redirecionando...</p>
       </div>
     </div>
   )
