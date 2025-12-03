@@ -12,7 +12,6 @@ import { QuestionStudyMode } from "@/components/question-study-mode"
 import { FlashcardStudyMode } from "@/components/flashcard-study-mode"
 import type { UserPlan } from "@/lib/plan-utils"
 
-// Normalizar temas para os 5 grupos principais
 const normalizeTema = (tema: string): string => {
   const temaLower = tema.toLowerCase().trim()
 
@@ -50,86 +49,107 @@ export default function ReviewPage() {
   const [reviewingFlashcards, setReviewingFlashcards] = useState(false)
   const [selectedTheme, setSelectedTheme] = useState<string | null>(null)
   const [selectedMateria, setSelectedMateria] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
     const checkAuth = async () => {
       try {
+        console.log("[v0] ReviewPage: Starting auth check")
         const currentUser = await getSupabaseUser()
+
         if (!currentUser) {
+          console.log("[v0] ReviewPage: No user found, redirecting to login")
           router.push("/login")
           return
         }
+
+        console.log("[v0] ReviewPage: User authenticated:", currentUser.id)
         setUser(currentUser)
 
         // Buscar plano do usuário
         try {
           const plan = await getUserPlan(currentUser.email)
+          console.log("[v0] ReviewPage: User plan:", plan)
           setUserPlan(plan)
         } catch (error) {
-          console.error("[v0] Error getting user plan:", error)
+          console.error("[v0] ReviewPage: Error getting user plan:", error)
           setUserPlan("free")
         }
 
         // Buscar questões e flashcards errados
         try {
+          console.log("[v0] ReviewPage: Fetching wrong answers and flashcards")
           const [wrongQuestions, wrongCards] = await Promise.all([
             getWrongAnswers(currentUser.id),
             getWrongFlashcards(currentUser.id),
           ])
 
+          console.log("[v0] ReviewPage: Wrong questions:", wrongQuestions?.length || 0)
+          console.log("[v0] ReviewPage: Wrong flashcards:", wrongCards?.length || 0)
+
           setIncorrectQuestions(wrongQuestions || [])
           setWrongFlashcards(wrongCards || [])
         } catch (error) {
-          console.error("[v0] Error fetching wrong answers:", error)
+          console.error("[v0] ReviewPage: Error fetching wrong answers:", error)
+          setIncorrectQuestions([])
+          setWrongFlashcards([])
         }
 
         setIsLoading(false)
-      } catch (error) {
-        console.error("[v0] Error checking auth:", error)
-        router.push("/login")
+      } catch (error: any) {
+        console.error("[v0] ReviewPage: Error in checkAuth:", error)
+        setError(error?.message || "Erro ao carregar dados")
+        setIsLoading(false)
       }
     }
 
     checkAuth()
   }, [router])
 
-  // Agrupar questões erradas por tema
-  const getWrongQuestionsByTheme = () => {
-    const themeGroups: { [key: string]: number } = {}
-
-    incorrectQuestions.forEach((q) => {
-      const normalizedTheme = normalizeTema(q.tema)
-      themeGroups[normalizedTheme] = (themeGroups[normalizedTheme] || 0) + 1
-    })
-
-    // Retornar apenas os 5 temas principais na ordem especificada
-    const orderedThemes = [
-      "Clínica Médica",
-      "Cirurgia",
-      "Pediatria",
-      "Medicina Preventiva",
-      "Ginecologia e Obstetrícia",
-    ]
-
-    const result: { [key: string]: number } = {}
-    orderedThemes.forEach((theme) => {
-      if (themeGroups[theme]) {
-        result[theme] = themeGroups[theme]
-      }
-    })
-
-    return result
+  if (error) {
+    return (
+      <div>
+        <Navbar user={user} />
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4">
+          <XCircle className="w-16 h-16 text-red-500 mb-4" />
+          <h2 className="text-2xl font-bold text-foreground mb-2">Erro ao Carregar</h2>
+          <p className="text-muted-foreground mb-6 text-center max-w-md">{error}</p>
+          <div className="flex gap-4">
+            <button
+              onClick={() => {
+                setError(null)
+                setIsLoading(true)
+                window.location.reload()
+              }}
+              className="bg-primary text-primary-foreground px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Tentar Novamente
+            </button>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="bg-muted text-foreground px-6 py-2 rounded-lg hover:bg-muted/80 transition-colors"
+            >
+              Voltar ao Dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
-  // Agrupar flashcards errados por matéria
-  const getWrongFlashcardsByMateria = () => {
-    const materiaGroups: { [key: string]: number } = {}
-
-    wrongFlashcards.forEach((f) => {
-      materiaGroups[f.materia] = (materiaGroups[f.materia] || 0) + 1
-    })
-
-    return materiaGroups
+  if (isLoading) {
+    return (
+      <div>
+        <Navbar user={user} />
+        <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    )
   }
 
   const handleReviewByTheme = (theme: string) => {
@@ -147,17 +167,6 @@ export default function ReviewPage() {
     setReviewingFlashcards(false)
     setSelectedTheme(null)
     setSelectedMateria(null)
-  }
-
-  if (isLoading) {
-    return (
-      <div>
-        <Navbar user={user} />
-        <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
-          <p className="text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    )
   }
 
   // Modo de revisão de questões erradas por tema
@@ -384,4 +393,40 @@ export default function ReviewPage() {
       </main>
     </div>
   )
+
+  function getWrongQuestionsByTheme() {
+    const themeGroups: { [key: string]: number } = {}
+
+    incorrectQuestions.forEach((q) => {
+      const normalizedTheme = normalizeTema(q.tema)
+      themeGroups[normalizedTheme] = (themeGroups[normalizedTheme] || 0) + 1
+    })
+
+    const orderedThemes = [
+      "Clínica Médica",
+      "Cirurgia",
+      "Pediatria",
+      "Medicina Preventiva",
+      "Ginecologia e Obstetrícia",
+    ]
+
+    const result: { [key: string]: number } = {}
+    orderedThemes.forEach((theme) => {
+      if (themeGroups[theme]) {
+        result[theme] = themeGroups[theme]
+      }
+    })
+
+    return result
+  }
+
+  function getWrongFlashcardsByMateria() {
+    const materiaGroups: { [key: string]: number } = {}
+
+    wrongFlashcards.forEach((f) => {
+      materiaGroups[f.materia] = (materiaGroups[f.materia] || 0) + 1
+    })
+
+    return materiaGroups
+  }
 }
