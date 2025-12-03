@@ -1,24 +1,10 @@
 "use client"
 
-import dynamic from "next/dynamic"
-import { Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, XCircle, Users, UserCheck } from "lucide-react"
-
-const UsuariosContent = dynamic(() => import("./usuarios-content"), {
-  ssr: false,
-  loading: () => (
-    <div className="container mx-auto py-8 flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
-        <p className="text-muted-foreground">Carregando usuários...</p>
-      </div>
-    </div>
-  ),
-})
+import { CheckCircle2, XCircle, Users, UserCheck, Loader2 } from "lucide-react"
 
 export default function UsuariosPage() {
   const [stats, setStats] = useState<any>(null)
@@ -48,7 +34,14 @@ export default function UsuariosPage() {
   }, [])
 
   if (loading) {
-    return <UsuariosContent />
+    return (
+      <div className="container mx-auto py-8 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-muted-foreground">Carregando usuários...</p>
+        </div>
+      </div>
+    )
   }
 
   const allUsersSynced = stats?.faltando === 0
@@ -130,7 +123,7 @@ export default function UsuariosPage() {
                     <td className="py-2 px-4 text-sm">{user.email}</td>
                     <td className="py-2 px-4 text-sm">{user.nome}</td>
                     <td className="py-2 px-4">
-                      <Badge variant={user.plano === "premium" ? "default" : "secondary"}>{user.plano}</Badge>
+                      <Badge variant={user.plano === "premium" ? "default" : "secondary"}>{user.plano || "free"}</Badge>
                     </td>
                     <td className="py-2 px-4">
                       <Badge variant={user.status === "ativo" ? "default" : "secondary"}>{user.status}</Badge>
