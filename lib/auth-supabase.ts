@@ -8,16 +8,36 @@ interface User {
 
 export async function getSupabaseUser(): Promise<User | null> {
   try {
+    if (typeof window === "undefined") {
+      console.log("[v0] Cannot get user on server side")
+      return null
+    }
+
     const supabase = createClient()
+
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("Request timeout")), 10000)
+    })
+
+    const sessionPromise = supabase.auth.getSession()
+
     const {
       data: { session },
       error,
-    } = await supabase.auth.getSession()
+    } = await Promise.race([sessionPromise, timeoutPromise]).catch((err) => {
+      console.error("[v0] Error getting session:", err)
+      return { data: { session: null }, error: err }
+    })
 
     if (error) {
+      if (error.message?.includes("Failed to fetch") || error.message?.includes("fetch")) {
+        console.error("[v0] Network error - unable to reach Supabase. Check your internet connection and Supabase URL.")
+        return null
+      }
+
       if (error.message.includes("Invalid Refresh Token") || error.message.includes("Refresh Token Not Found")) {
         console.log("[v0] Invalid refresh token, clearing session")
-        await supabase.auth.signOut()
+        await supabase.auth.signOut().catch(() => {})
         return null
       }
       console.log("[v0] No active session found:", error.message)
@@ -38,6 +58,11 @@ export async function getSupabaseUser(): Promise<User | null> {
       usuario_id: usuarioId,
     }
   } catch (error: any) {
+    if (error?.message?.includes("Failed to fetch") || error?.message?.includes("fetch")) {
+      console.error("[v0] Network error in getSupabaseUser - unable to reach Supabase")
+      return null
+    }
+
     if (error?.message?.includes("Invalid Refresh Token") || error?.message?.includes("Refresh Token Not Found")) {
       console.log("[v0] Invalid refresh token caught, clearing session")
       try {

@@ -34,6 +34,7 @@ export default function DashboardPage() {
   const [themeProgress, setThemeProgress] = useState<any[]>([])
   const [flashcardProgress, setFlashcardProgress] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [dailyGoal, setDailyGoal] = useState(10)
   const [monthlyGoal, setMonthlyGoal] = useState(300)
   const [dailyProgress, setDailyProgress] = useState(0)
@@ -67,11 +68,16 @@ export default function DashboardPage() {
   useEffect(() => {
     const loadDashboard = async () => {
       try {
+        console.log("[v0] Loading dashboard...")
         const currentUser = await getSupabaseUser()
+
         if (!currentUser) {
+          console.log("[v0] No user found, redirecting to login")
           router.push("/login")
           return
         }
+
+        console.log("[v0] User loaded:", currentUser.id)
 
         try {
           const deviceInfo = getDeviceInfo()
@@ -238,8 +244,13 @@ export default function DashboardPage() {
         setFlashcardProgress(processedFlashcardProgress)
 
         setIsLoading(false)
-      } catch (error) {
+      } catch (error: any) {
         console.error("[v0] Error loading dashboard:", error)
+        if (error?.message?.includes("Failed to fetch") || error?.message?.includes("fetch")) {
+          setError("Não foi possível conectar ao servidor. Verifique sua conexão com a internet.")
+        } else {
+          setError("Erro ao carregar o dashboard. Tente novamente.")
+        }
         setIsLoading(false)
       }
     }
@@ -269,6 +280,26 @@ export default function DashboardPage() {
         <Navbar user={user} />
         <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
           <p className="text-muted-foreground">Carregando seu painel...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div>
+        <Navbar user={user} />
+        <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4">
+          <div className="text-center max-w-md">
+            <h2 className="text-2xl font-bold text-foreground mb-4">Erro ao Carregar</h2>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+            >
+              Tentar Novamente
+            </button>
+          </div>
         </div>
       </div>
     )

@@ -14,9 +14,23 @@ const getGlobalClient = () => {
     return null
   }
 
+  try {
+    new URL(supabaseUrl)
+  } catch (error) {
+    console.error("[Supabase] Invalid Supabase URL:", supabaseUrl)
+    return null
+  }
+
   if (!(window as any).__supabaseClient) {
     try {
-      ;(window as any).__supabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey)
+      console.log("[v0] Creating Supabase client with URL:", supabaseUrl.substring(0, 30) + "...")
+      ;(window as any).__supabaseClient = createBrowserClient(supabaseUrl, supabaseAnonKey, {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      })
     } catch (error) {
       console.error("[Supabase] Error creating client:", error)
       return null
