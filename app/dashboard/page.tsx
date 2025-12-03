@@ -61,7 +61,7 @@ export default function DashboardPage() {
       setDailyProgress(dailyProg)
       setMonthlyProgress(monthlyProg)
     } catch (error) {
-      console.error("Error reloading goals:", error)
+      console.error("[v0] Erro ao recarregar metas e progresso:", error)
     }
   }
 
@@ -261,6 +261,34 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return
 
+    const loadData = async () => {
+      console.log("[v0] Loading dashboard...")
+      try {
+        const [currentGoals, plan, dailyProg, monthlyProg] = await Promise.all([
+          getUserGoals(user.id),
+          getUserPlan(user.id),
+          getDailyProgress(user.id),
+          getMonthlyProgress(user.id),
+        ])
+
+        if (currentGoals) {
+          setDailyGoal(currentGoals.daily_questions_goal)
+          setMonthlyGoal(currentGoals.monthly_questions_goal)
+        }
+
+        setUserPlan(plan)
+        setDailyProgress(dailyProg)
+        setMonthlyProgress(monthlyProg)
+        console.log("[v0] User loaded:", user.id)
+      } catch (error) {
+        console.error("[v0] Erro ao carregar dados do dashboard:", error)
+      }
+    }
+
+    loadData()
+  }, [user])
+
+  useEffect(() => {
     const interval = setInterval(async () => {
       try {
         const [dailyProg, monthlyProg] = await Promise.all([getDailyProgress(user.id), getMonthlyProgress(user.id)])

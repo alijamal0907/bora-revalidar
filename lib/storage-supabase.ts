@@ -674,44 +674,54 @@ export async function getUserGoals(userId: string) {
 }
 
 export async function getDailyProgress(userId: string) {
-  const supabase = createClient()
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+  try {
+    const supabase = createClient()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-  const { data, error } = await supabase
-    .from("hist_questoes")
-    .select("questao_id")
-    .eq("user_id", userId)
-    .gte("created_at", today.toISOString())
+    const { data, error } = await supabase
+      .from("hist_questoes")
+      .select("questao_id")
+      .eq("user_id", userId)
+      .gte("created_at", today.toISOString())
 
-  if (error) {
+    if (error) {
+      console.error("[v0] Erro ao buscar progresso diário:", error)
+      return 0
+    }
+
+    const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
+    return uniqueQuestions.size
+  } catch (error) {
     console.error("[v0] Erro ao buscar progresso diário:", error)
     return 0
   }
-
-  const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
-  return uniqueQuestions.size
 }
 
 export async function getMonthlyProgress(userId: string) {
-  const supabase = createClient()
-  const firstDayOfMonth = new Date()
-  firstDayOfMonth.setDate(1)
-  firstDayOfMonth.setHours(0, 0, 0, 0)
+  try {
+    const supabase = createClient()
+    const firstDayOfMonth = new Date()
+    firstDayOfMonth.setDate(1)
+    firstDayOfMonth.setHours(0, 0, 0, 0)
 
-  const { data, error } = await supabase
-    .from("hist_questoes")
-    .select("questao_id")
-    .eq("user_id", userId)
-    .gte("created_at", firstDayOfMonth.toISOString())
+    const { data, error } = await supabase
+      .from("hist_questoes")
+      .select("questao_id")
+      .eq("user_id", userId)
+      .gte("created_at", firstDayOfMonth.toISOString())
 
-  if (error) {
+    if (error) {
+      console.error("[v0] Erro ao buscar progresso mensal:", error)
+      return 0
+    }
+
+    const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
+    return uniqueQuestions.size
+  } catch (error) {
     console.error("[v0] Erro ao buscar progresso mensal:", error)
     return 0
   }
-
-  const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
-  return uniqueQuestions.size
 }
 
 export async function getUserPlan(email: string): Promise<"free" | "premium"> {
