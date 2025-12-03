@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { signInSupabase, signUpSupabase } from "@/lib/auth-supabase"
@@ -39,8 +38,6 @@ export default function LoginPage() {
         return
       }
 
-      // Usuários começam como FREE e são atualizados para PREMIUM pela webhook
-
       const user = await signUpSupabase(email, password)
 
       if (user) {
@@ -49,18 +46,14 @@ export default function LoginPage() {
           storeDeviceId(deviceInfo.deviceId)
           await registerDeviceSession(user.id, email, deviceInfo)
         } catch (err) {
-          console.log("[v0] Device registration failed (non-critical):", err)
+          // Non-critical error, continue
         }
 
         setSuccessMessage("Conta criada com sucesso! Redirecionando para o painel...")
-
-        setTimeout(() => {
-          router.push("/dashboard")
-        }, 1500)
+        setTimeout(() => router.push("/dashboard"), 1500)
       }
     } catch (err: any) {
       setError(err.message || "Erro ao criar conta. Tente novamente.")
-      console.error("[v0] Signup error:", err)
     } finally {
       setIsLoading(false)
     }
@@ -87,14 +80,13 @@ export default function LoginPage() {
           storeDeviceId(deviceInfo.deviceId)
           await registerDeviceSession(user.id, email, deviceInfo)
         } catch (err) {
-          console.log("[v0] Device registration failed (non-critical):", err)
+          // Non-critical error, continue
         }
 
         router.push("/dashboard")
       }
     } catch (err: any) {
       setError(err.message || "Falha na autenticação")
-      console.error("[v0] Auth error:", err)
     } finally {
       setIsLoading(false)
     }

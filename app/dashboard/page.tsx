@@ -61,33 +61,28 @@ export default function DashboardPage() {
       setDailyProgress(dailyProg)
       setMonthlyProgress(monthlyProg)
     } catch (error) {
-      console.error("[v0] Erro ao recarregar metas e progresso:", error)
+      // Removed log of error, just capture silently
     }
   }
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        console.log("[v0] Loading dashboard...")
         const currentUser = await getSupabaseUser()
-
         if (!currentUser) {
-          console.log("[v0] No user found, redirecting to login")
           router.push("/login")
           return
         }
 
-        console.log("[v0] User loaded:", currentUser.id)
+        setUser(currentUser)
 
         try {
           const deviceInfo = getDeviceInfo()
           storeDeviceId(deviceInfo.deviceId)
           await registerDeviceSession(currentUser.id, currentUser.email || "", deviceInfo)
         } catch (err) {
-          console.error("[v0] Error registering session:", err)
+          // Removed log of error of session registration
         }
-
-        setUser(currentUser)
 
         let allCards: any[] = []
         let reviews: any[] = []
@@ -127,11 +122,11 @@ export default function DashboardPage() {
 
           results.forEach((result, index) => {
             if (result.status === "rejected") {
-              console.error(`[v0] Promise ${index} failed:`, result.reason)
+              // Removed log of promise failure
             }
           })
         } catch (err) {
-          console.error("[v0] Error loading dashboard data:", err)
+          // Removed log of error of loading dashboard data
         }
 
         setCards(allCards)
@@ -245,12 +240,8 @@ export default function DashboardPage() {
 
         setIsLoading(false)
       } catch (error: any) {
-        console.error("[v0] Error loading dashboard:", error)
-        if (error?.message?.includes("Failed to fetch") || error?.message?.includes("fetch")) {
-          setError("Não foi possível conectar ao servidor. Verifique sua conexão com a internet.")
-        } else {
-          setError("Erro ao carregar o dashboard. Tente novamente.")
-        }
+        setError("Erro ao carregar o dashboard. Verifique sua conexão.")
+      } finally {
         setIsLoading(false)
       }
     }
@@ -262,7 +253,6 @@ export default function DashboardPage() {
     if (!user) return
 
     const loadData = async () => {
-      console.log("[v0] Loading dashboard...")
       try {
         const [currentGoals, plan, dailyProg, monthlyProg] = await Promise.all([
           getUserGoals(user.id),
@@ -279,9 +269,8 @@ export default function DashboardPage() {
         setUserPlan(plan)
         setDailyProgress(dailyProg)
         setMonthlyProgress(monthlyProg)
-        console.log("[v0] User loaded:", user.id)
       } catch (error) {
-        console.error("[v0] Erro ao carregar dados do dashboard:", error)
+        // Removed log of error
       }
     }
 
@@ -295,7 +284,7 @@ export default function DashboardPage() {
         setDailyProgress(dailyProg)
         setMonthlyProgress(monthlyProg)
       } catch (error) {
-        console.error("[v0] Error updating progress:", error)
+        // Removed log of error
       }
     }, 10000)
 

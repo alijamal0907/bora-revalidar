@@ -40,29 +40,24 @@ export async function getQuestoesAsCards(usuarioId: string): Promise<StudyCard[]
 
 export async function saveReviewToHistory(
   usuarioId: string,
-  cardId: string,
-  quality: number,
-  timestamp: number,
+  questaoId: string | number,
+  correta: boolean,
+  alternativaSelecionada: string,
 ): Promise<void> {
   try {
     const supabase = createClient()
-    const { error } = await supabase.from("hist_questoes").insert([
-      {
-        questao_id: cardId,
-        qualidade: quality,
-        data_revisao: new Date(timestamp).toISOString(),
-        // usuario_id and user_id removed - let Supabase handle via RLS or triggers
-      },
-    ])
+    const { error } = await supabase.from("historico_questoes").insert({
+      usuario_id: usuarioId,
+      questao_id: questaoId,
+      correta,
+      alternativa_selecionada: alternativaSelecionada,
+      data_resposta: new Date().toISOString(),
+    })
 
     if (error) {
-      console.error("[v0] Error saving review to history:", error)
       throw error
     }
-
-    console.log("[v0] Review saved successfully")
   } catch (error) {
-    console.error("[v0] Error in saveReviewToHistory:", error)
     throw error
   }
 }
@@ -148,13 +143,12 @@ export async function unmarkForLaterReview(cardId: string): Promise<void> {
   }
 }
 
-export async function getUniqueThemes(): Promise<string[]> {
+export async function getUniqueThemes(materia: string): Promise<string[]> {
   try {
     const supabase = createClient()
     const { data, error } = await supabase.from("questoes").select("tema").limit(2000)
 
     if (error) {
-      console.error("[v0] Error fetching themes:", error)
       return []
     }
 
@@ -172,10 +166,8 @@ export async function getUniqueThemes(): Promise<string[]> {
     })
 
     const sortedThemes = Array.from(themes).sort()
-    console.log("[v0] Unique themes found:", sortedThemes)
     return sortedThemes
   } catch (error) {
-    console.error("[v0] Error in getUniqueThemes:", error)
     return []
   }
 }
@@ -542,7 +534,6 @@ export async function registerDeviceSession(
 }
 
 export async function checkDeviceSession(userId: string, deviceId: string): Promise<boolean> {
-  console.log("[v0] Device session check disabled, returning true")
   return true
 }
 
@@ -734,7 +725,6 @@ export async function getUserPlan(email: string): Promise<"free" | "premium"> {
       .single()
 
     if (error || !data) {
-      console.log("[v0] No subscription found for", email, "- defaulting to free")
       return "free"
     }
 

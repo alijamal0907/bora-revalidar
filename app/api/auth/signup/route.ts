@@ -9,8 +9,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    console.log("[v0] Signup API called for:", email)
-
     const supabase = await createClient()
 
     const { data: existingSubscription } = await supabase
@@ -19,14 +17,6 @@ export async function POST(request: NextRequest) {
       .eq("email", email.toLowerCase().trim())
       .maybeSingle()
 
-    console.log(
-      "[v0] Existing subscription check:",
-      existingSubscription ? `Found ${existingSubscription.plano}` : "Not found",
-    )
-
-    console.log("[v0] Creating user with Supabase Auth")
-
-    // Criar usuário no Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
       password,
@@ -36,7 +26,6 @@ export async function POST(request: NextRequest) {
     })
 
     if (authError) {
-      console.error("[v0] Auth error:", authError.message)
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
@@ -44,11 +33,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "User creation failed" }, { status: 500 })
     }
 
-    console.log("[v0] User created successfully:", authData.user.id)
-
     if (existingSubscription) {
-      console.log("[v0] User already has subscription, skipping insert")
-
       return NextResponse.json(
         {
           user: {
@@ -62,7 +47,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Se não existe assinatura, criar uma nova com plano free
     const newAssinatura = {
       email: email.toLowerCase().trim(),
       nome: email.split("@")[0],
@@ -71,8 +55,6 @@ export async function POST(request: NextRequest) {
       data_cadastro: new Date().toISOString(),
     }
 
-    console.log("[v0] Inserting into assinaturas:", newAssinatura)
-
     const { data: insertData, error: insertError } = await supabase
       .from("assinaturas")
       .insert(newAssinatura)
@@ -80,7 +62,6 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (insertError) {
-      console.error("[v0] Error inserting into assinaturas:", insertError.message)
       return NextResponse.json(
         {
           user: {
@@ -93,8 +74,6 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log("[v0] User added to assinaturas successfully!")
-
     return NextResponse.json(
       {
         user: {
@@ -106,7 +85,6 @@ export async function POST(request: NextRequest) {
       { status: 200 },
     )
   } catch (error: any) {
-    console.error("[v0] Fatal error in signup API:", error.message)
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
   }
 }

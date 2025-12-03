@@ -4,13 +4,12 @@ import { createClient } from "@supabase/supabase-js"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    console.log("[v0] Webhook Cakto recebido:", JSON.stringify(body, null, 2))
 
     const caktoSecret = body.secret
     const expectedSecret = process.env.CAKTO_WEBHOOK_SECRET
 
     if (expectedSecret && caktoSecret !== expectedSecret) {
-      console.error("[v0] Secret inválido")
+      console.error("Secret inválido")
       return NextResponse.json({ error: "Unauthorized" }, { status: 200 })
     }
 
@@ -19,13 +18,12 @@ export async function POST(request: NextRequest) {
     const transactionId = body.data?.id || body.data?.transaction_id
 
     if (!email || !eventType) {
-      console.error("[v0] Dados inválidos - email ou event faltando")
+      console.error("Dados inválidos - email ou event faltando")
       return NextResponse.json({ error: "Invalid data" }, { status: 200 })
     }
 
     const eventosAceitos = ["purchase_approved", "subscription_payment_approved", "payment_approved"]
     if (!eventosAceitos.includes(eventType)) {
-      console.log("[v0] Evento ignorado:", eventType)
       return NextResponse.json({ message: "Event ignored" }, { status: 200 })
     }
 
@@ -33,7 +31,7 @@ export async function POST(request: NextRequest) {
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
     if (!supabaseUrl || !supabaseKey) {
-      console.error("[v0] Env vars missing")
+      console.error("Env vars missing")
       return NextResponse.json({ error: "Config error" }, { status: 200 })
     }
 
@@ -50,19 +48,17 @@ export async function POST(request: NextRequest) {
       ...(transactionId && { transaction_id: transactionId }),
     }
 
-    console.log("[v0] Atualizando assinatura:", updateData)
-
     const { error } = await supabase.from("assinaturas").upsert(updateData, { onConflict: "email" })
 
     if (error) {
-      console.error("[v0] Erro ao atualizar assinatura:", error.message)
+      console.error("Erro ao atualizar assinatura:", error.message)
       return NextResponse.json({ error: "Database error" }, { status: 200 })
     }
 
-    console.log("[v0] ✅ Premium ativado com sucesso:", email, "Transaction ID:", transactionId)
+    console.log("✅ Premium ativado com sucesso:", email)
     return NextResponse.json({ success: true, email, plano: "premium" })
   } catch (error: any) {
-    console.error("[v0] Erro no webhook:", error?.message || error)
+    console.error("Erro no webhook:", error?.message || error)
     return NextResponse.json({ error: "Internal error" }, { status: 200 })
   }
 }
