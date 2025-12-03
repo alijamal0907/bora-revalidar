@@ -309,9 +309,10 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
     const { data: historico, error: histError } = await supabase
       .from("hist_questoes")
       .select("*")
+      .eq("user_id", userId)
       .eq("correta", false)
       .order("created_at", { ascending: false })
-      .limit(1000) // Increased limit from 100 to 1000 to capture more wrong answers
+      .limit(1000)
 
     if (histError) {
       console.error("[v0] Error fetching wrong answers from hist:", histError)
