@@ -26,7 +26,6 @@ export function Navbar({ user }: NavbarProps) {
       console.log("[v0] Signout successful, redirecting to login")
     } catch (error) {
       console.error("[v0] Error in handleLogout:", error)
-      // Continue with redirect even if error occurs
     } finally {
       window.location.href = "/login"
     }

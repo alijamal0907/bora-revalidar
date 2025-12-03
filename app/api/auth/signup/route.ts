@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       .from("assinaturas")
       .select("*")
       .eq("email", email.toLowerCase().trim())
-      .single()
+      .maybeSingle()
 
     console.log(
       "[v0] Existing subscription check:",
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
       .from("assinaturas")
       .insert(newAssinatura)
       .select()
-      .single()
+      .maybeSingle()
 
     if (insertError) {
       console.error("[v0] Error inserting into assinaturas:", insertError.message)

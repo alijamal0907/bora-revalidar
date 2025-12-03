@@ -1,72 +1,58 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseUser } from "@/lib/auth-supabase"
 import { Navbar } from "@/components/navbar"
-import { getWrongAnswers, getProgressByTheme, saveQuizAnswer } from "@/lib/storage-supabase"
-import { TrendingUp, Calendar, BookOpen, ArrowLeft, AlertCircle, Play, Filter } from "lucide-react"
-import { UpgradeModal } from "@/components/upgrade-modal"
-import { getUserPlan } from "@/lib/storage-supabase"
-import { canAccessReview } from "@/lib/plan-utils"
+import { Brain, BookOpen, CheckCircle2, XCircle, ArrowLeft, Lock } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { getWrongAnswers, getUserPlan } from "@/lib/storage-supabase"
+import { getWrongFlashcards } from "@/lib/flashcards-storage"
+import { QuestionStudyMode } from "@/components/question-study-mode"
+import { FlashcardStudyMode } from "@/components/flashcard-study-mode"
 import type { UserPlan } from "@/lib/plan-utils"
 
-interface Question {
-  id: string
-  enunciado: string
-  alternativaA: string
-  alternativaB: string
-  alternativaC: string
-  alternativaD: string
-  respostaCorreta: string
-  wrongCount: number
-  [key: string]: any
-}
+// Normalizar temas para os 5 grupos principais
+const normalizeTema = (tema: string): string => {
+  const temaLower = tema.toLowerCase().trim()
 
-const ALLOWED_THEMES = ["Clínica Médica", "Cirurgia", "Medicina Preventiva", "Pediatria", "Ginecologia e Obstetrícia"]
-
-function normalizeThemeName(theme: string): string {
-  return theme
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-}
-
-function mapToAllowedTheme(dbTheme: string): string | null {
-  const normalized = normalizeThemeName(dbTheme)
-
-  for (const allowed of ALLOWED_THEMES) {
-    const normalizedAllowed = normalizeThemeName(allowed)
-    if (normalized.includes(normalizedAllowed) || normalizedAllowed.includes(normalized)) {
-      return allowed
-    }
+  if (temaLower.includes("clinica medica") || temaLower.includes("clínica médica")) {
+    return "Clínica Médica"
+  }
+  if (temaLower.includes("cirurgia") || temaLower.includes("cirurgica") || temaLower.includes("cirúrgica")) {
+    return "Cirurgia"
+  }
+  if (temaLower.includes("ginecologia") || temaLower.includes("obstetricia") || temaLower.includes("obstetrícia")) {
+    return "Ginecologia e Obstetrícia"
+  }
+  if (temaLower.includes("pediatria")) {
+    return "Pediatria"
+  }
+  if (
+    temaLower.includes("preventiva") ||
+    temaLower.includes("saude coletiva") ||
+    temaLower.includes("saúde coletiva")
+  ) {
+    return "Medicina Preventiva"
   }
 
-  return null
+  return "Outros"
 }
 
 export default function ReviewPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [themeProgress, setThemeProgress] = useState<any[]>([])
-  const [wrongAnswers, setWrongAnswers] = useState<Question[]>([])
-  const [activeTab, setActiveTab] = useState<"overview" | "wrong" | "review">("overview")
-  const [reviewingWrong, setReviewingWrong] = useState(false)
-  const [reviewIndex, setReviewIndex] = useState(0)
-  const [reviewStats, setReviewStats] = useState({ reviewed: 0, correct: 0 })
-  const [reviewAnswered, setReviewAnswered] = useState(false)
-  const [reviewSelected, setReviewSelected] = useState<string | null>(null)
-
-  const [filteredReviewQuestions, setFilteredReviewQuestions] = useState<Question[]>([])
-  const [selectedReviewTheme, setSelectedReviewTheme] = useState<string | null>(null)
-
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [incorrectQuestions, setIncorrectQuestions] = useState<any[]>([])
+  const [wrongFlashcards, setWrongFlashcards] = useState<any[]>([])
+  const [reviewingWrong, setReviewingWrong] = useState(false)
+  const [reviewingFlashcards, setReviewingFlashcards] = useState(false)
+  const [selectedTheme, setSelectedTheme] = useState<string | null>(null)
+  const [selectedMateria, setSelectedMateria] = useState<string | null>(null)
 
   useEffect(() => {
-    const loadReviewData = async () => {
+    const checkAuth = async () => {
       try {
         const currentUser = await getSupabaseUser()
         if (!currentUser) {
@@ -75,560 +61,327 @@ export default function ReviewPage() {
         }
         setUser(currentUser)
 
-        const plan = await getUserPlan(currentUser.email)
-        setUserPlan(plan)
-
-        if (!canAccessReview(plan)) {
-          setShowUpgradeModal(true)
-          setIsLoading(false)
-          return
+        // Buscar plano do usuário
+        try {
+          const plan = await getUserPlan(currentUser.email)
+          setUserPlan(plan)
+        } catch (error) {
+          console.error("[v0] Error getting user plan:", error)
+          setUserPlan("free")
         }
 
-        const [progress, wrong] = await Promise.all([
-          getProgressByTheme(currentUser.usuario_id || currentUser.id),
-          getWrongAnswers(currentUser.usuario_id || currentUser.id),
-        ])
+        // Buscar questões e flashcards errados
+        try {
+          const [wrongQuestions, wrongCards] = await Promise.all([
+            getWrongAnswers(currentUser.id),
+            getWrongFlashcards(currentUser.id),
+          ])
 
-        const themeMap = new Map<string, { correct: number; wrong: number; total: number }>()
+          setIncorrectQuestions(wrongQuestions || [])
+          setWrongFlashcards(wrongCards || [])
+        } catch (error) {
+          console.error("[v0] Error fetching wrong answers:", error)
+        }
 
-        progress.forEach((p) => {
-          const mappedTheme = mapToAllowedTheme(p.theme)
-          if (mappedTheme) {
-            const existing = themeMap.get(mappedTheme) || { correct: 0, wrong: 0, total: 0 }
-            themeMap.set(mappedTheme, {
-              correct: existing.correct + p.correct,
-              wrong: existing.wrong + p.wrong,
-              total: existing.total + p.total,
-            })
-          }
-        })
-
-        const consolidatedProgress = Array.from(themeMap.entries()).map(([theme, stats]) => ({
-          theme,
-          correct: stats.correct,
-          wrong: stats.wrong,
-          total: stats.total,
-          percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
-        }))
-
-        console.log("[v0] Consolidated progress to 5 main themes:", consolidatedProgress)
-        setThemeProgress(consolidatedProgress)
-        setWrongAnswers(wrong)
         setIsLoading(false)
       } catch (error) {
-        console.error("[v0] Error loading review data:", error)
-        setIsLoading(false)
+        console.error("[v0] Error checking auth:", error)
+        router.push("/login")
       }
     }
 
-    loadReviewData()
+    checkAuth()
   }, [router])
 
-  const startReview = (theme: string | null = null) => {
-    let questionsToReview = wrongAnswers
-
-    if (theme) {
-      questionsToReview = wrongAnswers.filter((q) => {
-        const qTheme = (q.tema || q.category || "").toLowerCase().trim()
-        const targetTheme = theme.toLowerCase().trim()
-        return qTheme.includes(targetTheme) || targetTheme.includes(qTheme)
-      })
-    }
-
-    if (questionsToReview.length === 0) return
-
-    setFilteredReviewQuestions(questionsToReview)
-    setSelectedReviewTheme(theme)
-    setReviewingWrong(true)
-    setReviewIndex(0)
-    setReviewStats({ reviewed: 0, correct: 0 })
-    setReviewAnswered(false)
-    setReviewSelected(null)
-    setActiveTab("review")
-  }
-
+  // Agrupar questões erradas por tema
   const getWrongQuestionsByTheme = () => {
-    const grouped: { [key: string]: Question[] } = {}
+    const themeGroups: { [key: string]: number } = {}
 
-    ALLOWED_THEMES.forEach((theme) => {
-      grouped[theme] = []
+    incorrectQuestions.forEach((q) => {
+      const normalizedTheme = normalizeTema(q.tema)
+      themeGroups[normalizedTheme] = (themeGroups[normalizedTheme] || 0) + 1
     })
 
-    wrongAnswers.forEach((q) => {
-      const qTheme = (q.tema || q.category || "").toLowerCase().trim()
+    // Retornar apenas os 5 temas principais na ordem especificada
+    const orderedThemes = [
+      "Clínica Médica",
+      "Cirurgia",
+      "Pediatria",
+      "Medicina Preventiva",
+      "Ginecologia e Obstetrícia",
+    ]
 
-      // Find matching allowed theme
-      const matchedTheme = ALLOWED_THEMES.find((allowed) => {
-        const allowedLower = allowed.toLowerCase()
-        return qTheme.includes(allowedLower) || allowedLower.includes(qTheme)
-      })
-
-      if (matchedTheme) {
-        grouped[matchedTheme].push(q)
-      } else {
-        // Optional: Put in 'Outros' or ignore if we strictly only want the 5 themes
-        // For now, let's ignore or put in a generic bucket if needed, but user asked for specific themes
+    const result: { [key: string]: number } = {}
+    orderedThemes.forEach((theme) => {
+      if (themeGroups[theme]) {
+        result[theme] = themeGroups[theme]
       }
     })
 
-    return grouped
+    return result
   }
 
-  if (!user || isLoading) {
+  // Agrupar flashcards errados por matéria
+  const getWrongFlashcardsByMateria = () => {
+    const materiaGroups: { [key: string]: number } = {}
+
+    wrongFlashcards.forEach((f) => {
+      materiaGroups[f.materia] = (materiaGroups[f.materia] || 0) + 1
+    })
+
+    return materiaGroups
+  }
+
+  const handleReviewByTheme = (theme: string) => {
+    setSelectedTheme(theme)
+    setReviewingWrong(true)
+  }
+
+  const handleReviewFlashcards = (materia: string) => {
+    setSelectedMateria(materia)
+    setReviewingFlashcards(true)
+  }
+
+  const handleBackToOverview = () => {
+    setReviewingWrong(false)
+    setReviewingFlashcards(false)
+    setSelectedTheme(null)
+    setSelectedMateria(null)
+  }
+
+  if (isLoading) {
     return (
       <div>
         <Navbar user={user} />
         <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
-          <p className="text-muted-foreground">Carregando dados de revisão...</p>
+          <p className="text-muted-foreground">Carregando...</p>
         </div>
       </div>
     )
   }
 
-  // Modal de upgrade para revisão bloqueada
-  if (showUpgradeModal) {
-    return (
-      <div>
-        <Navbar user={user} />
-        <UpgradeModal
-          isOpen={showUpgradeModal}
-          onClose={() => {
-            setShowUpgradeModal(false)
-            router.push("/dashboard")
-          }}
-          reason="review_blocked"
-        />
-      </div>
-    )
-  }
+  // Modo de revisão de questões erradas por tema
+  if (reviewingWrong && selectedTheme) {
+    const questionsToReview = incorrectQuestions.filter((q) => normalizeTema(q.tema) === selectedTheme)
 
-  // Overview tab content
-  if (activeTab === "overview" && !reviewingWrong) {
     return (
       <div>
         <Navbar user={user} />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </button>
-
-          <h1 className="text-4xl font-bold text-foreground mb-2">Seu Progresso</h1>
-          <p className="text-muted-foreground text-lg mb-8">Acompanhe seu desempenho e melhore continuamente</p>
-
-          {/* Tabs */}
-          <div className="flex gap-4 mb-8 border-b border-border">
+          <div className="mb-8">
             <button
-              onClick={() => setActiveTab("overview")}
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === "overview"
-                  ? "text-primary border-b-2 border-primary -mb-2"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
+              onClick={handleBackToOverview}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
             >
-              Visão Geral
+              <ArrowLeft className="w-5 h-5" />
+              Voltar para visão geral
             </button>
-            <button
-              onClick={() => setActiveTab("wrong")}
-              className={`px-4 py-2 font-medium transition-colors ${
-                activeTab === "wrong"
-                  ? "text-primary border-b-2 border-primary -mb-2"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              Questões Erradas ({wrongAnswers.length})
-            </button>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Revisando: {selectedTheme}</h1>
+            <p className="text-muted-foreground">{questionsToReview.length} questão(ões) para revisar neste tema</p>
           </div>
 
-          {/* Progresso por Matéria */}
-          <div className="bg-card border border-border rounded-lg p-8 mb-12">
-            <h2 className="text-2xl font-bold text-foreground mb-8">Progresso por Matéria</h2>
-            <div className="space-y-6">
-              {ALLOWED_THEMES.map((themeName) => {
-                const themeData = themeProgress.find((t) => t.theme === themeName)
-                const correct = themeData?.correct || 0
-                const wrong = themeData?.wrong || 0
-                const total = themeData?.total || 0
-                const percentage = themeData?.percentage || 0
-
-                return (
-                  <div key={themeName}>
-                    <div className="flex justify-between items-center mb-2">
-                      <div>
-                        <span className="font-bold text-foreground">{themeName}</span>
-                        <span className="ml-4 text-sm text-muted-foreground">
-                          {correct}/{total} corretas
-                        </span>
-                      </div>
-                      <span className="text-2xl font-bold text-primary">{percentage}%</span>
-                    </div>
-                    <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                      <span>Corretas: {correct}</span>
-                      <span>Erradas: {wrong}</span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Stats Cards */}
-          {themeProgress.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-card border border-border rounded-lg p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Total de Questões</p>
-                    <p className="text-3xl font-bold text-foreground mt-2">
-                      {themeProgress.reduce((sum, t) => sum + t.total, 0)}
-                    </p>
-                  </div>
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <BookOpen className="w-6 h-6 text-primary" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-card border border-border rounded-lg p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Média de Acerto</p>
-                    <p className="text-3xl font-bold text-accent mt-2">
-                      {Math.round(themeProgress.reduce((sum, t) => sum + t.percentage, 0) / themeProgress.length)}%
-                    </p>
-                  </div>
-                  <div className="bg-accent/10 p-3 rounded-lg">
-                    <TrendingUp className="w-6 h-6 text-accent" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-card border border-border rounded-lg p-6">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-muted-foreground text-sm">Matérias Estudadas</p>
-                    <p className="text-3xl font-bold text-secondary mt-2">{themeProgress.length}</p>
-                  </div>
-                  <div className="bg-secondary/10 p-3 rounded-lg">
-                    <Calendar className="w-6 h-6 text-secondary" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          <QuestionStudyMode questions={questionsToReview} onComplete={handleBackToOverview} isReviewMode={true} />
         </main>
       </div>
     )
   }
 
-  // Wrong Answers tab
-  if (activeTab === "wrong" && !reviewingWrong) {
-    const groupedQuestions = getWrongQuestionsByTheme()
+  // Modo de revisão de flashcards errados
+  if (reviewingFlashcards && selectedMateria) {
+    const flashcardsToReview = wrongFlashcards.filter((f) => f.materia === selectedMateria)
 
     return (
       <div>
         <Navbar user={user} />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </button>
-
-          <h1 className="text-3xl font-bold text-foreground mb-2">Questões Erradas</h1>
-          <p className="text-muted-foreground mb-8">Revise suas questões erradas por tema ou todas de uma vez</p>
-
-          {/* Tabs */}
-          <div className="flex gap-4 mb-8 border-b border-border">
+          <div className="mb-8">
             <button
-              onClick={() => setActiveTab("overview")}
-              className="px-4 py-2 font-medium transition-colors text-muted-foreground hover:text-foreground"
+              onClick={handleBackToOverview}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
             >
-              Visão Geral
+              <ArrowLeft className="w-5 h-5" />
+              Voltar para visão geral
             </button>
-            <button
-              onClick={() => setActiveTab("wrong")}
-              className="px-4 py-2 font-medium transition-colors text-primary border-b-2 border-primary -mb-2"
-            >
-              Questões Erradas ({wrongAnswers.length})
-            </button>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Revisando Flashcards: {selectedMateria}</h1>
+            <p className="text-muted-foreground">{flashcardsToReview.length} flashcard(s) para revisar nesta matéria</p>
           </div>
 
-          {/* Review All Card */}
-          <div className="bg-card border border-border rounded-lg p-8 mb-8 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+          <FlashcardStudyMode
+            materia={selectedMateria}
+            tema="Revisão de Erros"
+            onBack={handleBackToOverview}
+            userPlan={userPlan}
+            fetchFlashcards={async () => flashcardsToReview}
+          />
+        </main>
+      </div>
+    )
+  }
+
+  const questionsByTheme = getWrongQuestionsByTheme()
+  const flashcardsByMateria = getWrongFlashcardsByMateria()
+
+  return (
+    <div>
+      <Navbar user={user} />
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Header */}
+        <div className="mb-12">
+          <div className="flex items-center gap-4 mb-4">
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="p-2 hover:bg-muted rounded-lg transition-colors"
+              aria-label="Voltar"
+            >
+              <ArrowLeft className="w-6 h-6 text-muted-foreground" />
+            </button>
             <div>
-              <h2 className="text-2xl font-bold text-foreground mb-2">Revisão Geral</h2>
-              <p className="text-muted-foreground">
-                Você tem um total de <span className="font-bold text-destructive">{wrongAnswers.length}</span> questões
-                erradas para revisar.
+              <h1 className="text-4xl font-bold text-foreground mb-2 flex items-center gap-3">
+                <Brain className="w-10 h-10 text-primary" />
+                Revisão de Erros
+              </h1>
+              <p className="text-muted-foreground text-lg">
+                Revise suas questões e flashcards incorretos para melhorar seu desempenho
               </p>
             </div>
-            <button
-              onClick={() => startReview(null)}
-              disabled={wrongAnswers.length === 0}
-              className="px-8 py-4 bg-primary text-primary-foreground font-bold rounded-lg hover:bg-primary/90 transition-all flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform hover:-translate-y-1"
-            >
-              <Play className="w-5 h-5" />
-              Revisar Todas as Erradas
-            </button>
           </div>
+        </div>
 
-          <h3 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Revisar por Tema
-          </h3>
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-8">
+            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="questions-wrong">Questões Erradas</TabsTrigger>
+            <TabsTrigger value="flashcards-wrong">Flashcards Errados</TabsTrigger>
+          </TabsList>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {ALLOWED_THEMES.map((theme) => {
-              const count = groupedQuestions[theme]?.length || 0
-              return (
-                <div
-                  key={theme}
-                  className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 transition-all hover:shadow-md"
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <h4 className="font-bold text-lg text-foreground">{theme}</h4>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-bold ${count > 0 ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground"}`}
-                    >
-                      {count} erradas
-                    </span>
-                  </div>
-
-                  <div className="mb-6">
-                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-destructive transition-all"
-                        style={{ width: `${Math.min((count / (wrongAnswers.length || 1)) * 100, 100)}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => startReview(theme)}
-                    disabled={count === 0}
-                    className="w-full py-2 border border-primary text-primary font-medium rounded-md hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:border-muted disabled:text-muted-foreground flex items-center justify-center gap-2"
-                  >
-                    <Play className="w-4 h-4" />
-                    Revisar {theme}
-                  </button>
+          {/* Aba: Visão Geral */}
+          <TabsContent value="overview" className="space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+              <div className="bg-card border border-border rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-foreground">Questões Erradas</h3>
+                  <XCircle className="w-8 h-8 text-red-500" />
                 </div>
-              )
-            })}
-          </div>
-
-          {/* Recent Wrong Questions List */}
-          {wrongAnswers.length > 0 && (
-            <div className="mt-12">
-              <h3 className="text-xl font-bold text-foreground mb-6">Últimas Questões Erradas</h3>
-              <div className="space-y-4">
-                {wrongAnswers.slice(0, 5).map((question) => (
-                  <div
-                    key={question.id}
-                    className="bg-card border border-border rounded-lg p-6 opacity-75 hover:opacity-100 transition-opacity"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-medium text-foreground mb-2 line-clamp-2">{question.enunciado}</h3>
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 text-destructive" />
-                          <span className="text-sm text-destructive">Errada {question.wrongCount} vez(es)</span>
-                        </div>
-                      </div>
-                      <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full ml-4 whitespace-nowrap">
-                        {question.tema || "Geral"}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                {wrongAnswers.length > 5 && (
-                  <p className="text-center text-muted-foreground text-sm mt-4">
-                    E mais {wrongAnswers.length - 5} questões...
-                  </p>
-                )}
+                <p className="text-4xl font-bold text-foreground mb-2">{incorrectQuestions.length}</p>
+                <p className="text-sm text-muted-foreground">Total de questões para revisar</p>
               </div>
-            </div>
-          )}
-        </main>
-      </div>
-    )
-  }
 
-  // Review mode for wrong answers
-  if (reviewingWrong && filteredReviewQuestions.length > 0) {
-    const currentQuestion = filteredReviewQuestions[reviewIndex]
-    const alternatives = [
-      { letter: "A", text: currentQuestion.alternativaA },
-      { letter: "B", text: currentQuestion.alternativaB },
-      { letter: "C", text: currentQuestion.alternativaC },
-      { letter: "D", text: currentQuestion.alternativaD },
-    ].sort(() => Math.random() - 0.5)
-
-    const correctLetter = currentQuestion.respostaCorreta?.toUpperCase() || "A"
-    const isCorrect = reviewSelected === correctLetter
-
-    const handleSelectAnswer = async (letter: string) => {
-      if (!reviewAnswered && !isLoading) {
-        setReviewSelected(letter)
-        setReviewAnswered(true)
-
-        const correct = letter === correctLetter
-        if (correct) {
-          setReviewStats({
-            reviewed: reviewStats.reviewed + 1,
-            correct: reviewStats.correct + 1,
-          })
-        } else {
-          setReviewStats({
-            reviewed: reviewStats.reviewed + 1,
-            correct: reviewStats.correct,
-          })
-        }
-
-        try {
-          await saveQuizAnswer(user.usuario_id || user.id, currentQuestion.id, letter, correct, "estudo")
-        } catch (error) {
-          console.error("[v0] Error saving answer:", error)
-        }
-      }
-    }
-
-    const handleNext = () => {
-      if (reviewIndex < filteredReviewQuestions.length - 1) {
-        setReviewIndex(reviewIndex + 1)
-        setReviewSelected(null)
-        setReviewAnswered(false)
-      } else {
-        setReviewingWrong(false)
-        setReviewIndex(0)
-        setReviewStats({ reviewed: 0, correct: 0 })
-        setFilteredReviewQuestions([])
-        setSelectedReviewTheme(null)
-        setActiveTab("wrong") // Go back to wrong list instead of overview
-      }
-    }
-
-    return (
-      <div>
-        <Navbar user={user} />
-        <main className="max-w-3xl mx-auto px-4 py-12">
-          <button
-            onClick={() => {
-              setReviewingWrong(false)
-              setReviewIndex(0)
-              setReviewStats({ reviewed: 0, correct: 0 })
-              setFilteredReviewQuestions([])
-              setSelectedReviewTheme(null)
-            }}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar para Lista
-          </button>
-
-          <div className="mb-8">
-            <div className="flex justify-between items-center mb-2">
-              <div>
-                <span className="text-sm font-medium text-foreground block">
-                  Revisando: {selectedReviewTheme || "Todas as Erradas"}
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Questão {reviewIndex + 1} de {filteredReviewQuestions.length}
-                </span>
+              <div className="bg-card border border-border rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-foreground">Flashcards Errados</h3>
+                  <BookOpen className="w-8 h-8 text-amber-500" />
+                </div>
+                <p className="text-4xl font-bold text-foreground mb-2">{wrongFlashcards.length}</p>
+                <p className="text-sm text-muted-foreground">Total de flashcards para revisar</p>
               </div>
-              <span className="text-sm text-muted-foreground">
-                {Math.round(((reviewIndex + 1) / filteredReviewQuestions.length) * 100)}%
-              </span>
-            </div>
-            <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${((reviewIndex + 1) / filteredReviewQuestions.length) * 100}%` }}
-              />
-            </div>
-          </div>
 
-          <div className="bg-card border border-border rounded-lg p-8 mb-8">
-            <div className="flex justify-between items-start mb-6">
-              <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                {currentQuestion.tema || "Geral"}
-              </span>
-              <div className="flex items-center gap-1 text-destructive text-xs">
-                <AlertCircle className="w-3 h-3" />
-                <span>Errada {currentQuestion.wrongCount}x</span>
-              </div>
-            </div>
-
-            <h2 className="text-xl font-bold text-foreground mb-8">{currentQuestion.enunciado}</h2>
-
-            <div className="space-y-3 mb-8">
-              {alternatives.map((alt) => {
-                const altLetter = alt.letter
-                const isSelected = reviewSelected === altLetter
-                const isCorrectAlt = altLetter === correctLetter
-
-                return (
-                  <button
-                    key={alt.letter}
-                    onClick={() => handleSelectAnswer(altLetter)}
-                    disabled={reviewAnswered}
-                    className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
-                      isSelected
-                        ? isCorrect
-                          ? "border-accent bg-accent/10"
-                          : "border-destructive bg-destructive/10"
-                        : reviewAnswered && isCorrectAlt
-                          ? "border-accent bg-accent/10"
-                          : "border-input hover:border-muted"
-                    } ${reviewAnswered ? "cursor-default" : "cursor-pointer"}`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="font-bold text-foreground w-6">{altLetter}</span>
-                      <span className="text-foreground flex-1">{alt.text}</span>
-                      {reviewAnswered && isCorrectAlt && <span className="text-accent font-bold">✓</span>}
-                      {reviewAnswered && isSelected && !isCorrect && (
-                        <span className="text-destructive font-bold">✗</span>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-
-            {reviewAnswered && (
-              <div
-                className={`p-4 rounded-lg ${isCorrect ? "bg-accent/10 border border-accent" : "bg-destructive/10 border border-destructive"}`}
-              >
-                <p className={`text-sm font-medium ${isCorrect ? "text-accent" : "text-destructive"}`}>
-                  {isCorrect ? "Resposta Correta!" : "Resposta Incorreta"}
+              <div className="bg-card border border-border rounded-lg p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-foreground">Matérias Estudadas</h3>
+                  <CheckCircle2 className="w-8 h-8 text-green-500" />
+                </div>
+                <p className="text-4xl font-bold text-foreground mb-2">
+                  {Object.keys(questionsByTheme).length + Object.keys(flashcardsByMateria).length}
                 </p>
+                <p className="text-sm text-muted-foreground">Diferentes áreas</p>
+              </div>
+            </div>
+
+            <div className="bg-card/50 backdrop-blur border border-border rounded-lg p-6 min-w-[200px]">
+              <p className="text-sm text-muted-foreground mb-2">Distribuição</p>
+              <div className="space-y-2">
+                {Object.entries(questionsByTheme)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([theme, count]) => (
+                    <div key={theme} className="flex items-center justify-between text-sm">
+                      <span className="text-foreground font-medium">{theme}</span>
+                      <span className="text-muted-foreground">{count} questões</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Aba: Questões Erradas */}
+          <TabsContent value="questions-wrong" className="space-y-6">
+            {Object.keys(questionsByTheme).length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {Object.entries(questionsByTheme)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([theme, count]) => (
+                    <button
+                      key={theme}
+                      onClick={() => handleReviewByTheme(theme)}
+                      className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 hover:shadow-lg transition-all text-left group"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
+                          {theme}
+                        </h3>
+                        <XCircle className="w-6 h-6 text-red-500" />
+                      </div>
+                      <p className="text-3xl font-bold text-foreground mb-2">{count}</p>
+                      <p className="text-sm text-muted-foreground">questões para revisar</p>
+                    </button>
+                  ))}
+              </div>
+            ) : (
+              <div className="bg-card border border-border rounded-lg p-12 text-center">
+                <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-foreground mb-2">Parabéns!</h3>
+                <p className="text-muted-foreground">Você não tem questões erradas para revisar no momento.</p>
               </div>
             )}
-          </div>
+          </TabsContent>
 
-          {reviewAnswered && (
-            <button
-              onClick={handleNext}
-              className="w-full px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
-            >
-              {reviewIndex < filteredReviewQuestions.length - 1 ? "Próxima" : "Finalizar Revisão"}
-            </button>
-          )}
-        </main>
-      </div>
-    )
-  }
-
-  return null
+          {/* Aba: Flashcards Errados */}
+          <TabsContent value="flashcards-wrong" className="space-y-6">
+            {userPlan === "free" ? (
+              <div className="bg-card border border-border rounded-lg p-12 text-center">
+                <Lock className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-foreground mb-2">Recurso Premium</h3>
+                <p className="text-muted-foreground mb-6">
+                  A revisão de flashcards errados é exclusiva para usuários premium.
+                </p>
+                <button
+                  onClick={() => router.push("/pricing")}
+                  className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors font-semibold"
+                >
+                  Fazer Upgrade
+                </button>
+              </div>
+            ) : Object.keys(flashcardsByMateria).length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {Object.entries(flashcardsByMateria)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([materia, count]) => (
+                    <button
+                      key={materia}
+                      onClick={() => handleReviewFlashcards(materia)}
+                      className="bg-card border border-border rounded-lg p-6 hover:border-primary/50 hover:shadow-lg transition-all text-left group"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xl font-bold text-foreground group-hover:text-primary transition-colors">
+                          {materia}
+                        </h3>
+                        <BookOpen className="w-6 h-6 text-amber-500" />
+                      </div>
+                      <p className="text-3xl font-bold text-foreground mb-2">{count}</p>
+                      <p className="text-sm text-muted-foreground">flashcards para revisar</p>
+                    </button>
+                  ))}
+              </div>
+            ) : (
+              <div className="bg-card border border-border rounded-lg p-12 text-center">
+                <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+                <h3 className="text-2xl font-bold text-foreground mb-2">Excelente!</h3>
+                <p className="text-muted-foreground">Você não tem flashcards errados para revisar no momento.</p>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </main>
+    </div>
+  )
 }

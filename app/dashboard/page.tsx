@@ -16,13 +16,14 @@ import {
 } from "@/lib/storage-supabase"
 import { useDeviceSession } from "@/hooks/use-device-session"
 import Link from "next/link"
-import { Zap, TrendingUp, Target, Calendar } from "lucide-react"
+import { Zap, TrendingUp, Target, Calendar, Brain } from "lucide-react"
 import { GoalSettingsButton } from "@/components/goal-settings-button"
 import { getDeviceInfo, storeDeviceId } from "@/lib/device-utils"
 import { registerDeviceSession } from "@/lib/storage-supabase"
 import { PlanStatusCard } from "@/components/plan-status-card"
 import { getUserPlan, getDailyQuestionCount } from "@/lib/storage-supabase"
 import type { UserPlan } from "@/lib/plan-utils"
+import { getFlashcardProgressByMateria } from "@/lib/flashcards-storage"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -31,6 +32,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState({ total: 0, dueNow: 0, totalReviews: 0 })
   const [streak, setStreak] = useState(0)
   const [themeProgress, setThemeProgress] = useState<any[]>([])
+  const [flashcardProgress, setFlashcardProgress] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [dailyGoal, setDailyGoal] = useState(10)
   const [monthlyGoal, setMonthlyGoal] = useState(300)
@@ -85,6 +87,7 @@ export default function DashboardPage() {
         let reviews: any[] = []
         let userStreak = 0
         let progress: any[] = []
+        let flashcardProg: any[] = []
         let userGoals: any = null
         let dailyProg = 0
         let monthlyProg = 0
@@ -102,6 +105,7 @@ export default function DashboardPage() {
             getMonthlyProgress(currentUser.id),
             getUserPlan(currentUser.email),
             getDailyQuestionCount(currentUser.id),
+            getFlashcardProgressByMateria(currentUser.id),
           ])
 
           if (results[0].status === "fulfilled") allCards = results[0].value
@@ -113,6 +117,7 @@ export default function DashboardPage() {
           if (results[6].status === "fulfilled") monthlyProg = results[6].value
           if (results[7].status === "fulfilled") plan = results[7].value
           if (results[8].status === "fulfilled") todayCount = results[8].value
+          if (results[9].status === "fulfilled") flashcardProg = results[9].value
 
           results.forEach((result, index) => {
             if (result.status === "rejected") {
@@ -178,12 +183,68 @@ export default function DashboardPage() {
 
         setThemeProgress(processedProgress)
 
-        if (userGoals) {
-          setDailyGoal(userGoals.daily_questions_goal)
-          setMonthlyGoal(userGoals.monthly_questions_goal)
+        const materiaMapping: { [key: string]: string } = {
+          "clinica medica": "Clínica Médica",
+          "clínica médica": "Clínica Médica",
+          "clinica cirurgica": "Cirurgia",
+          "clínica cirúrgica": "Cirurgia",
+          cirurgia: "Cirurgia",
+          "medicina preventiva": "Medicina Preventiva",
+          pediatria: "Pediatria",
+          ginecologia: "Ginecologia e Obstetrícia",
+          obstetricia: "Ginecologia e Obstetrícia",
+          obstetrícia: "Ginecologia e Obstetrícia",
         }
-        setDailyProgress(dailyProg)
-        setMonthlyProgress(monthlyProg)
+
+        const materiaStats: { [key: string]: { total: number; correct: number; wrong: number } } = {}
+
+        flashcardProg.forEach((item) => {
+          console.log("[v0] Flashcard progress item:", item)
+          const normalizedMateria = item.materia
+            .toLowerCase()
+            .trim()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+
+          console.log("[v0] Normalized materia:", normalizedMateria)
+
+          const mappedMateria = materiaMapping[normalizedMateria] || item.materia
+
+          console.log("[v0] Mapped materia:", mappedMateria)
+
+          if (!materiaStats[mappedMateria]) {
+            materiaStats[mappedMateria] = { total: 0, correct: 0, wrong: 0 }
+          }
+
+          materiaStats[mappedMateria].total += item.total
+          materiaStats[mappedMateria].correct += item.correct
+          materiaStats[mappedMateria].wrong += item.wrong
+        })
+
+        console.log("[v0] Final materiaStats:", materiaStats)
+
+        const materiaOrder = [
+          "Clínica Médica",
+          "Cirurgia",
+          "Pediatria",
+          "Medicina Preventiva",
+          "Ginecologia e Obstetrícia",
+        ]
+
+        const processedFlashcardProgress = materiaOrder.map((materia) => {
+          const stats = materiaStats[materia] || { total: 0, correct: 0, wrong: 0 }
+          return {
+            materia,
+            total: stats.total,
+            correct: stats.correct,
+            wrong: stats.wrong,
+            percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+          }
+        })
+
+        console.log("[v0] Processed flashcard progress:", processedFlashcardProgress)
+
+        setFlashcardProgress(processedFlashcardProgress)
 
         setIsLoading(false)
       } catch (error) {
@@ -193,12 +254,11 @@ export default function DashboardPage() {
     }
 
     loadDashboard()
-  }, [router]) // Removed user from dependencies to prevent re-render loop
+  }, [router])
 
   useEffect(() => {
     if (!user) return
 
-    // Atualizar progresso a cada 10 segundos
     const interval = setInterval(async () => {
       try {
         const [dailyProg, monthlyProg] = await Promise.all([getDailyProgress(user.id), getMonthlyProgress(user.id)])
@@ -207,7 +267,7 @@ export default function DashboardPage() {
       } catch (error) {
         console.error("[v0] Error updating progress:", error)
       }
-    }, 10000) // Atualiza a cada 10 segundos
+    }, 10000)
 
     return () => clearInterval(interval)
   }, [user])
@@ -231,7 +291,6 @@ export default function DashboardPage() {
       <Navbar user={user} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Welcome Section */}
         <div className="mb-12">
           <h1 className="text-4xl font-bold text-foreground mb-2">Bem-vindo de volta!</h1>
           <p className="text-muted-foreground text-lg">Mantenha seu conhecimento fresco com repetição espaçada</p>
@@ -241,7 +300,6 @@ export default function DashboardPage() {
           <PlanStatusCard plan={userPlan} questionsToday={questionsToday} />
         </div>
 
-        {/* Action Buttons */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <Link
             href="/study"
@@ -255,7 +313,17 @@ export default function DashboardPage() {
             <p className="text-primary-foreground/70 text-xs">Continue sua jornada de aprendizado</p>
           </Link>
 
-          {/* Review Progress Button */}
+          <Link
+            href="/flashcards"
+            className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold">Flashcards</h3>
+              <Brain className="w-6 h-6 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-white/90 text-sm">Revisar temas do Revalida com flashcards</p>
+          </Link>
+
           <Link
             href="/review"
             className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
@@ -268,7 +336,6 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Progresso Diário e Metas */}
         <div className="bg-gradient-to-br from-primary/10 to-accent/10 border border-border rounded-lg p-8 mb-12">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-foreground">Progresso Diário</h2>
@@ -280,7 +347,6 @@ export default function DashboardPage() {
             />
           </div>
 
-          {/* Meta Diária */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-card border border-border rounded-lg p-6">
               <div className="flex items-center gap-3 mb-4">
@@ -314,7 +380,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Meta Mensal */}
             <div className="bg-card border border-border rounded-lg p-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-accent/10 rounded-lg">
@@ -349,7 +414,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Progresso por Matéria */}
         <div className="bg-card border border-border rounded-lg p-8 mb-12">
           <h2 className="text-2xl font-bold text-foreground mb-8">Progresso por Matéria</h2>
           {themeProgress.length > 0 ? (
@@ -385,6 +449,46 @@ export default function DashboardPage() {
           ) : (
             <p className="text-muted-foreground text-center py-8">
               Nenhum dado de progresso disponível ainda. Comece a estudar para ver suas estatísticas!
+            </p>
+          )}
+        </div>
+
+        <div className="bg-card border border-border rounded-lg p-8 mb-12">
+          <h2 className="text-2xl font-bold text-foreground mb-8">Progresso por Flashcards</h2>
+          {flashcardProgress.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {flashcardProgress.map((item) => (
+                <div key={item.materia}>
+                  <div className="flex justify-between items-center mb-2">
+                    <div>
+                      <span className="font-bold text-foreground capitalize">{item.materia}</span>
+                      <span className="ml-4 text-sm text-muted-foreground">
+                        {item.correct}/{item.total} corretos
+                      </span>
+                    </div>
+                    {userPlan === "premium" ? (
+                      <span className="text-2xl font-bold text-purple-500">{item.percentage}%</span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground px-3 py-1 bg-muted rounded-full">Premium</span>
+                    )}
+                  </div>
+                  <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
+                    {userPlan === "premium" ? (
+                      <div
+                        className="h-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-300"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    ) : (
+                      <div className="h-full bg-gradient-to-r from-muted-foreground/20 to-muted-foreground/10 blur-sm" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-center py-8">
+              Nenhum dado de progresso de flashcards disponível ainda. Comece a estudar flashcards para ver suas
+              estatísticas!
             </p>
           )}
         </div>
