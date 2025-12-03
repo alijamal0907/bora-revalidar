@@ -199,18 +199,13 @@ export default function DashboardPage() {
         const materiaStats: { [key: string]: { total: number; correct: number; wrong: number } } = {}
 
         flashcardProg.forEach((item) => {
-          console.log("[v0] Flashcard progress item:", item)
           const normalizedMateria = item.materia
             .toLowerCase()
             .trim()
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
 
-          console.log("[v0] Normalized materia:", normalizedMateria)
-
           const mappedMateria = materiaMapping[normalizedMateria] || item.materia
-
-          console.log("[v0] Mapped materia:", mappedMateria)
 
           if (!materiaStats[mappedMateria]) {
             materiaStats[mappedMateria] = { total: 0, correct: 0, wrong: 0 }
@@ -220,8 +215,6 @@ export default function DashboardPage() {
           materiaStats[mappedMateria].correct += item.correct
           materiaStats[mappedMateria].wrong += item.wrong
         })
-
-        console.log("[v0] Final materiaStats:", materiaStats)
 
         const materiaOrder = [
           "Clínica Médica",
@@ -241,8 +234,6 @@ export default function DashboardPage() {
             percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
           }
         })
-
-        console.log("[v0] Processed flashcard progress:", processedFlashcardProgress)
 
         setFlashcardProgress(processedFlashcardProgress)
 

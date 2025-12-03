@@ -8,7 +8,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 export const getSupabaseClient = createClient
-export const supabase = createClient()
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // Helper functions for database operations
 export async function getQuestoes(limit = 100) {
