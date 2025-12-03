@@ -1,5 +1,6 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,7 +9,19 @@ import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
 
-export default function DiagnosticoPage() {
+const DiagnosticoContent = dynamic(() => import("./diagnostico-content"), {
+  ssr: false,
+  loading: () => (
+    <div className="container mx-auto p-6 max-w-4xl flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto mb-4" />
+        <p className="text-muted-foreground">Carregando diagnóstico...</p>
+      </div>
+    </div>
+  ),
+})
+
+function DiagnosticoComponent() {
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<any[]>([])
   const [testEmail, setTestEmail] = useState("")
@@ -210,4 +223,8 @@ export default function DiagnosticoPage() {
       </Card>
     </div>
   )
+}
+
+export default function DiagnosticoPage() {
+  return <DiagnosticoContent />
 }
