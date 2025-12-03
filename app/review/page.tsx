@@ -12,7 +12,12 @@ import { QuestionStudyMode } from "@/components/question-study-mode"
 import { FlashcardStudyMode } from "@/components/flashcard-study-mode"
 import type { UserPlan } from "@/lib/plan-utils"
 
-const normalizeTema = (tema: string): string => {
+const normalizeTema = (tema: string | null | undefined): string => {
+  // Se o tema for null, undefined ou string vazia, retornar "Outros"
+  if (!tema || typeof tema !== "string") {
+    return "Outros"
+  }
+
   const temaLower = tema.toLowerCase().trim()
 
   if (temaLower.includes("clinica medica") || temaLower.includes("clínica médica")) {
