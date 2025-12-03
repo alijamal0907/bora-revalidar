@@ -4,10 +4,11 @@ import { useEffect, useState } from "react"
 import type { User } from "@supabase/supabase-js"
 import { createClient } from "@/lib/supabase/client"
 
+const supabase = createClient()
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     // Get initial session
@@ -25,7 +26,7 @@ export function useAuth() {
     })
 
     return () => subscription.unsubscribe()
-  }, [supabase])
+  }, [])
 
   return { user, isLoading }
 }
