@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
 import { ArrowLeft, RefreshCw } from "lucide-react"
 
@@ -21,10 +20,19 @@ export default function AssinaturasPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [migrationSuccess, setMigrationSuccess] = useState(false)
+  const [supabase, setSupabase] = useState<any>(null)
 
-  const supabase = createClient()
+  useEffect(() => {
+    const initSupabase = async () => {
+      const { createClient } = await import("@/lib/supabase/client")
+      setSupabase(createClient())
+    }
+    initSupabase()
+  }, [])
 
   const loadAssinaturas = async () => {
+    if (!supabase) return
+
     setLoading(true)
     setError("")
 
@@ -35,7 +43,6 @@ export default function AssinaturasPage() {
         .order("created_at", { ascending: false })
 
       if (fetchError) {
-        console.error("[v0] Error loading assinaturas:", fetchError)
         setError("Erro ao carregar assinaturas: " + fetchError.message)
         return
       }
@@ -43,7 +50,6 @@ export default function AssinaturasPage() {
       setAssinaturas(data || [])
       setMigrationSuccess(true)
     } catch (err: any) {
-      console.error("[v0] Exception loading assinaturas:", err)
       setError("Erro ao carregar assinaturas: " + err.message)
     } finally {
       setLoading(false)
@@ -51,8 +57,10 @@ export default function AssinaturasPage() {
   }
 
   useEffect(() => {
-    loadAssinaturas()
-  }, [])
+    if (supabase) {
+      loadAssinaturas()
+    }
+  }, [supabase])
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-"
