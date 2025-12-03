@@ -1,39 +1,36 @@
-'use client';
+"use client"
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/use-auth';
-import Image from 'next/image';
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/hooks/use-auth"
 
 export default function Home() {
-  const router = useRouter();
-  const { user, isLoading } = useAuth();
+  const router = useRouter()
+  const { user, isLoading } = useAuth()
 
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        router.push('/dashboard');
+        router.push("/dashboard")
       } else {
-        router.push('/login');
+        router.push("/login")
       }
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading, router])
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-primary/10 to-accent/10">
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 to-orange-100 dark:from-gray-900 dark:to-gray-800">
       <div className="text-center">
         <div className="mb-8">
-          <Image
-            src="/images/design-mode/Imagem%20do%20WhatsApp%20de%202025-11-12%20%C3%A0%28s%29%2016.54.36_e2b89511.jpg"
-            alt="Bora Revalidar"
-            width={400}
-            height={200}
-            className="mx-auto"
-            priority
-          />
+          <h1 className="text-4xl font-bold text-orange-600 dark:text-orange-400">Bora Revalidar</h1>
         </div>
-        <p className="text-muted-foreground">Carregando...</p>
+        <div className="flex items-center justify-center gap-2">
+          <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+          <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+          <div className="w-2 h-2 bg-orange-600 rounded-full animate-bounce"></div>
+        </div>
+        <p className="text-muted-foreground mt-4">Carregando...</p>
       </div>
     </div>
-  );
+  )
 }
