@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronRight, CheckCircle, XCircle, RotateCcw, Trophy } from "lucide-react"
+import { ChevronRight, ChevronLeft, CheckCircle, XCircle, RotateCcw, Trophy } from "lucide-react"
 import type { Flashcard } from "@/lib/flashcards-storage"
 import { saveFlashcardAnswer } from "@/lib/flashcards-storage"
 import { getSupabaseUser } from "@/lib/auth-supabase"
@@ -140,6 +140,13 @@ export function FlashcardStudyMode({
     setWrongCards([])
     setIsFinished(false)
     setShowAnswer(false)
+  }
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setShowAnswer(false)
+      setCurrentIndex(currentIndex - 1)
+    }
   }
 
   if (isLoading) {
@@ -306,8 +313,20 @@ export function FlashcardStudyMode({
       </div>
 
       {/* Flashcard */}
-      <div className="bg-card border-2 border-border rounded-xl p-8 md:p-12 min-h-[400px] flex flex-col justify-center shadow-lg">
-        <div className="mb-8">
+      <div className="bg-card border-2 border-border rounded-xl p-8 md:p-12 min-h-[400px] flex flex-col shadow-lg">
+        {currentIndex > 0 && (
+          <div className="mb-6">
+            <button
+              onClick={handlePrevious}
+              className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors font-semibold flex items-center gap-2"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Voltar
+            </button>
+          </div>
+        )}
+
+        <div className="mb-8 flex-1 flex flex-col justify-center">
           <div className="inline-block px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold mb-4">
             {showAnswer ? "Resposta" : "Pergunta"}
           </div>
@@ -316,32 +335,36 @@ export function FlashcardStudyMode({
           </div>
         </div>
 
-        <div className="mt-auto">
+        <div className="mt-auto space-y-4">
           {!showAnswer ? (
-            <button
-              onClick={handleShowAnswer}
-              className="w-full px-8 py-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-bold text-lg flex items-center justify-center gap-2"
-            >
-              Mostrar resposta
-              <ChevronRight className="w-6 h-6" />
-            </button>
+            <>
+              <button
+                onClick={handleShowAnswer}
+                className="w-full px-8 py-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-bold text-lg flex items-center justify-center gap-2"
+              >
+                Mostrar resposta
+                <ChevronRight className="w-6 h-6" />
+              </button>
+            </>
           ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={handleWrong}
-                className="px-8 py-4 bg-red-500/10 border-2 border-red-500/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
-              >
-                <XCircle className="w-6 h-6" />
-                Errei
-              </button>
-              <button
-                onClick={handleCorrect}
-                className="px-8 py-4 bg-green-500/10 border-2 border-green-500/20 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
-              >
-                <CheckCircle className="w-6 h-6" />
-                Acertei
-              </button>
-            </div>
+            <>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  onClick={handleWrong}
+                  className="px-8 py-4 bg-red-500/10 border-2 border-red-500/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
+                >
+                  <XCircle className="w-6 h-6" />
+                  Errei
+                </button>
+                <button
+                  onClick={handleCorrect}
+                  className="px-8 py-4 bg-green-500/10 border-2 border-green-500/20 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="w-6 h-6" />
+                  Acertei
+                </button>
+              </div>
+            </>
           )}
         </div>
       </div>

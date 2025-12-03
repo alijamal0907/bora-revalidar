@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, XCircle } from "lucide-react"
+import { CheckCircle2, XCircle, ChevronLeft } from "lucide-react"
 
 interface Question {
   id: string
@@ -57,6 +57,17 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
       setCurrentIndex(currentIndex + 1)
       setSelectedAnswer(null)
       setShowResult(false)
+    }
+  }
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1)
+      setSelectedAnswer(null)
+      setShowResult(false)
+      if (results.length > currentIndex) {
+        setResults(results.slice(0, -1))
+      }
     }
   }
 
@@ -156,6 +167,12 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
 
         {/* Action Buttons */}
         <div className="flex gap-3 mt-6">
+          {currentIndex > 0 && !showResult && (
+            <Button variant="outline" onClick={handlePrevious} className="flex items-center gap-2 bg-transparent">
+              <ChevronLeft className="w-4 h-4" />
+              Voltar
+            </Button>
+          )}
           {!showResult ? (
             <Button onClick={handleSubmit} disabled={!selectedAnswer} className="flex-1">
               Confirmar Resposta
