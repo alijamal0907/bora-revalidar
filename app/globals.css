@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
+@import "tailwindcss";
+@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -77,8 +77,8 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: "Geist", "Geist Fallback";
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -121,7 +121,44 @@
   * {
     @apply border-border outline-ring/50;
   }
+
+  /* Mobile-first: Remove horizontal scroll and optimize for vertical scrolling only */
+  html {
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+  }
+
   body {
     @apply bg-background text-foreground;
+    overflow-x: hidden;
+    width: 100%;
+    max-width: 100vw;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+  }
+
+  /* Prevent horizontal overflow on all elements */
+  * {
+    max-width: 100%;
+  }
+
+  /* Mobile optimizations */
+  @media (max-width: 768px) {
+    /* Smooth scrolling for touch devices */
+    * {
+      -webkit-tap-highlight-color: transparent;
+      touch-action: pan-y pinch-zoom;
+    }
+
+    /* App-like feel: hide scrollbars on mobile */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    body {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
   }
 }

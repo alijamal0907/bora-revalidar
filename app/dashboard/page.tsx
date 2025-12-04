@@ -1,7 +1,6 @@
 "use client"
 
 export const dynamic = "force-dynamic"
-export const runtime = "edge"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -305,7 +304,7 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div>
+      <div className="min-h-screen bg-background">
         <Navbar user={user} />
         <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
           <p className="text-muted-foreground">Carregando seu painel...</p>
@@ -316,7 +315,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div>
+      <div className="min-h-screen bg-background">
         <Navbar user={user} />
         <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] px-4">
           <div className="text-center max-w-md">
@@ -338,58 +337,64 @@ export default function DashboardPage() {
   const monthlyPercentage = Math.min(100, Math.round((monthlyProgress / monthlyGoal) * 100))
 
   return (
-    <div>
+    <div className="min-h-screen bg-background">
       <Navbar user={user} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-12">
-          <h1 className="text-4xl font-bold text-foreground mb-2">Bem-vindo de volta!</h1>
-          <p className="text-muted-foreground text-lg">Mantenha seu conhecimento fresco com repetição espaçada</p>
+      <main className="mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-7xl">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-1 sm:mb-2">
+            Bem-vindo de volta!
+          </h1>
+          <p className="text-muted-foreground text-sm sm:text-base lg:text-lg">
+            Mantenha seu conhecimento fresco com repetição espaçada
+          </p>
         </div>
 
-        <div className="mb-12">
+        <div className="mb-6 sm:mb-8 lg:mb-12">
           <PlanStatusCard plan={userPlan} questionsToday={questionsToday} />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8 lg:mb-12">
           <Link
             href="/study"
-            className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group border border-primary/20"
+            className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group border border-primary/20"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-2xl font-bold">Iniciar Estudo</h3>
-              <Zap className="w-8 h-8 group-hover:scale-110 transition-transform" />
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-xl sm:text-2xl font-bold">Iniciar Estudo</h3>
+              <Zap className="w-6 h-6 sm:w-8 sm:h-8 group-hover:scale-110 transition-transform" />
             </div>
-            <p className="text-primary-foreground/90 text-sm mb-2">Revise questões do Revalida hoje</p>
+            <p className="text-primary-foreground/90 text-xs sm:text-sm mb-1 sm:mb-2">
+              Revise questões do Revalida hoje
+            </p>
             <p className="text-primary-foreground/70 text-xs">Continue sua jornada de aprendizado</p>
           </Link>
 
           <Link
             href="/flashcards"
-            className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
+            className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold">Flashcards</h3>
-              <Brain className="w-6 h-6 group-hover:scale-110 transition-transform" />
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Flashcards</h3>
+              <Brain className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             </div>
-            <p className="text-white/90 text-sm">Revisar temas do Revalida com flashcards</p>
+            <p className="text-white/90 text-xs sm:text-sm">Revisar temas do Revalida com flashcards</p>
           </Link>
 
           <Link
             href="/review"
-            className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-8 hover:shadow-lg transition-all hover:scale-105 transform cursor-pointer group"
+            className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold">Revisão</h3>
-              <TrendingUp className="w-6 h-6 group-hover:scale-110 transition-transform" />
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Revisão</h3>
+              <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             </div>
-            <p className="text-white/90 text-sm">Veja seu progresso geral e análise por Matéria</p>
+            <p className="text-white/90 text-xs sm:text-sm">Veja seu progresso geral e análise por Matéria</p>
           </Link>
         </div>
 
-        <div className="bg-gradient-to-br from-primary/10 to-accent/10 border border-border rounded-lg p-8 mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-foreground">Progresso Diário</h2>
+        <div className="bg-gradient-to-br from-primary/10 to-accent/10 border border-border rounded-xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 lg:mb-12">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground">Progresso Diário</h2>
             <GoalSettingsButton
               currentDailyGoal={dailyGoal}
               currentMonthlyGoal={monthlyGoal}
@@ -398,32 +403,32 @@ export default function DashboardPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-card border border-border rounded-lg p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-primary/10 rounded-lg">
-                  <Target className="h-6 w-6 text-primary" />
+          <div className="flex flex-col sm:grid sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+              <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                <div className="p-2 sm:p-3 bg-primary/10 rounded-lg">
+                  <Target className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Meta Diária</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Meta Diária</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {dailyProgress} de {dailyGoal} questões
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-muted-foreground">Progresso</span>
                   <span className="font-semibold text-foreground">{dailyPercentage}%</span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                <div className="w-full bg-muted rounded-full h-2.5 sm:h-3 overflow-hidden">
                   <div
                     className="bg-primary h-full rounded-full transition-all duration-500"
                     style={{ width: `${dailyPercentage}%` }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground">
                   {dailyProgress >= dailyGoal
                     ? "Meta diária concluída"
                     : `Faltam ${dailyGoal - dailyProgress} questões para completar hoje`}
@@ -431,31 +436,31 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-3 bg-accent/10 rounded-lg">
-                  <Calendar className="h-6 w-6 text-accent" />
+            <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+              <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                <div className="p-2 sm:p-3 bg-accent/10 rounded-lg">
+                  <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">Meta Mensal</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <h3 className="font-semibold text-sm sm:text-base text-foreground">Meta Mensal</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     {monthlyProgress} de {monthlyGoal} questões
                   </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-muted-foreground">Progresso</span>
                   <span className="font-semibold text-foreground">{monthlyPercentage}%</span>
                 </div>
-                <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                <div className="w-full bg-muted rounded-full h-2 sm:h-2.5 overflow-hidden">
                   <div
                     className="bg-gradient-to-r from-accent to-orange-500 h-full rounded-full transition-all duration-500"
                     style={{ width: `${monthlyPercentage}%` }}
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground">
                   {monthlyProgress >= monthlyGoal
                     ? "Meta mensal concluída"
                     : `Faltam ${monthlyGoal - monthlyProgress} questões este mês`}
@@ -465,81 +470,68 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-8 mb-12">
-          <h2 className="text-2xl font-bold text-foreground mb-8">Progresso por Matéria</h2>
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 lg:mb-12">
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6 lg:mb-8">Progresso por Matéria</h2>
           {themeProgress.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {themeProgress.map((theme) => (
-                <div key={theme.theme}>
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <span className="font-bold text-foreground capitalize">{theme.theme}</span>
-                      <span className="ml-4 text-sm text-muted-foreground">
-                        {theme.correct}/{theme.total} corretas
+            <div className="space-y-4 sm:space-y-6">
+              {themeProgress.map((theme) => {
+                const percentage = Math.round((theme.correct / theme.total) * 100)
+                return (
+                  <div key={theme.theme} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-foreground text-sm sm:text-base">{theme.theme}</span>
+                      <span className="text-xs sm:text-sm text-muted-foreground">
+                        {theme.correct}/{theme.total} ({percentage}%)
                       </span>
                     </div>
-                    {userPlan === "premium" ? (
-                      <span className="text-2xl font-bold text-primary">{theme.percentage}%</span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground px-3 py-1 bg-muted rounded-full">Premium</span>
-                    )}
-                  </div>
-                  <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
-                    {userPlan === "premium" ? (
+                    <div className="w-full bg-muted rounded-full h-2 sm:h-2.5 overflow-hidden">
                       <div
-                        className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300"
-                        style={{ width: `${theme.percentage}%` }}
+                        className="bg-primary h-full rounded-full transition-all duration-500"
+                        style={{ width: `${percentage}%` }}
                       />
-                    ) : (
-                      <div className="h-full bg-gradient-to-r from-muted-foreground/20 to-muted-foreground/10 blur-sm" />
-                    )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-8">
-              Nenhum dado de progresso disponível ainda. Comece a estudar para ver suas estatísticas!
+            <p className="text-muted-foreground text-center py-6 sm:py-8 text-sm sm:text-base">
+              Nenhum dado de progresso disponível ainda. Comece a estudar para ver seu desempenho!
             </p>
           )}
         </div>
 
-        <div className="bg-card border border-border rounded-lg p-8 mb-12">
-          <h2 className="text-2xl font-bold text-foreground mb-8">Progresso por Flashcards</h2>
-          {flashcardProgress.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {flashcardProgress.map((item) => (
-                <div key={item.materia}>
-                  <div className="flex justify-between items-center mb-2">
-                    <div>
-                      <span className="font-bold text-foreground capitalize">{item.materia}</span>
-                      <span className="ml-4 text-sm text-muted-foreground">
-                        {item.correct}/{item.total} corretos
-                      </span>
+        <div className="bg-card border border-border rounded-xl p-4 sm:p-6 lg:p-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6 lg:mb-8">
+            Progresso de Flashcards por Matéria
+          </h2>
+          {flashcardProgress.length > 0 && flashcardProgress.some((f) => f.total > 0) ? (
+            <div className="space-y-4 sm:space-y-6">
+              {flashcardProgress
+                .filter((fc) => fc.total > 0)
+                .map((fc) => {
+                  const percentage = Math.round((fc.correct / fc.total) * 100)
+                  return (
+                    <div key={fc.materia} className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-foreground text-sm sm:text-base">{fc.materia}</span>
+                        <span className="text-xs sm:text-sm text-muted-foreground">
+                          {fc.correct}/{fc.total} ({percentage}%)
+                        </span>
+                      </div>
+                      <div className="w-full bg-muted rounded-full h-2 sm:h-2.5 overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-purple-500 to-purple-600 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
                     </div>
-                    {userPlan === "premium" ? (
-                      <span className="text-2xl font-bold text-purple-500">{item.percentage}%</span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground px-3 py-1 bg-muted rounded-full">Premium</span>
-                    )}
-                  </div>
-                  <div className="w-full h-3 bg-muted rounded-full overflow-hidden">
-                    {userPlan === "premium" ? (
-                      <div
-                        className="h-full bg-gradient-to-r from-purple-500 to-purple-600 transition-all duration-300"
-                        style={{ width: `${item.percentage}%` }}
-                      />
-                    ) : (
-                      <div className="h-full bg-gradient-to-r from-muted-foreground/20 to-muted-foreground/10 blur-sm" />
-                    )}
-                  </div>
-                </div>
-              ))}
+                  )
+                })}
             </div>
           ) : (
-            <p className="text-muted-foreground text-center py-8">
-              Nenhum dado de progresso de flashcards disponível ainda. Comece a estudar flashcards para ver suas
-              estatísticas!
+            <p className="text-muted-foreground text-center py-6 sm:py-8 text-sm sm:text-base">
+              Nenhum progresso de flashcards disponível ainda. Comece a estudar flashcards para ver seu desempenho!
             </p>
           )}
         </div>
