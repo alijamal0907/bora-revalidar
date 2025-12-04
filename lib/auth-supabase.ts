@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 
+const supabase = createClient()
+
 interface User {
   id: string
   email: string
@@ -12,7 +14,6 @@ export async function getSupabaseUser(): Promise<User | null> {
       return null
     }
 
-    const supabase = createClient()
     const {
       data: { session },
       error,
@@ -53,7 +54,6 @@ export async function signUpSupabase(email: string, password: string): Promise<U
     }
 
     // Auto login after signup
-    const supabase = createClient()
     const {
       data: { user },
       error,
@@ -81,7 +81,6 @@ export async function signUpSupabase(email: string, password: string): Promise<U
 
 export async function signInSupabase(email: string, password: string): Promise<User | null> {
   try {
-    const supabase = createClient()
     const {
       data: { user },
       error,
@@ -108,7 +107,6 @@ export async function signInSupabase(email: string, password: string): Promise<U
 
 export async function signOutSupabase(): Promise<void> {
   try {
-    const supabase = createClient()
     await supabase.auth.signOut()
   } catch (error) {
     console.error("Signout error:", error)
@@ -116,7 +114,6 @@ export async function signOutSupabase(): Promise<void> {
 }
 
 export function listenToAuthStateChange(callback: (user: User | null) => void) {
-  const supabase = createClient()
   const {
     data: { subscription },
   } = supabase.auth.onAuthStateChange((_event, session) => {

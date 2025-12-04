@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/client"
 
+const supabase = createClient()
+
 export interface Flashcard {
   id: string
   materia: string
@@ -21,15 +23,13 @@ export interface FlashcardSession {
 }
 
 export async function getFlashcardsByMateriaAndTema(materia: string, tema: string): Promise<Flashcard[]> {
-  const supabase = createClient()
-
   const { data, error } = await supabase.rpc("get_flashcards_by_materia_tema", {
     p_materia: materia,
     p_tema: tema,
   })
 
   if (error) {
-    console.error("[v0] Error fetching flashcards:", error)
+    console.error("Error fetching flashcards:", error)
     // Fallback para query SQL direta se RPC não existir
     const result = await supabase
       .from("flashcards")
@@ -40,7 +40,7 @@ export async function getFlashcardsByMateriaAndTema(materia: string, tema: strin
       .order("created_at", { ascending: true })
 
     if (result.error) {
-      console.error("[v0] Fallback query also failed:", result.error)
+      console.error("Fallback query also failed:", result.error)
       throw result.error
     }
     return result.data || []
@@ -50,14 +50,12 @@ export async function getFlashcardsByMateriaAndTema(materia: string, tema: strin
 }
 
 export async function getAllFlashcardsByMateria(materia: string): Promise<Flashcard[]> {
-  const supabase = createClient()
-
   const { data, error } = await supabase.rpc("get_flashcards_by_materia", {
     p_materia: materia,
   })
 
   if (error) {
-    console.error("[v0] Error fetching flashcards by materia:", error)
+    console.error("Error fetching flashcards by materia:", error)
     // Fallback
     const result = await supabase
       .from("flashcards")
@@ -68,7 +66,7 @@ export async function getAllFlashcardsByMateria(materia: string): Promise<Flashc
       .order("created_at", { ascending: true })
 
     if (result.error) {
-      console.error("[v0] Fallback query also failed:", result.error)
+      console.error("Fallback query also failed:", result.error)
       throw result.error
     }
     return result.data || []
@@ -78,12 +76,10 @@ export async function getAllFlashcardsByMateria(materia: string): Promise<Flashc
 }
 
 export async function getAllFlashcards(): Promise<Flashcard[]> {
-  const supabase = createClient()
-
   const { data, error } = await supabase.rpc("get_all_flashcards")
 
   if (error) {
-    console.error("[v0] Error fetching all flashcards:", error)
+    console.error("Error fetching all flashcards:", error)
     // Fallback
     const result = await supabase
       .from("flashcards")
@@ -94,7 +90,7 @@ export async function getAllFlashcards(): Promise<Flashcard[]> {
       .order("created_at", { ascending: true })
 
     if (result.error) {
-      console.error("[v0] Fallback query also failed:", result.error)
+      console.error("Fallback query also failed:", result.error)
       throw result.error
     }
     return result.data || []
@@ -104,8 +100,6 @@ export async function getAllFlashcards(): Promise<Flashcard[]> {
 }
 
 export async function getFlashcardCountByMateriaAndTema(materia: string, tema: string): Promise<number> {
-  const supabase = createClient()
-
   const { count, error } = await supabase
     .from("flashcards")
     .select("*", { count: "exact", head: true })
@@ -114,7 +108,7 @@ export async function getFlashcardCountByMateriaAndTema(materia: string, tema: s
     .eq("is_global", true)
 
   if (error) {
-    console.error("[v0] Error counting flashcards:", error)
+    console.error("Error counting flashcards:", error)
     return 0
   }
 
@@ -122,8 +116,6 @@ export async function getFlashcardCountByMateriaAndTema(materia: string, tema: s
 }
 
 export async function getWrongFlashcardsByMateria(userId: string, materia: string): Promise<Flashcard[]> {
-  const supabase = createClient()
-
   const { data, error } = await supabase
     .from("flashcard_history")
     .select(
@@ -138,7 +130,7 @@ export async function getWrongFlashcardsByMateria(userId: string, materia: strin
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching wrong flashcards:", error)
+    console.error("Error fetching wrong flashcards:", error)
     return []
   }
 
@@ -154,8 +146,6 @@ export async function getWrongFlashcardsByMateria(userId: string, materia: strin
 }
 
 export async function getAllWrongFlashcards(userId: string): Promise<Flashcard[]> {
-  const supabase = createClient()
-
   const { data, error } = await supabase
     .from("flashcard_history")
     .select(
@@ -170,7 +160,7 @@ export async function getAllWrongFlashcards(userId: string): Promise<Flashcard[]
     .order("created_at", { ascending: false })
 
   if (error) {
-    console.error("[v0] Error fetching all wrong flashcards:", error)
+    console.error("Error fetching all wrong flashcards:", error)
     return []
   }
 
@@ -194,8 +184,6 @@ export async function saveFlashcardAnswer(
   materia: string,
   tema: string,
 ): Promise<void> {
-  const supabase = createClient()
-
   const { error } = await supabase.from("flashcard_history").insert({
     user_id: userId,
     flashcard_id: flashcardId,
@@ -207,14 +195,12 @@ export async function saveFlashcardAnswer(
   })
 
   if (error) {
-    console.error("[v0] Error saving flashcard answer:", error)
+    console.error("Error saving flashcard answer:", error)
     throw error
   }
 }
 
 export async function getWrongFlashcardsCountByMateria(userId: string): Promise<Record<string, number>> {
-  const supabase = createClient()
-
   const { data, error } = await supabase
     .from("flashcard_history")
     .select(
@@ -228,7 +214,7 @@ export async function getWrongFlashcardsCountByMateria(userId: string): Promise<
     .eq("correct", false)
 
   if (error) {
-    console.error("[v0] Error counting wrong flashcards:", error)
+    console.error("Error counting wrong flashcards:", error)
     return {}
   }
 
@@ -254,16 +240,13 @@ export async function getWrongFlashcardsCountByMateria(userId: string): Promise<
 
 export async function getFlashcardProgressByMateria(userId: string): Promise<any[]> {
   try {
-    const supabase = createClient()
-
-    // Buscar histórico de flashcards do usuário
     const { data: history, error: histError } = await supabase
       .from("flashcard_history")
       .select("flashcard_id, correct, materia")
       .eq("user_id", userId)
 
     if (histError) {
-      console.error("[v0] Error fetching flashcard history:", histError)
+      console.error("Error fetching flashcard history:", histError)
       return []
     }
 
@@ -302,14 +285,12 @@ export async function getFlashcardProgressByMateria(userId: string): Promise<any
 
     return result
   } catch (error) {
-    console.error("[v0] Error in getFlashcardProgressByMateria:", error)
+    console.error("Error in getFlashcardProgressByMateria:", error)
     return []
   }
 }
 
 export async function getFlashcardsStudiedToday(userId: string): Promise<number> {
-  const supabase = createClient()
-
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayISO = today.toISOString()
@@ -321,7 +302,7 @@ export async function getFlashcardsStudiedToday(userId: string): Promise<number>
     .gte("answered_at", todayISO)
 
   if (error) {
-    console.error("[v0] Error counting today's flashcards:", error)
+    console.error("Error counting today's flashcards:", error)
     return 0
   }
 

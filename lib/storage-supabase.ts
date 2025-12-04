@@ -1,13 +1,14 @@
 import { createClient } from "@/lib/supabase/client"
 import type { StudyCard, ReviewResult } from "./spaced-repetition"
 
+const supabase = createClient()
+
 export async function getQuestoesAsCards(usuarioId: string): Promise<StudyCard[]> {
   try {
-    const supabase = createClient()
     const { data: questoes, error } = await supabase.from("questoes").select("*").limit(2000)
 
     if (error) {
-      console.error("[v0] Error fetching questoes:", error)
+      console.error("Error fetching questoes:", error)
       return []
     }
 
@@ -33,7 +34,7 @@ export async function getQuestoesAsCards(usuarioId: string): Promise<StudyCard[]
       }
     })
   } catch (error) {
-    console.error("[v0] Error in getQuestoesAsCards:", error)
+    console.error("Error in getQuestoesAsCards:", error)
     return []
   }
 }
@@ -45,7 +46,6 @@ export async function saveReviewToHistory(
   alternativaSelecionada: string,
 ): Promise<void> {
   try {
-    const supabase = createClient()
     const { error } = await supabase.from("historico_questoes").insert({
       usuario_id: usuarioId,
       questao_id: questaoId,
@@ -64,28 +64,26 @@ export async function saveReviewToHistory(
 
 export async function getMarcacoesRevisaoData(usuarioId: string): Promise<any[]> {
   try {
-    const supabase = createClient()
     const { data, error } = await supabase.from("marcacoes_revisao").select("*").eq("usuario_id", usuarioId)
 
     if (error) {
-      console.error("[v0] Error fetching marcacoes_revisao:", error)
+      console.error("Error fetching marcacoes_revisao:", error)
       return []
     }
 
     return data || []
   } catch (error) {
-    console.error("[v0] Error in getMarcacoesRevisaoData:", error)
+    console.error("Error in getMarcacoesRevisaoData:", error)
     return []
   }
 }
 
 export async function getHistoricoQuestoes(usuarioId: string): Promise<ReviewResult[]> {
   try {
-    const supabase = createClient()
     const { data: historico, error } = await supabase.from("hist_questoes").select("*")
 
     if (error) {
-      console.error("[v0] Error fetching historico:", error)
+      console.error("Error fetching historico:", error)
       return []
     }
 
@@ -98,7 +96,7 @@ export async function getHistoricoQuestoes(usuarioId: string): Promise<ReviewRes
       timestamp: new Date(h.data_revisao).getTime(),
     }))
   } catch (error) {
-    console.error("[v0] Error in getHistoricoQuestoes:", error)
+    console.error("Error in getHistoricoQuestoes:", error)
     return []
   }
 }
@@ -109,7 +107,6 @@ export async function initializeCardsFromSupabase(usuarioId: string): Promise<St
 
 export async function markForLaterReview(usuarioId: string, cardId: string): Promise<void> {
   try {
-    const supabase = createClient()
     const { error } = await supabase.from("marcacoes_revisao").insert([
       {
         questao_id: cardId,
@@ -119,33 +116,31 @@ export async function markForLaterReview(usuarioId: string, cardId: string): Pro
     ])
 
     if (error) {
-      console.error("[v0] Error marking for later review:", error)
+      console.error("Error marking for later review:", error)
       throw error
     }
   } catch (error) {
-    console.error("[v0] Error in markForLaterReview:", error)
+    console.error("Error in markForLaterReview:", error)
     throw error
   }
 }
 
 export async function unmarkForLaterReview(cardId: string): Promise<void> {
   try {
-    const supabase = createClient()
     const { error } = await supabase.from("marcacoes_revisao").delete().eq("questao_id", cardId)
 
     if (error) {
-      console.error("[v0] Error unmarking question:", error)
+      console.error("Error unmarking question:", error)
       throw error
     }
   } catch (error) {
-    console.error("[v0] Error in unmarkForLaterReview:", error)
+    console.error("Error in unmarkForLaterReview:", error)
     throw error
   }
 }
 
 export async function getUniqueThemes(materia: string): Promise<string[]> {
   try {
-    const supabase = createClient()
     const { data, error } = await supabase.from("questoes").select("tema").limit(2000)
 
     if (error) {
@@ -174,7 +169,6 @@ export async function getUniqueThemes(materia: string): Promise<string[]> {
 
 export async function getQuestoesAsCardsByTheme(usuarioId: string, tema?: string): Promise<StudyCard[]> {
   try {
-    const supabase = createClient()
     let query = supabase.from("questoes").select("*")
 
     if (tema) {
@@ -184,7 +178,7 @@ export async function getQuestoesAsCardsByTheme(usuarioId: string, tema?: string
     const { data: questoes, error } = await query.limit(2000)
 
     if (error) {
-      console.error("[v0] Error fetching questoes by theme:", error)
+      console.error("Error fetching questoes by theme:", error)
       return []
     }
 
@@ -211,14 +205,13 @@ export async function getQuestoesAsCardsByTheme(usuarioId: string, tema?: string
       }
     })
   } catch (error) {
-    console.error("[v0] Error in getQuestoesAsCardsByTheme:", error)
+    console.error("Error in getQuestoesAsCardsByTheme:", error)
     return []
   }
 }
 
 export async function getQuestoesAsCardsByMultipleThemes(usuarioId: string, temas?: string[]): Promise<StudyCard[]> {
   try {
-    const supabase = createClient()
     let query = supabase.from("questoes").select("*")
 
     if (temas && temas.length > 0) {
@@ -228,7 +221,7 @@ export async function getQuestoesAsCardsByMultipleThemes(usuarioId: string, tema
     const { data: questoes, error } = await query.limit(2000)
 
     if (error) {
-      console.error("[v0] Error fetching questoes by themes:", error)
+      console.error("Error fetching questoes by themes:", error)
       return []
     }
 
@@ -255,7 +248,7 @@ export async function getQuestoesAsCardsByMultipleThemes(usuarioId: string, tema
       }
     })
   } catch (error) {
-    console.error("[v0] Error in getQuestoesAsCardsByMultipleThemes:", error)
+    console.error("Error in getQuestoesAsCardsByMultipleThemes:", error)
     return []
   }
 }
@@ -268,12 +261,11 @@ export async function saveQuizAnswer(
   origem: "estudo" | "simulado",
 ): Promise<void> {
   if (!questaoId) {
-    console.error("[v0] Cannot save answer: questaoId is null or undefined")
+    console.error("Cannot save answer: questaoId is null or undefined")
     throw new Error("questaoId is required")
   }
 
   try {
-    const supabase = createClient()
     const { error } = await supabase.from("hist_questoes").insert([
       {
         user_id: userId,
@@ -286,18 +278,17 @@ export async function saveQuizAnswer(
     ])
 
     if (error) {
-      console.error("[v0] Error saving quiz answer:", error)
+      console.error("Error saving quiz answer:", error)
       throw error
     }
   } catch (error) {
-    console.error("[v0] Error in saveQuizAnswer:", error)
+    console.error("Error in saveQuizAnswer:", error)
     throw error
   }
 }
 
 export async function getWrongAnswers(userId: string): Promise<any[]> {
   try {
-    const supabase = createClient()
     const { data: historico, error: histError } = await supabase
       .from("hist_questoes")
       .select("*")
@@ -307,7 +298,7 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
       .limit(1000)
 
     if (histError) {
-      console.error("[v0] Error fetching wrong answers from hist:", histError)
+      console.error("Error fetching wrong answers from hist:", histError)
       return []
     }
 
@@ -318,7 +309,7 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
     const { data: questoes, error: questError } = await supabase.from("questoes").select("*").in("id", questaoIds)
 
     if (questError) {
-      console.error("[v0] Error fetching questoes:", questError)
+      console.error("Error fetching questoes:", questError)
       return []
     }
 
@@ -327,18 +318,17 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
       wrongCount: historico.filter((h: any) => h.questao_id === q.id).length,
     }))
   } catch (error) {
-    console.error("[v0] Error in getWrongAnswers:", error)
+    console.error("Error in getWrongAnswers:", error)
     return []
   }
 }
 
 export async function getProgressByTheme(userId: string): Promise<any[]> {
   try {
-    const supabase = createClient()
     const { data: historico, error: histError } = await supabase.from("hist_questoes").select("*").eq("user_id", userId)
 
     if (histError) {
-      console.error("[v0] Error fetching historico:", histError)
+      console.error("Error fetching historico:", histError)
       return []
     }
 
@@ -349,7 +339,7 @@ export async function getProgressByTheme(userId: string): Promise<any[]> {
     const { data: questoes, error: questError } = await supabase.from("questoes").select("*").limit(2000)
 
     if (questError) {
-      console.error("[v0] Error fetching questoes:", questError)
+      console.error("Error fetching questoes:", questError)
       return []
     }
 
@@ -387,18 +377,17 @@ export async function getProgressByTheme(userId: string): Promise<any[]> {
 
     return result
   } catch (error) {
-    console.error("[v0] Error in getProgressByTheme:", error)
+    console.error("Error in getProgressByTheme:", error)
     return []
   }
 }
 
 export async function getQuestoesWithAlternatives(usuarioId: string, temas?: string[], limit = 2000): Promise<any[]> {
   try {
-    const supabase = createClient()
     const { data: allQuestoes, error: fetchError } = await supabase.from("questoes").select("*").limit(limit)
 
     if (fetchError) {
-      console.error("[v0] Error fetching questoes with alternatives:", fetchError)
+      console.error("Error fetching questoes with alternatives:", fetchError)
       return []
     }
 
@@ -421,7 +410,7 @@ export async function getQuestoesWithAlternatives(usuarioId: string, temas?: str
 
     return filtered
   } catch (error) {
-    console.error("[v0] Error in getQuestoesWithAlternatives:", error)
+    console.error("Error in getQuestoesWithAlternatives:", error)
     return []
   }
 }
@@ -432,7 +421,6 @@ export async function checkSubscriptionStatus(email: string): Promise<{
   subscription?: any
 }> {
   try {
-    const supabase = createClient()
     const { data, error } = await supabase
       .from("assinaturas")
       .select("*")
@@ -459,7 +447,7 @@ export async function checkSubscriptionStatus(email: string): Promise<{
       subscription: data,
     }
   } catch (error) {
-    console.error("[v0] Error checking subscription:", error)
+    console.error("Error checking subscription:", error)
     return {
       isActive: false,
       message: "Erro ao verificar assinatura",
@@ -477,7 +465,6 @@ export async function registerDeviceSession(
   },
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const supabase = createClient()
     const now = new Date()
 
     // Verificar se já existe uma sessão para este dispositivo
@@ -500,7 +487,7 @@ export async function registerDeviceSession(
         .eq("id", existingDevice.id)
 
       if (updateError) {
-        console.error("[v0] Error updating device session:", updateError)
+        console.error("Error updating device session:", updateError)
         return { success: false, message: "Erro ao atualizar sessão" }
       }
 
@@ -522,13 +509,13 @@ export async function registerDeviceSession(
     ])
 
     if (insertError) {
-      console.error("[v0] Error creating device session:", insertError)
+      console.error("Error creating device session:", insertError)
       return { success: false, message: "Erro ao criar sessão" }
     }
 
     return { success: true, message: "Sessão criada com sucesso" }
   } catch (error) {
-    console.error("[v0] Error in registerDeviceSession:", error)
+    console.error("Error in registerDeviceSession:", error)
     return { success: false, message: "Erro ao processar sessão" }
   }
 }
@@ -543,7 +530,6 @@ export async function createSubscriptionFromCakto(
   transactionId?: string,
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const supabase = createClient()
     const { data: existing, error: checkError } = await supabase
       .from("assinaturas")
       .select("*")
@@ -562,7 +548,7 @@ export async function createSubscriptionFromCakto(
         .eq("email", email.toLowerCase().trim())
 
       if (updateError) {
-        console.error("[v0] Error updating subscription:", updateError)
+        console.error("Error updating subscription:", updateError)
         return { success: false, message: "Erro ao atualizar assinatura" }
       }
 
@@ -582,20 +568,19 @@ export async function createSubscriptionFromCakto(
     ])
 
     if (insertError) {
-      console.error("[v0] Error creating subscription:", insertError)
+      console.error("Error creating subscription:", insertError)
       return { success: false, message: "Erro ao criar assinatura" }
     }
 
     return { success: true, message: "Assinatura criada com sucesso" }
   } catch (error) {
-    console.error("[v0] Error in createSubscriptionFromCakto:", error)
+    console.error("Error in createSubscriptionFromCakto:", error)
     return { success: false, message: "Erro ao processar assinatura" }
   }
 }
 
 export async function getUserStreak(userId: string): Promise<number> {
   try {
-    const supabase = createClient()
     const { data: sessions, error } = await supabase
       .from("user_devices")
       .select("last_active")
@@ -647,17 +632,16 @@ export async function getUserStreak(userId: string): Promise<number> {
 
     return streak
   } catch (error) {
-    console.error("[v0] Error calculating streak:", error)
+    console.error("Error calculating streak:", error)
     return 0
   }
 }
 
 export async function getUserGoals(userId: string) {
-  const supabase = createClient()
   const { data, error } = await supabase.from("user_goals").select("*").eq("user_id", userId).single()
 
   if (error && error.code !== "PGRST116") {
-    console.error("[v0] Erro ao buscar metas:", error)
+    console.error("Erro ao buscar metas:", error)
     return null
   }
 
@@ -666,7 +650,6 @@ export async function getUserGoals(userId: string) {
 
 export async function getDailyProgress(userId: string) {
   try {
-    const supabase = createClient()
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
@@ -677,21 +660,22 @@ export async function getDailyProgress(userId: string) {
       .gte("created_at", today.toISOString())
 
     if (error) {
-      console.error("[v0] Erro ao buscar progresso diário:", error)
+      console.error("Erro ao buscar progresso diário:", error)
       return 0
     }
 
     const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
     return uniqueQuestions.size
   } catch (error) {
-    console.error("[v0] Erro ao buscar progresso diário:", error)
+    console.error("Erro ao buscar progresso diário:", error)
     return 0
   }
 }
 
+export const getDailyQuestionCount = getDailyProgress
+
 export async function getMonthlyProgress(userId: string) {
   try {
-    const supabase = createClient()
     const firstDayOfMonth = new Date()
     firstDayOfMonth.setDate(1)
     firstDayOfMonth.setHours(0, 0, 0, 0)
@@ -703,21 +687,20 @@ export async function getMonthlyProgress(userId: string) {
       .gte("created_at", firstDayOfMonth.toISOString())
 
     if (error) {
-      console.error("[v0] Erro ao buscar progresso mensal:", error)
+      console.error("Erro ao buscar progresso mensal:", error)
       return 0
     }
 
     const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
     return uniqueQuestions.size
   } catch (error) {
-    console.error("[v0] Erro ao buscar progresso mensal:", error)
+    console.error("Erro ao buscar progresso mensal:", error)
     return 0
   }
 }
 
 export async function getUserPlan(email: string): Promise<"free" | "premium"> {
   try {
-    const supabase = createClient()
     const { data, error } = await supabase
       .from("assinaturas")
       .select("plano, status, transaction_id, data_pagamento")
@@ -734,68 +717,7 @@ export async function getUserPlan(email: string): Promise<"free" | "premium"> {
 
     return "free"
   } catch (error) {
-    console.error("[v0] Error getting user plan:", error)
+    console.error("Error getting user plan:", error)
     return "free"
-  }
-}
-
-export async function getDailyQuestionCount(userId: string): Promise<number> {
-  try {
-    const supabase = createClient()
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const { data, error } = await supabase
-      .from("hist_questoes")
-      .select("id")
-      .eq("user_id", userId)
-      .gte("created_at", today.toISOString())
-
-    if (error) {
-      console.error("[v0] Error counting daily questions:", error)
-      return 0
-    }
-
-    return data?.length || 0
-  } catch (error) {
-    console.error("[v0] Error in getDailyQuestionCount:", error)
-    return 0
-  }
-}
-
-export async function getDailyQuestionCountByTheme(userId: string, theme: string): Promise<number> {
-  try {
-    const supabase = createClient()
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const { data: histData, error: histError } = await supabase
-      .from("hist_questoes")
-      .select("questao_id")
-      .eq("user_id", userId)
-      .gte("created_at", today.toISOString())
-
-    if (histError || !histData || histData.length === 0) {
-      return 0
-    }
-
-    const questaoIds = histData.map((h) => h.questao_id)
-
-    const { data: questoesData, error: questoesError } = await supabase
-      .from("questoes")
-      .select("id, tema")
-      .in("id", questaoIds)
-
-    if (questoesError || !questoesData) {
-      return 0
-    }
-
-    const normalizedTheme = theme.toLowerCase().trim()
-    const count = questoesData.filter((q) => q.tema?.toLowerCase().trim() === normalizedTheme).length
-
-    return count
-  } catch (error) {
-    console.error("[v0] Error in getDailyQuestionCountByTheme:", error)
-    return 0
   }
 }
