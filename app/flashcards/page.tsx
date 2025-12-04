@@ -4,18 +4,10 @@ export const dynamic = "force-dynamic"
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { getSupabaseUser } from "@/lib/auth-supabase"
 import { Navbar } from "@/components/navbar"
 import { MATERIAS, MATERIA_ICONS, MATERIA_DESCRIPTIONS, TEMAS_POR_MATERIA, type Materia } from "@/lib/flashcards-config"
 import { BookOpen, ArrowLeft, Brain } from "lucide-react"
 import { FlashcardStudyMode } from "@/components/flashcard-study-mode"
-import {
-  getFlashcardsByMateriaAndTema,
-  getAllFlashcardsByMateria,
-  getAllFlashcards,
-  getFlashcardsStudiedToday,
-} from "@/lib/flashcards-storage"
-import { getUserPlan } from "@/lib/storage-supabase"
 import type { UserPlan } from "@/lib/plan-utils"
 
 type Step = "materia" | "tema" | "study"
@@ -30,7 +22,7 @@ export default function FlashcardsPage() {
   const [selectedTema, setSelectedTema] = useState<string | null>(null)
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
   const [flashcardsStudiedToday, setFlashcardsStudiedToday] = useState<number>(0)
-  const DAILY_FREE_LIMIT = 10 // Limite diário para usuários free
+  const DAILY_FREE_LIMIT = 10
 
   useEffect(() => {
     setIsMounted(true)
@@ -39,6 +31,7 @@ export default function FlashcardsPage() {
   const reloadFlashcardsCount = async () => {
     if (user && userPlan === "free") {
       try {
+        const { getFlashcardsStudiedToday } = await import("@/lib/flashcards-storage")
         const studiedToday = await getFlashcardsStudiedToday(user.id)
         setFlashcardsStudiedToday(studiedToday)
       } catch (error) {
@@ -52,6 +45,10 @@ export default function FlashcardsPage() {
 
     const checkAuth = async () => {
       try {
+        const { getSupabaseUser } = await import("@/lib/auth-supabase")
+        const { getUserPlan } = await import("@/lib/storage-supabase")
+        const { getFlashcardsStudiedToday } = await import("@/lib/flashcards-storage")
+
         const currentUser = await getSupabaseUser()
         if (!currentUser) {
           router.push("/login")
@@ -293,6 +290,10 @@ export default function FlashcardsPage() {
             userPlan={userPlan}
             onFlashcardAnswered={reloadFlashcardsCount}
             fetchFlashcards={async () => {
+              const { getFlashcardsByMateriaAndTema, getAllFlashcardsByMateria, getAllFlashcards } = await import(
+                "@/lib/flashcards-storage"
+              )
+
               let flashcards = []
 
               if (selectedMateria === "todas") {
