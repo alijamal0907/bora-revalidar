@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/client"
 
-const supabase = createClient()
+function getSupabaseClient() {
+  return createClient()
+}
+
+const supabase = getSupabaseClient()
 
 export interface Flashcard {
   id: string

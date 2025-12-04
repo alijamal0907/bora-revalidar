@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/client"
 
-const supabase = createClient()
+function getSupabaseClient() {
+  return createClient()
+}
 
 interface User {
   id: string
@@ -14,6 +16,7 @@ export async function getSupabaseUser(): Promise<User | null> {
       return null
     }
 
+    const supabase = getSupabaseClient()
     const {
       data: { session },
       error,
@@ -37,6 +40,7 @@ export async function getSupabaseUser(): Promise<User | null> {
 
 export async function signUpSupabase(email: string, password: string): Promise<User | null> {
   try {
+    const supabase = getSupabaseClient()
     const response = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -81,6 +85,7 @@ export async function signUpSupabase(email: string, password: string): Promise<U
 
 export async function signInSupabase(email: string, password: string): Promise<User | null> {
   try {
+    const supabase = getSupabaseClient()
     const {
       data: { user },
       error,
@@ -107,6 +112,7 @@ export async function signInSupabase(email: string, password: string): Promise<U
 
 export async function signOutSupabase(): Promise<void> {
   try {
+    const supabase = getSupabaseClient()
     await supabase.auth.signOut()
   } catch (error) {
     console.error("Signout error:", error)
@@ -114,6 +120,7 @@ export async function signOutSupabase(): Promise<void> {
 }
 
 export function listenToAuthStateChange(callback: (user: User | null) => void) {
+  const supabase = getSupabaseClient()
   const {
     data: { subscription },
   } = supabase.auth.onAuthStateChange((_event, session) => {

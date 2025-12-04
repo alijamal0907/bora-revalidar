@@ -5,8 +5,9 @@ declare global {
 }
 
 export function createClient() {
+  // Retorna null durante SSR/build ao invés de lançar erro
   if (typeof window === "undefined") {
-    throw new Error("Supabase client can only be used in browser context")
+    return null as any
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -22,7 +23,7 @@ export function createClient() {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storageKey: "sb-fmhzwcbjjdkcylohqfyy-auth-token", // storageKey consistente
+        storageKey: "sb-fmhzwcbjjdkcylohqfyy-auth-token",
       },
     })
   }
