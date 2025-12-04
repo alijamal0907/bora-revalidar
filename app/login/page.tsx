@@ -9,6 +9,8 @@ import { getDeviceInfo, storeDeviceId } from "@/lib/device-utils"
 import Image from "next/image"
 import { ArrowRight, Mail } from "lucide-react"
 
+export const dynamic = "force-dynamic"
+
 export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")

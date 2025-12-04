@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronRight, ChevronLeft, CheckCircle, XCircle, RotateCcw, Trophy } from "lucide-react"
+import { ChevronLeft, CheckCircle, XCircle, RotateCcw, Trophy } from "lucide-react"
 import type { Flashcard } from "@/lib/flashcards-storage"
 import { saveFlashcardAnswer } from "@/lib/flashcards-storage"
 import { getSupabaseUser } from "@/lib/auth-supabase"
@@ -11,11 +11,11 @@ interface FlashcardStudyModeProps {
   tema: string
   onBack: () => void
   fetchFlashcards: () => Promise<Flashcard[]>
-  userPlan?: "free" | "premium" // Added userPlan prop to support free vs premium logic
-  onFlashcardAnswered?: () => void // Added callback for flashcard answered
+  userPlan?: "free" | "premium"
+  onFlashcardAnswered?: () => void
 }
 
-export function FlashcardStudyMode({
+export default function FlashcardStudyMode({
   materia,
   tema,
   onBack,
@@ -41,7 +41,7 @@ export function FlashcardStudyMode({
           setUserId(user.id || user.usuario_id)
         }
       } catch (error) {
-        console.error("[v0] Error loading user:", error)
+        console.error("Error loading user:", error)
       }
     }
     loadUser()
@@ -55,7 +55,7 @@ export function FlashcardStudyMode({
         setFlashcards(cards)
         setIsLoading(false)
       } catch (error) {
-        console.error("[v0] Error loading flashcards:", error)
+        console.error("Error loading flashcards:", error)
         setIsLoading(false)
       }
     }
@@ -83,7 +83,7 @@ export function FlashcardStudyMode({
           onFlashcardAnswered()
         }
       } catch (error) {
-        console.error("[v0] Error saving correct answer:", error)
+        console.error("Error saving correct answer:", error)
       }
     }
 
@@ -107,7 +107,7 @@ export function FlashcardStudyMode({
           onFlashcardAnswered()
         }
       } catch (error) {
-        console.error("[v0] Error saving wrong answer:", error)
+        console.error("Error saving wrong answer:", error)
       }
     }
 
@@ -204,15 +204,6 @@ export function FlashcardStudyMode({
             </div>
           </div>
         </div>
-
-        {/* Continue with normal flashcard study */}
-        {isFinished ? (
-          <div className="bg-card border border-border rounded-lg p-12">
-            {/* ... existing finished state code ... */}
-          </div>
-        ) : (
-          <div>{/* ... existing flashcard display code ... */}</div>
-        )}
       </div>
     )
   }
@@ -284,7 +275,6 @@ export function FlashcardStudyMode({
 
   return (
     <div>
-      {/* Progress bar */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-semibold text-muted-foreground">
@@ -300,7 +290,6 @@ export function FlashcardStudyMode({
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4 flex items-center justify-between">
           <span className="text-sm font-semibold text-green-600 dark:text-green-400">Acertos</span>
@@ -312,62 +301,63 @@ export function FlashcardStudyMode({
         </div>
       </div>
 
-      {/* Flashcard */}
-      <div className="bg-card border-2 border-border rounded-xl p-8 md:p-12 min-h-[400px] flex flex-col shadow-lg">
+      <div className="bg-card border-2 border-border rounded-xl shadow-lg">
+        {/* Botão voltar no topo quando há card anterior */}
         {currentIndex > 0 && (
-          <div className="mb-6">
+          <div className="p-4 border-b border-border">
             <button
               onClick={handlePrevious}
-              className="px-4 py-2 bg-muted text-foreground rounded-lg hover:bg-muted/80 transition-colors font-semibold flex items-center gap-2"
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
-              Voltar
+              <span className="text-sm font-medium">Voltar</span>
             </button>
           </div>
         )}
 
-        <div className="mb-8 flex-1 flex flex-col justify-center">
-          <div className="inline-block px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold mb-4">
-            {showAnswer ? "Resposta" : "Pergunta"}
-          </div>
-          <div className="text-2xl md:text-3xl font-bold text-foreground leading-relaxed">
-            {showAnswer ? currentCard.verso : currentCard.frente}
+        {/* Conteúdo do card - Layout mais limpo */}
+        <div className="p-8 md:p-12 min-h-[400px] flex flex-col justify-center">
+          <div className="mb-6">
+            <div className="inline-block px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold mb-6">
+              {showAnswer ? "Resposta" : "Pergunta"}
+            </div>
+            <div className="text-2xl md:text-3xl font-bold text-foreground leading-relaxed text-balance">
+              {showAnswer ? currentCard.verso : currentCard.frente}
+            </div>
           </div>
         </div>
 
-        <div className="mt-auto space-y-4">
+        {/* Botões de ação */}
+        <div className="p-6 border-t border-border bg-muted/30">
           {!showAnswer ? (
-            <>
-              <button
-                onClick={handleShowAnswer}
-                className="w-full px-8 py-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-bold text-lg flex items-center justify-center gap-2"
-              >
-                Mostrar resposta
-                <ChevronRight className="w-6 h-6" />
-              </button>
-            </>
+            <button
+              onClick={handleShowAnswer}
+              className="w-full px-8 py-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-bold text-lg"
+            >
+              Mostrar resposta
+            </button>
           ) : (
-            <>
-              <div className="grid grid-cols-2 gap-4">
-                <button
-                  onClick={handleWrong}
-                  className="px-8 py-4 bg-red-500/10 border-2 border-red-500/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
-                >
-                  <XCircle className="w-6 h-6" />
-                  Errei
-                </button>
-                <button
-                  onClick={handleCorrect}
-                  className="px-8 py-4 bg-green-500/10 border-2 border-green-500/20 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="w-6 h-6" />
-                  Acertei
-                </button>
-              </div>
-            </>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={handleWrong}
+                className="px-8 py-4 bg-red-500/10 border-2 border-red-500/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
+              >
+                <XCircle className="w-6 h-6" />
+                Errei
+              </button>
+              <button
+                onClick={handleCorrect}
+                className="px-8 py-4 bg-green-500/10 border-2 border-green-500/20 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
+              >
+                <CheckCircle className="w-6 h-6" />
+                Acertei
+              </button>
+            </div>
           )}
         </div>
       </div>
     </div>
   )
 }
+
+export { FlashcardStudyMode }

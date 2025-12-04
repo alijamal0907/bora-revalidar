@@ -24,7 +24,30 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
   const [showResult, setShowResult] = useState(false)
   const [results, setResults] = useState<boolean[]>([])
 
-  if (questions.length === 0) {
+  const parseAlternativas = (alternativas: any): Record<string, string> => {
+    if (!alternativas) return {}
+
+    // Se já é um objeto válido
+    if (typeof alternativas === "object" && !Array.isArray(alternativas)) {
+      return alternativas
+    }
+
+    // Se é uma string JSON, tenta fazer parse
+    if (typeof alternativas === "string") {
+      try {
+        const parsed = JSON.parse(alternativas)
+        if (typeof parsed === "object" && !Array.isArray(parsed)) {
+          return parsed
+        }
+      } catch (e) {
+        return {}
+      }
+    }
+
+    return {}
+  }
+
+  if (!questions || questions.length === 0) {
     return (
       <div className="bg-card border border-border rounded-lg p-12 text-center">
         <p className="text-muted-foreground mb-4">Nenhuma questão disponível para revisão.</p>
@@ -34,6 +57,40 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
   }
 
   const currentQuestion = questions[currentIndex]
+
+  const alternativasObj = currentQuestion ? parseAlternativas(currentQuestion.alternativas) : {}
+  const alternativasEntries = Object.entries(alternativasObj)
+
+  if (!currentQuestion) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-12 text-center">
+        <p className="text-muted-foreground mb-4">Erro ao carregar questão. Por favor, volte e tente novamente.</p>
+        <Button onClick={onComplete}>Voltar</Button>
+      </div>
+    )
+  }
+
+  if (alternativasEntries.length === 0) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-12 text-center">
+        <p className="text-muted-foreground mb-4">Esta questão não possui alternativas válidas no banco de dados.</p>
+        <p className="text-sm text-muted-foreground mb-4">ID da questão: {currentQuestion.id}</p>
+        <div className="flex gap-3 justify-center">
+          {currentIndex > 0 && (
+            <Button variant="outline" onClick={() => setCurrentIndex(currentIndex - 1)}>
+              Questão Anterior
+            </Button>
+          )}
+          {currentIndex < questions.length - 1 ? (
+            <Button onClick={() => setCurrentIndex(currentIndex + 1)}>Próxima Questão</Button>
+          ) : (
+            <Button onClick={onComplete}>Voltar</Button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   const isLastQuestion = currentIndex === questions.length - 1
 
   const handleAnswerSelect = (answer: string) => {
@@ -109,7 +166,7 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
 
         {/* Answers */}
         <div className="space-y-3">
-          {Object.entries(currentQuestion.alternativas).map(([key, value]: [string, any]) => {
+          {alternativasEntries.map(([key, value]: [string, any]) => {
             const isSelected = selectedAnswer === key
             const isCorrect = key === currentQuestion.resposta_correta
             const showCorrect = showResult && isCorrect
@@ -164,6 +221,31 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
             )
           })}
         </div>
+
+        {showResult && (
+          <div
+            className={`mt-4 p-4 rounded-lg ${
+              selectedAnswer === currentQuestion.resposta_correta
+                ? "bg-green-50 dark:bg-green-950/20 border-2 border-green-500"
+                : "bg-red-50 dark:bg-red-950/20 border-2 border-red-500"
+            }`}
+          >
+            <p
+              className={`font-semibold ${
+                selectedAnswer === currentQuestion.resposta_correta
+                  ? "text-green-700 dark:text-green-300"
+                  : "text-red-700 dark:text-red-300"
+              }`}
+            >
+              {selectedAnswer === currentQuestion.resposta_correta ? "✓ Resposta correta!" : "✗ Resposta incorreta"}
+            </p>
+            {selectedAnswer !== currentQuestion.resposta_correta && (
+              <p className="text-sm mt-2 text-muted-foreground">
+                A resposta correta é: <strong>{currentQuestion.resposta_correta}</strong>
+              </p>
+            )}
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex gap-3 mt-6">
