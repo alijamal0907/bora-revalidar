@@ -41,8 +41,13 @@ export default function DashboardPage() {
   const [monthlyProgress, setMonthlyProgress] = useState(0)
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
   const [questionsToday, setQuestionsToday] = useState(0)
+  const [isMounted, setIsMounted] = useState(false)
 
   useDeviceSession(user?.id)
+
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
 
   const reloadGoalsAndProgress = async () => {
     if (!user) return
@@ -66,6 +71,8 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
+    if (!isMounted) return
+
     const loadDashboard = async () => {
       try {
         const currentUser = await getSupabaseUser()
@@ -247,10 +254,10 @@ export default function DashboardPage() {
     }
 
     loadDashboard()
-  }, [router])
+  }, [router, isMounted])
 
   useEffect(() => {
-    if (!user) return
+    if (!user || !isMounted) return
 
     const loadData = async () => {
       try {
@@ -275,9 +282,11 @@ export default function DashboardPage() {
     }
 
     loadData()
-  }, [user])
+  }, [user, isMounted])
 
   useEffect(() => {
+    if (!user || !isMounted) return
+
     const interval = setInterval(async () => {
       try {
         const [dailyProg, monthlyProg] = await Promise.all([getDailyProgress(user.id), getMonthlyProgress(user.id)])
@@ -289,7 +298,7 @@ export default function DashboardPage() {
     }, 10000)
 
     return () => clearInterval(interval)
-  }, [user])
+  }, [user, isMounted])
 
   if (isLoading) {
     return (
