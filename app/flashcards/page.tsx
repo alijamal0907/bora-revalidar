@@ -22,6 +22,7 @@ type Step = "materia" | "tema" | "study"
 
 export default function FlashcardsPage() {
   const router = useRouter()
+  const [isMounted, setIsMounted] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [step, setStep] = useState<Step>("materia")
@@ -31,18 +32,24 @@ export default function FlashcardsPage() {
   const [flashcardsStudiedToday, setFlashcardsStudiedToday] = useState<number>(0)
   const DAILY_FREE_LIMIT = 10 // Limite diário para usuários free
 
+  useEffect(() => {
+    setIsMounted(true)
+  }, [])
+
   const reloadFlashcardsCount = async () => {
     if (user && userPlan === "free") {
       try {
         const studiedToday = await getFlashcardsStudiedToday(user.id)
         setFlashcardsStudiedToday(studiedToday)
       } catch (error) {
-        console.error("[v0] Error reloading flashcards count:", error)
+        console.error("Error reloading flashcards count:", error)
       }
     }
   }
 
   useEffect(() => {
+    if (!isMounted) return
+
     const checkAuth = async () => {
       try {
         const currentUser = await getSupabaseUser()
@@ -61,19 +68,30 @@ export default function FlashcardsPage() {
             setFlashcardsStudiedToday(studiedToday)
           }
         } catch (error) {
-          console.error("[v0] Error getting user plan:", error)
+          console.error("Error getting user plan:", error)
           setUserPlan("free")
         }
 
         setIsLoading(false)
       } catch (error) {
-        console.error("[v0] Error checking auth:", error)
+        console.error("Error checking auth:", error)
         router.push("/login")
       }
     }
 
     checkAuth()
-  }, [router])
+  }, [router, isMounted])
+
+  if (!isMounted) {
+    return (
+      <div>
+        <Navbar user={null} />
+        <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
+          <p className="text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
 
   const handleMateriaSelect = (materia: Materia | "todas") => {
     setSelectedMateria(materia)
