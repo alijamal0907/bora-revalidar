@@ -293,7 +293,7 @@ export async function saveQuizAnswer(
 
 export async function getWrongAnswers(userId: string): Promise<any[]> {
   try {
-    const { data: historico, error: histError } = await supabase
+    const { data: historico, error: histError } = await getSupabaseClient()
       .from("hist_questoes")
       .select("*")
       .eq("user_id", userId)
@@ -310,7 +310,10 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
 
     const questaoIds = [...new Set(historico.map((h) => h.questao_id))]
 
-    const { data: questoes, error: questError } = await supabase.from("questoes").select("*").in("id", questaoIds)
+    const { data: questoes, error: questError } = await getSupabaseClient()
+      .from("questoes")
+      .select("*")
+      .in("id", questaoIds)
 
     if (questError) {
       console.error("Error fetching questoes:", questError)
@@ -319,14 +322,14 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
 
     return (questoes || []).map((q: any) => ({
       ...q,
-      questao: q.enunciado || q.questao, // Mapear enunciado para questao
+      questao: q.enunciado || q.questao,
       alternativas: {
         A: q.alternativaA || q.alternativaa || "",
         B: q.alternativaB || q.alternativab || "",
         C: q.alternativaC || q.alternativac || "",
         D: q.alternativaD || q.alternativad || "",
       },
-      resposta_correta: q.correta || q.resposta_correta || "", // Mapear correta para resposta_correta
+      resposta_correta: (q.correta || q.resposta_correta || "").toUpperCase(),
       wrongCount: historico.filter((h: any) => h.questao_id === q.id).length,
     }))
   } catch (error) {

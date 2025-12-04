@@ -102,7 +102,9 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
   const handleSubmit = () => {
     if (!selectedAnswer) return
 
-    const isCorrect = selectedAnswer === currentQuestion.resposta_correta
+    const normalizedSelected = selectedAnswer.toUpperCase()
+    const normalizedCorrect = (currentQuestion.resposta_correta || "").toUpperCase()
+    const isCorrect = normalizedSelected === normalizedCorrect
     setResults([...results, isCorrect])
     setShowResult(true)
   }
@@ -168,7 +170,7 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
         <div className="space-y-3">
           {alternativasEntries.map(([key, value]: [string, any]) => {
             const isSelected = selectedAnswer === key
-            const isCorrect = key === currentQuestion.resposta_correta
+            const isCorrect = key.toUpperCase() === (currentQuestion.resposta_correta || "").toUpperCase()
             const showCorrect = showResult && isCorrect
             const showWrong = showResult && isSelected && !isCorrect
 
@@ -225,23 +227,25 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
         {showResult && (
           <div
             className={`mt-4 p-4 rounded-lg ${
-              selectedAnswer === currentQuestion.resposta_correta
+              selectedAnswer?.toUpperCase() === (currentQuestion.resposta_correta || "").toUpperCase()
                 ? "bg-green-50 dark:bg-green-950/20 border-2 border-green-500"
                 : "bg-red-50 dark:bg-red-950/20 border-2 border-red-500"
             }`}
           >
             <p
               className={`font-semibold ${
-                selectedAnswer === currentQuestion.resposta_correta
+                selectedAnswer?.toUpperCase() === (currentQuestion.resposta_correta || "").toUpperCase()
                   ? "text-green-700 dark:text-green-300"
                   : "text-red-700 dark:text-red-300"
               }`}
             >
-              {selectedAnswer === currentQuestion.resposta_correta ? "✓ Resposta correta!" : "✗ Resposta incorreta"}
+              {selectedAnswer?.toUpperCase() === (currentQuestion.resposta_correta || "").toUpperCase()
+                ? "✓ Resposta correta!"
+                : "✗ Resposta incorreta"}
             </p>
-            {selectedAnswer !== currentQuestion.resposta_correta && (
+            {selectedAnswer?.toUpperCase() !== (currentQuestion.resposta_correta || "").toUpperCase() && (
               <p className="text-sm mt-2 text-muted-foreground">
-                A resposta correta é: <strong>{currentQuestion.resposta_correta}</strong>
+                A resposta correta é: <strong>{(currentQuestion.resposta_correta || "").toUpperCase()}</strong>
               </p>
             )}
           </div>
