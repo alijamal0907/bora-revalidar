@@ -149,6 +149,38 @@ export default function FlashcardStudyMode({
     }
   }
 
+  const formatAnswerInTopics = (text: string) => {
+    if (!text) return null
+
+    // Divide por pontos, ponto e vírgula, ou quebras de linha
+    const sentences = text
+      .split(/[.;]\s+|\n+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+
+    // Se tiver apenas uma frase curta, retorna sem formatação
+    if (sentences.length <= 1 && text.length < 100) {
+      return <p className="text-xl md:text-2xl leading-relaxed text-foreground">{text}</p>
+    }
+
+    // Se tiver múltiplas frases ou uma longa, formata em tópicos
+    return (
+      <ul className="space-y-4">
+        {sentences.map((sentence, index) => (
+          <li key={index} className="flex items-start gap-3 group">
+            <span className="flex-shrink-0 w-7 h-7 bg-primary/20 text-primary rounded-full flex items-center justify-center text-sm font-bold mt-1 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+              {index + 1}
+            </span>
+            <span className="text-lg md:text-xl leading-relaxed text-foreground flex-1">
+              {sentence}
+              {!sentence.endsWith(".") && !sentence.endsWith("!") && !sentence.endsWith("?") && "."}
+            </span>
+          </li>
+        ))}
+      </ul>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -322,7 +354,7 @@ export default function FlashcardStudyMode({
               {showAnswer ? "Resposta" : "Pergunta"}
             </div>
             <div className="text-2xl md:text-3xl font-bold text-foreground leading-relaxed text-balance">
-              {showAnswer ? currentCard.verso : currentCard.frente}
+              {!showAnswer ? currentCard.frente : formatAnswerInTopics(currentCard.verso)}
             </div>
           </div>
         </div>
