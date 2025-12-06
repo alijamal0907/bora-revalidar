@@ -102,10 +102,10 @@ export default function LoginPage() {
           <div className="text-center mb-8">
             <div className="mb-4">
               <Image
-                src="/images/design-mode/Imagem%20do%20WhatsApp%20de%202025-11-12%20%C3%A0%28s%29%2016.54.36_e2b89511.jpg"
+                src="/images/logo.png"
                 alt="Bora Revalidar"
                 width={300}
-                height={150}
+                height={120}
                 className="mx-auto"
                 priority
               />

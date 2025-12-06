@@ -46,14 +46,8 @@ export function Navbar({ user }: NavbarProps) {
       <div className="mx-auto px-4 sm:px-6">
         <div className="flex justify-between items-center h-14">
           <Link href="/" className="flex items-center gap-2">
-            <div className="relative w-7 h-7">
-              <Image
-                src="/images/imagem-20do-20whatsapp-20de-202025-11-12-20-c3-a0-28s-29-2016.jpg"
-                alt="Bora Revalidar"
-                fill
-                className="object-contain rounded-md"
-                priority
-              />
+            <div className="relative w-8 h-8 sm:w-9 sm:h-9">
+              <Image src="/images/logo.png" alt="Bora Revalidar" fill className="object-contain" priority />
             </div>
             <span className="text-base sm:text-lg font-bold bg-gradient-to-r from-teal-400 to-orange-400 bg-clip-text text-transparent">
               Bora Revalidar
