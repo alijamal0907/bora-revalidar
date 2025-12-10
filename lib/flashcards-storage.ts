@@ -4,8 +4,6 @@ function getSupabaseClient() {
   return createClient()
 }
 
-const supabase = getSupabaseClient()
-
 export interface Flashcard {
   id: string
   materia: string
@@ -27,6 +25,7 @@ export interface FlashcardSession {
 }
 
 export async function getFlashcardsByMateriaAndTema(materia: string, tema: string): Promise<Flashcard[]> {
+  const supabase = getSupabaseClient()
   const { data, error } = await supabase.rpc("get_flashcards_by_materia_tema", {
     p_materia: materia,
     p_tema: tema,
@@ -34,7 +33,6 @@ export async function getFlashcardsByMateriaAndTema(materia: string, tema: strin
 
   if (error) {
     console.error("Error fetching flashcards:", error)
-    // Fallback para query SQL direta se RPC não existir
     const result = await supabase
       .from("flashcards")
       .select("*")
@@ -54,13 +52,13 @@ export async function getFlashcardsByMateriaAndTema(materia: string, tema: strin
 }
 
 export async function getAllFlashcardsByMateria(materia: string): Promise<Flashcard[]> {
+  const supabase = getSupabaseClient()
   const { data, error } = await supabase.rpc("get_flashcards_by_materia", {
     p_materia: materia,
   })
 
   if (error) {
     console.error("Error fetching flashcards by materia:", error)
-    // Fallback
     const result = await supabase
       .from("flashcards")
       .select("*")
@@ -80,11 +78,11 @@ export async function getAllFlashcardsByMateria(materia: string): Promise<Flashc
 }
 
 export async function getAllFlashcards(): Promise<Flashcard[]> {
+  const supabase = getSupabaseClient()
   const { data, error } = await supabase.rpc("get_all_flashcards")
 
   if (error) {
     console.error("Error fetching all flashcards:", error)
-    // Fallback
     const result = await supabase
       .from("flashcards")
       .select("*")
@@ -104,6 +102,7 @@ export async function getAllFlashcards(): Promise<Flashcard[]> {
 }
 
 export async function getFlashcardCountByMateriaAndTema(materia: string, tema: string): Promise<number> {
+  const supabase = getSupabaseClient()
   const { count, error } = await supabase
     .from("flashcards")
     .select("*", { count: "exact", head: true })
@@ -120,6 +119,7 @@ export async function getFlashcardCountByMateriaAndTema(materia: string, tema: s
 }
 
 export async function getWrongFlashcardsByMateria(userId: string, materia: string): Promise<Flashcard[]> {
+  const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from("flashcard_history")
     .select(
@@ -138,7 +138,6 @@ export async function getWrongFlashcardsByMateria(userId: string, materia: strin
     return []
   }
 
-  // Filter flashcards by materia and remove duplicates
   const flashcardsMap = new Map<string, Flashcard>()
   data?.forEach((item: any) => {
     if (item.flashcards && item.flashcards.materia === materia) {
@@ -150,6 +149,7 @@ export async function getWrongFlashcardsByMateria(userId: string, materia: strin
 }
 
 export async function getAllWrongFlashcards(userId: string): Promise<Flashcard[]> {
+  const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from("flashcard_history")
     .select(
@@ -168,7 +168,6 @@ export async function getAllWrongFlashcards(userId: string): Promise<Flashcard[]
     return []
   }
 
-  // Remove duplicates
   const flashcardsMap = new Map<string, Flashcard>()
   data?.forEach((item: any) => {
     if (item.flashcards) {
@@ -188,6 +187,7 @@ export async function saveFlashcardAnswer(
   materia: string,
   tema: string,
 ): Promise<void> {
+  const supabase = getSupabaseClient()
   const { error } = await supabase.from("flashcard_history").insert({
     user_id: userId,
     flashcard_id: flashcardId,
@@ -205,6 +205,7 @@ export async function saveFlashcardAnswer(
 }
 
 export async function getWrongFlashcardsCountByMateria(userId: string): Promise<Record<string, number>> {
+  const supabase = getSupabaseClient()
   const { data, error } = await supabase
     .from("flashcard_history")
     .select(
@@ -222,7 +223,6 @@ export async function getWrongFlashcardsCountByMateria(userId: string): Promise<
     return {}
   }
 
-  // Count unique flashcards by materia
   const materiaMap = new Map<string, Set<string>>()
   data?.forEach((item: any) => {
     if (item.flashcards?.materia) {
@@ -244,6 +244,7 @@ export async function getWrongFlashcardsCountByMateria(userId: string): Promise<
 
 export async function getFlashcardProgressByMateria(userId: string): Promise<any[]> {
   try {
+    const supabase = getSupabaseClient()
     const { data: history, error: histError } = await supabase
       .from("flashcard_history")
       .select("flashcard_id, correct, materia")
@@ -258,7 +259,6 @@ export async function getFlashcardProgressByMateria(userId: string): Promise<any
       return []
     }
 
-    // Agrupar por matéria
     const materiaMap: { [key: string]: { total: number; correct: number; wrong: number } } = {}
 
     history.forEach((h: any) => {
@@ -278,7 +278,6 @@ export async function getFlashcardProgressByMateria(userId: string): Promise<any
       }
     })
 
-    // Converter para array
     const result = Object.entries(materiaMap).map(([materia, stats]) => ({
       materia,
       total: stats.total,
@@ -295,6 +294,7 @@ export async function getFlashcardProgressByMateria(userId: string): Promise<any
 }
 
 export async function getFlashcardsStudiedToday(userId: string): Promise<number> {
+  const supabase = getSupabaseClient()
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayISO = today.toISOString()
@@ -310,7 +310,6 @@ export async function getFlashcardsStudiedToday(userId: string): Promise<number>
     return 0
   }
 
-  // Contar apenas flashcards únicos (remover duplicatas)
   const uniqueFlashcards = new Set(data?.map((item: any) => item.flashcard_id) || [])
   return uniqueFlashcards.size
 }

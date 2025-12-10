@@ -8,6 +8,7 @@ import { registerDeviceSession } from "@/lib/storage-supabase"
 import { getDeviceInfo, storeDeviceId } from "@/lib/device-utils"
 import Image from "next/image"
 import { ArrowRight, Mail } from "lucide-react"
+import Link from "next/link"
 
 export const dynamic = "force-dynamic"
 
@@ -161,6 +162,13 @@ export default function LoginPage() {
                 placeholder="••••••••"
               />
               {isSignUp && <p className="text-xs text-muted-foreground mt-1">Mínimo de 6 caracteres</p>}
+              {!isSignUp && (
+                <div className="mt-2 text-right">
+                  <Link href="/forgot-password" className="text-xs text-primary hover:underline">
+                    Esqueceu a senha?
+                  </Link>
+                </div>
+              )}
             </div>
 
             <button

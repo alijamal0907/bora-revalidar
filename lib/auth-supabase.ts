@@ -139,6 +139,52 @@ export function listenToAuthStateChange(callback: (user: User | null) => void) {
   return subscription
 }
 
+export async function resetPasswordForEmail(email: string): Promise<void> {
+  try {
+    const supabase = getSupabaseClient()
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "")
+    const redirectUrl = `${siteUrl}/reset-password`
+
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    })
+
+    if (error) {
+      throw error
+    }
+  } catch (error) {
+    console.error("Password reset request error:", error)
+    throw error
+  }
+}
+
+export async function updatePassword(newPassword: string): Promise<void> {
+  try {
+    const supabase = getSupabaseClient()
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession()
+
+    if (sessionError || !session) {
+      throw new Error("Você precisa estar autenticado para alterar a senha. O link pode ter expirado.")
+    }
+
+    const { error } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+
+    if (error) {
+      throw error
+    }
+  } catch (error) {
+    console.error("Password update error:", error)
+    throw error
+  }
+}
+
 export async function getCurrentUser(): Promise<User | null> {
   return await getSupabaseUser()
 }
