@@ -139,49 +139,131 @@ export function listenToAuthStateChange(callback: (user: User | null) => void) {
   return subscription
 }
 
-export async function resetPasswordForEmail(email: string): Promise<void> {
+export async function updateUserPassword(newPassword: string): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase = getSupabaseClient()
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== "undefined" ? window.location.origin : "")
-    const redirectUrl = `${siteUrl}/reset-password`
-
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: redirectUrl,
-    })
-
-    if (error) {
-      throw error
-    }
-  } catch (error) {
-    console.error("Password reset request error:", error)
-    throw error
-  }
-}
-
-export async function updatePassword(newPassword: string): Promise<void> {
-  try {
-    const supabase = getSupabaseClient()
-
+    // Verificar se o usuário está autenticado
     const {
       data: { session },
       error: sessionError,
     } = await supabase.auth.getSession()
 
     if (sessionError || !session) {
-      throw new Error("Você precisa estar autenticado para alterar a senha. O link pode ter expirado.")
+      return {
+        success: false,
+        error: "Você precisa estar logado para alterar a senha",
+      }
     }
 
+    // Validar senha
+    if (newPassword.length < 6) {
+      return {
+        success: false,
+        error: "A senha deve ter pelo menos 6 caracteres",
+      }
+    }
+
+    // Atualizar senha
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     })
 
     if (error) {
-      throw error
+      return {
+        success: false,
+        error: error.message || "Erro ao atualizar senha",
+      }
     }
-  } catch (error) {
+
+    return { success: true }
+  } catch (error: any) {
     console.error("Password update error:", error)
-    throw error
+    return {
+      success: false,
+      error: error.message || "Erro ao atualizar senha",
+    }
+  }
+}
+
+export async function sendPasswordResetOTP(email: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = getSupabaseClient()
+
+    // Enviar OTP para o email
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false, // Não criar usuário novo
+      },
+    })
+
+    if (error) {
+      return {
+        success: false,
+        error: error.message || "Erro ao enviar código",
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Send OTP error:", error)
+    return {
+      success: false,
+      error: error.message || "Erro ao enviar código",
+    }
+  }
+}
+
+export async function verifyOTPAndResetPassword(
+  email: string,
+  token: string,
+  newPassword: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = getSupabaseClient()
+
+    // Validar senha
+    if (newPassword.length < 6) {
+      return {
+        success: false,
+        error: "A senha deve ter pelo menos 6 caracteres",
+      }
+    }
+
+    // Verificar o OTP
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: "email",
+    })
+
+    if (verifyError) {
+      return {
+        success: false,
+        error: "Código inválido ou expirado",
+      }
+    }
+
+    // Atualizar a senha
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    })
+
+    if (updateError) {
+      return {
+        success: false,
+        error: updateError.message || "Erro ao atualizar senha",
+      }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error("Verify OTP and reset password error:", error)
+    return {
+      success: false,
+      error: error.message || "Erro ao verificar código e atualizar senha",
+    }
   }
 }
 

@@ -3,7 +3,7 @@
 import Link from "next/link"
 import Image from "next/image"
 import { useState, useEffect } from "react"
-import { Menu, X } from "lucide-react"
+import { Menu, X, Settings } from "lucide-react"
 import { signOutSupabase } from "@/lib/auth-supabase"
 import { PlanBadge } from "./plan-badge"
 import { getUserPlan } from "@/lib/storage-supabase"
@@ -60,6 +60,13 @@ export function Navbar({ user }: NavbarProps) {
               <div className="hidden md:flex items-center gap-3">
                 <PlanBadge plan={userPlan} />
                 <span className="text-xs text-muted-foreground truncate max-w-[150px]">{user.email}</span>
+                <Link
+                  href="/settings"
+                  className="p-2 rounded-md hover:bg-muted transition-colors"
+                  aria-label="Configurações"
+                >
+                  <Settings className="w-4 h-4" />
+                </Link>
                 <button
                   onClick={handleLogout}
                   className="px-3 py-1.5 text-xs font-medium rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors"
@@ -87,6 +94,14 @@ export function Navbar({ user }: NavbarProps) {
               <span className="text-xs text-muted-foreground truncate">{user.email}</span>
               <PlanBadge plan={userPlan} />
             </div>
+            <Link
+              href="/settings"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              Configurações
+            </Link>
             <button
               onClick={handleLogout}
               className="w-full px-3 py-2 text-sm font-medium rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors"
