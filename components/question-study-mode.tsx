@@ -184,8 +184,8 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
                     ? "border-green-500 bg-green-50 dark:bg-green-950/20"
                     : showWrong
                       ? "border-red-500 bg-red-50 dark:bg-red-950/20"
-                      : isSelected
-                        ? "border-primary bg-primary/5"
+                      : isSelected && !showResult
+                        ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
                         : "border-border hover:border-primary/50 hover:bg-muted/50"
                 } ${showResult ? "cursor-not-allowed" : "cursor-pointer"}`}
               >
@@ -197,8 +197,8 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
                           ? "text-green-600 dark:text-green-400"
                           : showWrong
                             ? "text-red-600 dark:text-red-400"
-                            : isSelected
-                              ? "text-primary"
+                            : isSelected && !showResult
+                              ? "text-blue-600 dark:text-blue-400"
                               : "text-muted-foreground"
                       }`}
                     >
@@ -223,6 +223,16 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
             )
           })}
         </div>
+
+        {/* Added visual indicator when an option is selected */}
+        {selectedAnswer && !showResult && (
+          <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              ✓ Alternativa <strong>{selectedAnswer}</strong> selecionada. Você pode mudar sua escolha clicando em outra
+              alternativa antes de confirmar.
+            </p>
+          </div>
+        )}
 
         {showResult && (
           <div
@@ -260,11 +270,16 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
             </Button>
           )}
           {!showResult ? (
-            <Button onClick={handleSubmit} disabled={!selectedAnswer} className="flex-1">
+            <Button
+              onClick={handleSubmit}
+              disabled={!selectedAnswer}
+              className={`flex-1 text-lg py-6 font-semibold ${selectedAnswer ? "animate-pulse" : ""}`}
+              size="lg"
+            >
               Confirmar Resposta
             </Button>
           ) : (
-            <Button onClick={handleNext} className="flex-1">
+            <Button onClick={handleNext} className="flex-1 text-lg py-6" size="lg">
               {isLastQuestion ? "Finalizar Revisão" : "Próxima Questão"}
             </Button>
           )}

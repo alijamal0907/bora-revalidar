@@ -24,6 +24,7 @@ interface Question {
   correta: string
   tema?: string
   subtema?: string
+  resposta_correta?: string
   [key: string]: any
 }
 
@@ -371,7 +372,7 @@ export default function StudyPage() {
   }
 
   const currentQuestion = questions[currentIndex]
-  const correctLetter = String(currentQuestion?.correta || "A")
+  const correctLetter = String(currentQuestion?.correta || currentQuestion?.resposta_correta || "A")
     .toUpperCase()
     .trim()
 
@@ -387,33 +388,38 @@ export default function StudyPage() {
   const handleSelectAnswer = async (letter: string) => {
     if (!answered && !isLoading) {
       setSelectedAnswer(letter)
-      setAnswered(true)
+    }
+  }
 
-      const correct = letter === correctLetter
-      const newStats = {
-        ...sessionStats,
-        reviewed: sessionStats.reviewed + 1,
-        correct: sessionStats.correct + (correct ? 1 : 0),
-        incorrect: sessionStats.incorrect + (correct ? 0 : 1),
+  const handleConfirmAnswer = async () => {
+    if (!selectedAnswer || answered) return
+
+    setAnswered(true)
+
+    const correct = selectedAnswer === correctLetter
+    const newStats = {
+      ...sessionStats,
+      reviewed: sessionStats.reviewed + 1,
+      correct: sessionStats.correct + (correct ? 1 : 0),
+      incorrect: sessionStats.incorrect + (correct ? 0 : 1),
+    }
+    setSessionStats(newStats)
+
+    if (userPlan === "free") {
+      const newCount = dailyQuestionsCount + 1
+      setDailyQuestionsCount(newCount)
+
+      if (hasReachedDailyLimit(newCount, userPlan)) {
+        setIsBlocked(true)
       }
-      setSessionStats(newStats)
+    }
 
-      if (userPlan === "free") {
-        const newCount = dailyQuestionsCount + 1
-        setDailyQuestionsCount(newCount)
-
-        if (hasReachedDailyLimit(newCount, userPlan)) {
-          setIsBlocked(true)
-        }
-      }
-
-      if (currentQuestion?.id) {
-        try {
-          const userId = user?.id || user?.usuario_id
-          await saveQuizAnswer(userId, currentQuestion.id, letter, correct, "estudo")
-        } catch (error) {
-          console.error("Error saving answer:", error)
-        }
+    if (currentQuestion?.id) {
+      try {
+        const userId = user?.id || user?.usuario_id
+        await saveQuizAnswer(userId, currentQuestion.id, selectedAnswer, correct, "estudo")
+      } catch (error) {
+        console.error("Error saving answer:", error)
       }
     }
   }
@@ -492,13 +498,15 @@ export default function StudyPage() {
                   onClick={() => handleSelectAnswer(altLetter)}
                   disabled={answered}
                   className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
-                    isSelected
+                    answered && isSelected
                       ? isCorrect
                         ? "border-accent bg-accent/10"
                         : "border-destructive bg-destructive/10"
                       : answered && isCorrectAlt
                         ? "border-accent bg-accent/10"
-                        : "border-input hover:border-muted"
+                        : isSelected && !answered
+                          ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                          : "border-input hover:border-muted"
                   } ${answered ? "cursor-default" : "cursor-pointer"}`}
                 >
                   <div className="flex items-start gap-3">
@@ -513,6 +521,21 @@ export default function StudyPage() {
               )
             })}
           </div>
+
+          {selectedAnswer && !answered && (
+            <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+              <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">
+                ✓ Alternativa <strong>{selectedAnswer}</strong> selecionada. Você pode mudar sua escolha clicando em
+                outra alternativa.
+              </p>
+              <button
+                onClick={handleConfirmAnswer}
+                className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all active:scale-95 animate-pulse"
+              >
+                Confirmar Resposta
+              </button>
+            </div>
+          )}
 
           {answered && (
             <div
