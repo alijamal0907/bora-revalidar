@@ -25,6 +25,7 @@ interface Question {
   tema?: string
   subtema?: string
   resposta_correta?: string
+  explicacao?: string | null
   [key: string]: any
 }
 
@@ -47,6 +48,7 @@ export default function StudyPage() {
   const [upgradeReason, setUpgradeReason] = useState<"daily_limit" | "theme_limit" | "general">("general")
   const [dailyQuestionsCount, setDailyQuestionsCount] = useState(0)
   const [isBlocked, setIsBlocked] = useState(false)
+  const [studyMode, setStudyMode] = useState<"settings" | "questions" | "complete">("settings")
 
   useEffect(() => {
     const checkDailyLimit = async () => {
@@ -273,6 +275,7 @@ export default function StudyPage() {
                 onClick={() => {
                   setShowSettings(false)
                   setIsLoading(true)
+                  setStudyMode("questions")
                 }}
                 className="w-full px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors mt-8"
               >
@@ -431,11 +434,12 @@ export default function StudyPage() {
       setAnswered(false)
     } else {
       setIsComplete(true)
+      setStudyMode("complete")
     }
   }
 
   return (
-    <div>
+    <div className="min-h-screen bg-background">
       <Navbar user={user} />
 
       <UpgradeModal
@@ -456,108 +460,158 @@ export default function StudyPage() {
           Voltar
         </button>
 
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <span className="text-sm font-medium text-foreground">
-              Questão {currentIndex + 1} de {questions.length}
-            </span>
-            <span className="text-sm text-muted-foreground">
-              {Math.round(((currentIndex + 1) / questions.length) * 100)}%
-            </span>
-          </div>
-          <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all duration-300"
-              style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-8 mb-8">
-          {currentQuestion?.tema && (
-            <div className="flex gap-2 mb-6">
-              <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                {currentQuestion.tema}
-              </span>
+        {studyMode === "questions" && questions.length > 0 && (
+          <div className="container max-w-4xl mx-auto px-4 py-8">
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-foreground">
+                  Questão {currentIndex + 1} de {questions.length}
+                </span>
+                <span className="text-sm text-muted-foreground">
+                  {Math.round(((currentIndex + 1) / questions.length) * 100)}%
+                </span>
+              </div>
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+                />
+              </div>
             </div>
-          )}
 
-          <h2 className="text-xl font-bold text-foreground mb-8 whitespace-pre-wrap break-words">
-            {currentQuestion?.enunciado}
-          </h2>
+            <div className="bg-card border border-border rounded-lg p-8 mb-8">
+              {currentQuestion?.tema && (
+                <div className="flex gap-2 mb-6">
+                  <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                    {currentQuestion.tema}
+                  </span>
+                </div>
+              )}
 
-          <div className="space-y-3 mb-8">
-            {alternatives.map((alt) => {
-              const altLetter = alt.letter
-              const isSelected = selectedAnswer === altLetter
-              const isCorrectAlt = altLetter === correctLetter
+              <h2 className="text-xl font-bold text-foreground mb-8 whitespace-pre-wrap break-words">
+                {currentQuestion?.enunciado}
+              </h2>
 
-              return (
-                <button
-                  key={alt.letter}
-                  onClick={() => handleSelectAnswer(altLetter)}
-                  disabled={answered}
-                  className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
-                    answered && isSelected
-                      ? isCorrect
-                        ? "border-accent bg-accent/10"
-                        : "border-destructive bg-destructive/10"
-                      : answered && isCorrectAlt
-                        ? "border-accent bg-accent/10"
-                        : isSelected && !answered
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                          : "border-input hover:border-muted"
-                  } ${answered ? "cursor-default" : "cursor-pointer"}`}
+              <div className="space-y-3 mb-8">
+                {alternatives.map((alt) => {
+                  const altLetter = alt.letter
+                  const isSelected = selectedAnswer === altLetter
+                  const isCorrectAlt = altLetter === correctLetter
+
+                  return (
+                    <button
+                      key={alt.letter}
+                      onClick={() => handleSelectAnswer(altLetter)}
+                      disabled={answered}
+                      className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
+                        answered && isSelected
+                          ? isCorrect
+                            ? "border-accent bg-accent/10"
+                            : "border-destructive bg-destructive/10"
+                          : answered && isCorrectAlt
+                            ? "border-accent bg-accent/10"
+                            : isSelected && !answered
+                              ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                              : "border-input hover:border-muted"
+                      } ${answered ? "cursor-default" : "cursor-pointer"}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="font-bold text-foreground w-6 flex-shrink-0">{altLetter}</span>
+                        <span className="text-foreground flex-1 whitespace-pre-wrap break-words">{alt.text}</span>
+                        {answered && isCorrectAlt && <span className="text-accent font-bold flex-shrink-0">✓</span>}
+                        {answered && isSelected && !isCorrect && (
+                          <span className="text-destructive font-bold flex-shrink-0">✗</span>
+                        )}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Indicator when selected but not confirmed */}
+              {selectedAnswer && !answered && (
+                <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    ✓ Alternativa <strong>{selectedAnswer}</strong> selecionada. Você pode mudar sua escolha antes de
+                    confirmar.
+                  </p>
+                </div>
+              )}
+
+              {answered && (
+                <div
+                  className={`mt-4 p-4 rounded-lg ${
+                    selectedAnswer?.toUpperCase() === currentQuestion.correta?.toUpperCase()
+                      ? "bg-green-50 dark:bg-green-950/20 border-2 border-green-500"
+                      : "bg-red-50 dark:bg-red-950/20 border-2 border-red-500"
+                  }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <span className="font-bold text-foreground w-6 flex-shrink-0">{altLetter}</span>
-                    <span className="text-foreground flex-1 whitespace-pre-wrap break-words">{alt.text}</span>
-                    {answered && isCorrectAlt && <span className="text-accent font-bold flex-shrink-0">✓</span>}
-                    {answered && isSelected && !isCorrect && (
-                      <span className="text-destructive font-bold flex-shrink-0">✗</span>
-                    )}
-                  </div>
-                </button>
-              )
-            })}
+                  <p
+                    className={`font-semibold ${
+                      selectedAnswer?.toUpperCase() === currentQuestion.correta?.toUpperCase()
+                        ? "text-green-700 dark:text-green-300"
+                        : "text-red-700 dark:text-red-300"
+                    }`}
+                  >
+                    {selectedAnswer?.toUpperCase() === currentQuestion.correta?.toUpperCase()
+                      ? "✓ Resposta correta!"
+                      : "✗ Resposta incorreta"}
+                  </p>
+                  {selectedAnswer?.toUpperCase() !== currentQuestion.correta?.toUpperCase() && (
+                    <p className="text-sm mt-2 text-muted-foreground">
+                      A resposta correta é: <strong>{currentQuestion.correta?.toUpperCase()}</strong>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Justificativa da questão - sempre mostra após confirmar */}
+              {answered && (
+                <div className="mt-4 rounded-lg p-4 border-2 border-[#C6A239] bg-[#0D1B2A]">
+                  <h3 className="font-semibold mb-2 text-[#C6A239] flex items-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                    Justificativa da questão
+                  </h3>
+                  {currentQuestion.explicacao ? (
+                    <p className="text-sm leading-relaxed text-[#E6E6E6]">{currentQuestion.explicacao}</p>
+                  ) : (
+                    <p className="text-sm leading-relaxed text-[#C6A239] italic">
+                      A justificativa desta questão será carregada em breve. Continuamos trabalhando para melhorar seu
+                      estudo!
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 mt-8">
+                {!answered && (
+                  <button
+                    onClick={handleConfirmAnswer}
+                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
+                  >
+                    Confirmar Resposta
+                  </button>
+                )}
+                {answered && (
+                  <button
+                    onClick={handleNext}
+                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
+                  >
+                    {currentIndex < questions.length - 1 ? "Próxima" : "Finalizar"}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-
-          {selectedAnswer && !answered && (
-            <div className="mb-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-              <p className="text-sm text-blue-600 dark:text-blue-400 mb-3">
-                ✓ Alternativa <strong>{selectedAnswer}</strong> selecionada. Você pode mudar sua escolha clicando em
-                outra alternativa.
-              </p>
-              <button
-                onClick={handleConfirmAnswer}
-                className="w-full py-3 px-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-all active:scale-95 animate-pulse"
-              >
-                Confirmar Resposta
-              </button>
-            </div>
-          )}
-
-          {answered && (
-            <div
-              className={`p-4 rounded-lg ${isCorrect ? "bg-accent/10 border border-accent" : "bg-destructive/10 border border-destructive"}`}
-            >
-              <p className={`text-sm font-medium ${isCorrect ? "text-accent" : "text-destructive"}`}>
-                {isCorrect ? "Resposta Correta!" : "Resposta Incorreta"}
-              </p>
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-4">
-          {answered && (
-            <button
-              onClick={handleNext}
-              className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
-            >
-              {currentIndex < questions.length - 1 ? "Próxima" : "Finalizar"}
-            </button>
-          )}
-        </div>
+        )}
       </main>
     </div>
   )

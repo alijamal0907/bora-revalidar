@@ -330,11 +330,68 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
         D: q.alternativaD || q.alternativad || "",
       },
       resposta_correta: (q.correta || q.resposta_correta || "").toUpperCase(),
+      explicacao: q.explicacao || null, // Incluindo campo explicacao
       wrongCount: historico.filter((h: any) => h.questao_id === q.id).length,
     }))
   } catch (error) {
     console.error("Error in getWrongAnswers:", error)
     return []
+  }
+}
+
+export async function getQuestoesWithAlternatives(usuarioId: string, temas?: string[], limit = 2000): Promise<any[]> {
+  try {
+    const { data: allQuestoes, error: fetchError } = await getSupabaseClient().from("questoes").select("*").limit(limit)
+
+    if (fetchError) {
+      console.error("Error fetching questoes with alternatives:", fetchError)
+      return []
+    }
+
+    if (!allQuestoes || allQuestoes.length === 0) {
+      return []
+    }
+
+    if (!temas || temas.length === 0) {
+      return allQuestoes
+    }
+
+    const normalizedTemas = temas.map((t) => t.trim().toLowerCase())
+
+    const filtered = allQuestoes.filter((q: any) => {
+      const questaoTema = String(q.tema || "")
+        .trim()
+        .toLowerCase()
+      return normalizedTemas.includes(questaoTema)
+    })
+
+    return filtered
+  } catch (error) {
+    console.error("Error in getQuestoesWithAlternatives:", error)
+    return []
+  }
+}
+
+export async function getUserPlan(email: string): Promise<"free" | "premium"> {
+  try {
+    const { data, error } = await supabase
+      .from("assinaturas")
+      .select("plano, status, transaction_id, data_pagamento")
+      .eq("email", email.toLowerCase().trim())
+      .single()
+
+    if (error || !data) {
+      return "free"
+    }
+
+    if (data.plano === "premium" || data.transaction_id || data.data_pagamento) {
+      return "premium"
+    }
+
+    return "free"
+  } catch (error) {
+    console.error("Error getting user plan:", error)
+    return "free"
   }
 }
 
@@ -397,77 +454,66 @@ export async function getProgressByTheme(userId: string): Promise<any[]> {
   }
 }
 
-export async function getQuestoesWithAlternatives(usuarioId: string, temas?: string[], limit = 2000): Promise<any[]> {
+export async function getDailyProgress(userId: string) {
   try {
-    const { data: allQuestoes, error: fetchError } = await supabase.from("questoes").select("*").limit(limit)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-    if (fetchError) {
-      console.error("Error fetching questoes with alternatives:", fetchError)
-      return []
+    const { data, error } = await supabase
+      .from("hist_questoes")
+      .select("questao_id")
+      .eq("user_id", userId)
+      .gte("created_at", today.toISOString())
+
+    if (error) {
+      console.error("Erro ao buscar progresso diário:", error)
+      return 0
     }
 
-    if (!allQuestoes || allQuestoes.length === 0) {
-      return []
-    }
-
-    if (!temas || temas.length === 0) {
-      return allQuestoes
-    }
-
-    const normalizedTemas = temas.map((t) => t.trim().toLowerCase())
-
-    const filtered = allQuestoes.filter((q: any) => {
-      const questaoTema = String(q.tema || "")
-        .trim()
-        .toLowerCase()
-      return normalizedTemas.includes(questaoTema)
-    })
-
-    return filtered
+    const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
+    return uniqueQuestions.size
   } catch (error) {
-    console.error("Error in getQuestoesWithAlternatives:", error)
-    return []
+    console.error("Erro ao buscar progresso diário:", error)
+    return 0
   }
 }
 
-export async function checkSubscriptionStatus(email: string): Promise<{
-  isActive: boolean
-  message: string
-  subscription?: any
-}> {
+export const getDailyQuestionCount = getDailyProgress
+
+export async function getMonthlyProgress(userId: string) {
   try {
+    const firstDayOfMonth = new Date()
+    firstDayOfMonth.setDate(1)
+    firstDayOfMonth.setHours(0, 0, 0, 0)
+
     const { data, error } = await supabase
-      .from("assinaturas")
-      .select("*")
-      .eq("email", email.toLowerCase().trim())
-      .single()
+      .from("hist_questoes")
+      .select("questao_id")
+      .eq("user_id", userId)
+      .gte("created_at", firstDayOfMonth.toISOString())
 
-    if (error || !data) {
-      return {
-        isActive: false,
-        message: "Assinatura não encontrada. Realize o pagamento na plataforma Cakto para ter acesso.",
-      }
+    if (error) {
+      console.error("Erro ao buscar progresso mensal:", error)
+      return 0
     }
 
-    if (data.status !== "ativo" && data.status !== "active") {
-      return {
-        isActive: false,
-        message: "Sua assinatura está pendente de aprovação. Aguarde a confirmação do pagamento.",
-      }
-    }
-
-    return {
-      isActive: true,
-      message: "Assinatura ativa",
-      subscription: data,
-    }
+    const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
+    return uniqueQuestions.size
   } catch (error) {
-    console.error("Error checking subscription:", error)
-    return {
-      isActive: false,
-      message: "Erro ao verificar assinatura",
-    }
+    console.error("Erro ao buscar progresso mensal:", error)
+    return 0
   }
+}
+
+export async function getUserGoals(userId: string) {
+  const { data, error } = await supabase.from("user_goals").select("*").eq("user_id", userId).single()
+
+  if (error && error.code !== "PGRST116") {
+    console.error("Erro ao buscar metas:", error)
+    return null
+  }
+
+  return data
 }
 
 export async function registerDeviceSession(
@@ -649,90 +695,5 @@ export async function getUserStreak(userId: string): Promise<number> {
   } catch (error) {
     console.error("Error calculating streak:", error)
     return 0
-  }
-}
-
-export async function getUserGoals(userId: string) {
-  const { data, error } = await supabase.from("user_goals").select("*").eq("user_id", userId).single()
-
-  if (error && error.code !== "PGRST116") {
-    console.error("Erro ao buscar metas:", error)
-    return null
-  }
-
-  return data
-}
-
-export async function getDailyProgress(userId: string) {
-  try {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const { data, error } = await supabase
-      .from("hist_questoes")
-      .select("questao_id")
-      .eq("user_id", userId)
-      .gte("created_at", today.toISOString())
-
-    if (error) {
-      console.error("Erro ao buscar progresso diário:", error)
-      return 0
-    }
-
-    const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
-    return uniqueQuestions.size
-  } catch (error) {
-    console.error("Erro ao buscar progresso diário:", error)
-    return 0
-  }
-}
-
-export const getDailyQuestionCount = getDailyProgress
-
-export async function getMonthlyProgress(userId: string) {
-  try {
-    const firstDayOfMonth = new Date()
-    firstDayOfMonth.setDate(1)
-    firstDayOfMonth.setHours(0, 0, 0, 0)
-
-    const { data, error } = await supabase
-      .from("hist_questoes")
-      .select("questao_id")
-      .eq("user_id", userId)
-      .gte("created_at", firstDayOfMonth.toISOString())
-
-    if (error) {
-      console.error("Erro ao buscar progresso mensal:", error)
-      return 0
-    }
-
-    const uniqueQuestions = new Set(data?.map((item) => item.questao_id) || [])
-    return uniqueQuestions.size
-  } catch (error) {
-    console.error("Erro ao buscar progresso mensal:", error)
-    return 0
-  }
-}
-
-export async function getUserPlan(email: string): Promise<"free" | "premium"> {
-  try {
-    const { data, error } = await supabase
-      .from("assinaturas")
-      .select("plano, status, transaction_id, data_pagamento")
-      .eq("email", email.toLowerCase().trim())
-      .single()
-
-    if (error || !data) {
-      return "free"
-    }
-
-    if (data.plano === "premium" || data.transaction_id || data.data_pagamento) {
-      return "premium"
-    }
-
-    return "free"
-  } catch (error) {
-    console.error("Error getting user plan:", error)
-    return "free"
   }
 }

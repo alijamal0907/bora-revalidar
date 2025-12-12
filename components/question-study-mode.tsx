@@ -10,6 +10,7 @@ interface Question {
   alternativas: any
   resposta_correta: string
   tema?: string
+  explicacao?: string | null
 }
 
 interface QuestionStudyModeProps {
@@ -256,6 +257,30 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
             {selectedAnswer?.toUpperCase() !== (currentQuestion.resposta_correta || "").toUpperCase() && (
               <p className="text-sm mt-2 text-muted-foreground">
                 A resposta correta é: <strong>{(currentQuestion.resposta_correta || "").toUpperCase()}</strong>
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Justificativa da questão - sempre mostra após confirmar */}
+        {showResult && (
+          <div className="mt-4 rounded-lg p-4 border-2 border-[#C6A239] bg-[#0D1B2A]">
+            <h3 className="font-semibold mb-2 text-[#C6A239] flex items-center gap-2">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              Justificativa da questão
+            </h3>
+            {currentQuestion.explicacao ? (
+              <p className="text-sm leading-relaxed text-[#E6E6E6]">{currentQuestion.explicacao}</p>
+            ) : (
+              <p className="text-sm leading-relaxed text-[#C6A239] italic">
+                A justificativa desta questão será carregada em breve. Continuamos trabalhando para melhorar seu estudo!
               </p>
             )}
           </div>
