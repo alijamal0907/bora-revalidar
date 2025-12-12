@@ -52,7 +52,11 @@ export default function FlashcardStudyMode({
       try {
         setIsLoading(true)
         const cards = await fetchFlashcards()
-        setFlashcards(cards)
+
+        const { orderFlashcardsWithSpacedRepetition } = await import("@/lib/flashcards-storage")
+        const orderedCards = await orderFlashcardsWithSpacedRepetition(userId, cards)
+
+        setFlashcards(orderedCards)
         setIsLoading(false)
       } catch (error) {
         console.error("Error loading flashcards:", error)
@@ -61,7 +65,7 @@ export default function FlashcardStudyMode({
     }
 
     loadFlashcards()
-  }, [fetchFlashcards])
+  }, [fetchFlashcards, userId])
 
   const handleShowAnswer = () => {
     setShowAnswer(true)

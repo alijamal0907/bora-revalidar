@@ -24,6 +24,151 @@ export interface FlashcardSession {
   reviewedIds: Set<string>
 }
 
+export async function orderFlashcardsWithSpacedRepetition(
+  userId: string | null,
+  flashcards: Flashcard[],
+): Promise<Flashcard[]> {
+  if (!userId || flashcards.length === 0) {
+    // Se não tiver usuário, apenas embaralha
+    return shuffleArray(flashcards)
+  }
+
+  const supabase = getSupabaseClient()
+  const now = new Date()
+  const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
+  // Busca histórico de todos os flashcards (últimas 48h para performance)
+  const { data: history, error } = await supabase
+    .from("flashcard_history")
+    .select("flashcard_id, correct, answered_at")
+    .eq("user_id", userId)
+    .in(
+      "flashcard_id",
+      flashcards.map((f) => f.id),
+    )
+    .gte("answered_at", new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString())
+    .order("answered_at", { ascending: false })
+
+  if (error) {
+    console.error("Error fetching flashcard history:", error)
+    return shuffleArray(flashcards)
+  }
+
+  // Cria um mapa com estatísticas de cada flashcard
+  const statsMap = new Map<
+    string,
+    {
+      lastAnswered: Date
+      totalAnswers: number
+      correctCount: number
+      wrongCount: number
+      wasWrongRecently: boolean
+    }
+  >()
+
+  history?.forEach((h: any) => {
+    if (!statsMap.has(h.flashcard_id)) {
+      statsMap.set(h.flashcard_id, {
+        lastAnswered: new Date(h.answered_at),
+        totalAnswers: 1,
+        correctCount: h.correct ? 1 : 0,
+        wrongCount: h.correct ? 0 : 1,
+        wasWrongRecently: !h.correct,
+      })
+    } else {
+      const stats = statsMap.get(h.flashcard_id)!
+      stats.totalAnswers++
+      if (h.correct) {
+        stats.correctCount++
+      } else {
+        stats.wrongCount++
+        stats.wasWrongRecently = true
+      }
+    }
+  })
+
+  // Separa flashcards em categorias baseado em performance
+  const needsReview: Flashcard[] = [] // Errados recentemente
+  const dueForPractice: Flashcard[] = [] // Respondidos há mais de 1 dia
+  const notYetStudied: Flashcard[] = [] // Nunca estudados
+  const recentlyStudied: Flashcard[] = [] // Estudados nas últimas 24h
+
+  flashcards.forEach((flashcard) => {
+    const stats = statsMap.get(flashcard.id)
+
+    if (!stats) {
+      // Nunca estudado
+      notYetStudied.push(flashcard)
+    } else if (stats.wasWrongRecently) {
+      // Errou recentemente, precisa revisar
+      needsReview.push(flashcard)
+    } else if (stats.lastAnswered < oneDayAgo) {
+      // Não estudou há mais de 1 dia
+      dueForPractice.push(flashcard)
+    } else {
+      // Estudou recentemente e acertou
+      recentlyStudied.push(flashcard)
+    }
+  })
+
+  // Ordena flashcards que precisam revisar pela taxa de erro (maior taxa = maior prioridade)
+  needsReview.sort((a, b) => {
+    const aStats = statsMap.get(a.id)!
+    const bStats = statsMap.get(b.id)!
+    const aErrorRate = aStats.wrongCount / aStats.totalAnswers
+    const bErrorRate = bStats.wrongCount / bStats.totalAnswers
+    return bErrorRate - aErrorRate // Maior erro primeiro
+  })
+
+  // Ordena os que precisam praticar pelos menos recentemente estudados
+  dueForPractice.sort((a, b) => {
+    const aStats = statsMap.get(a.id)!
+    const bStats = statsMap.get(b.id)!
+    return aStats.lastAnswered.getTime() - bStats.lastAnswered.getTime()
+  })
+
+  // Embaralha os não estudados e os recentes
+  const shuffledNew = shuffleArray(notYetStudied)
+  const shuffledRecent = shuffleArray(recentlyStudied)
+
+  // Combina: prioridade para revisar erros, depois praticar, depois novos, depois recentes
+  return intercalateFlashcards([...needsReview, ...dueForPractice, ...shuffledNew, ...shuffledRecent])
+}
+
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+function intercalateFlashcards(flashcards: Flashcard[]): Flashcard[] {
+  if (flashcards.length <= 2) return flashcards
+
+  const result: Flashcard[] = [flashcards[0]]
+  const remaining = flashcards.slice(1)
+
+  while (remaining.length > 0) {
+    const lastAdded = result[result.length - 1]
+
+    // Tenta encontrar um flashcard diferente do último
+    const differentIndex = remaining.findIndex((f) => f.id !== lastAdded.id && f.tema !== lastAdded.tema)
+
+    if (differentIndex !== -1) {
+      result.push(remaining[differentIndex])
+      remaining.splice(differentIndex, 1)
+    } else {
+      // Se não encontrar diferente, pega o primeiro disponível
+      result.push(remaining[0])
+      remaining.shift()
+    }
+  }
+
+  return result
+}
+
 export async function getFlashcardsByMateriaAndTema(materia: string, tema: string): Promise<Flashcard[]> {
   const supabase = getSupabaseClient()
   const { data, error } = await supabase.rpc("get_flashcards_by_materia_tema", {
@@ -188,6 +333,7 @@ export async function saveFlashcardAnswer(
   tema: string,
 ): Promise<void> {
   const supabase = getSupabaseClient()
+
   const { error } = await supabase.from("flashcard_history").insert({
     user_id: userId,
     flashcard_id: flashcardId,
