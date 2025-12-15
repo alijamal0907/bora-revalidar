@@ -9,6 +9,8 @@ import { PlanBadge } from "./plan-badge"
 import { getUserPlan } from "@/lib/storage-supabase"
 import type { UserPlan } from "@/lib/plan-utils"
 
+const ADMIN_EMAIL = "ali_jamal2002@hotmail.com"
+
 interface NavbarProps {
   user?: {
     id: string
@@ -20,6 +22,8 @@ interface NavbarProps {
 export function Navbar({ user }: NavbarProps) {
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
+  const isAdmin = user?.email === ADMIN_EMAIL
 
   const handleLogout = async () => {
     try {
@@ -60,14 +64,16 @@ export function Navbar({ user }: NavbarProps) {
               <div className="hidden md:flex items-center gap-3">
                 <PlanBadge plan={userPlan} />
                 <span className="text-xs text-muted-foreground truncate max-w-[150px]">{user.email}</span>
-                <Link
-                  href="/admin"
-                  className="p-2 rounded-md hover:bg-muted transition-colors"
-                  aria-label="Admin"
-                  title="Painel Administrativo"
-                >
-                  <Shield className="w-4 h-4" />
-                </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="p-2 rounded-md hover:bg-muted transition-colors"
+                    aria-label="Admin"
+                    title="Painel Administrativo"
+                  >
+                    <Shield className="w-4 h-4" />
+                  </Link>
+                )}
                 <Link
                   href="/settings"
                   className="p-2 rounded-md hover:bg-muted transition-colors"
@@ -102,14 +108,16 @@ export function Navbar({ user }: NavbarProps) {
               <span className="text-xs text-muted-foreground truncate">{user.email}</span>
               <PlanBadge plan={userPlan} />
             </div>
-            <Link
-              href="/admin"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors"
-            >
-              <Shield className="w-4 h-4" />
-              Painel Admin
-            </Link>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2 w-full px-3 py-2 text-sm font-medium rounded-md bg-muted text-foreground hover:bg-muted/80 transition-colors"
+              >
+                <Shield className="w-4 h-4" />
+                Painel Admin
+              </Link>
+            )}
             <Link
               href="/settings"
               onClick={() => setMobileMenuOpen(false)}
