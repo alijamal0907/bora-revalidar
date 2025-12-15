@@ -1,0 +1,10 @@
+{
+  "type": "module",
+  "scripts": {
+    "generate-explicacoes": "tsx generate-missing-explicacoes.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "tsx": "^4.7.0"
+  }
+}

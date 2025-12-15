@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle, XCircle, Loader2 } from "lucide-react"
+import { AdminGuard } from "@/components/admin-guard"
 
 export default function DiagnosticoPage() {
   const [loading, setLoading] = useState(false)
@@ -129,87 +130,89 @@ export default function DiagnosticoPage() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <Card>
-        <CardHeader>
-          <CardTitle>Diagnóstico do Sistema - Bora Revalidar</CardTitle>
-          <CardDescription>Teste as conexões com o novo projeto Supabase: fmhzwcbjjdkcylohqfyy</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-2">Teste de Conexão</h3>
-              <Button onClick={testConnection} disabled={loading}>
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                Testar Conexão com Banco de Dados
-              </Button>
-            </div>
-
-            <div className="border-t pt-4">
-              <h3 className="font-semibold mb-2">Teste de Cadastro</h3>
-              <div className="space-y-2">
-                <Input
-                  type="email"
-                  placeholder="Email de teste"
-                  value={testEmail}
-                  onChange={(e) => setTestEmail(e.target.value)}
-                />
-                <Input
-                  type="password"
-                  placeholder="Senha de teste (mín. 6 caracteres)"
-                  value={testPassword}
-                  onChange={(e) => setTestPassword(e.target.value)}
-                />
-                <Button onClick={testSignup} disabled={loading}>
+    <AdminGuard>
+      <div className="container mx-auto p-6 max-w-4xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Diagnóstico do Sistema - Bora Revalidar</CardTitle>
+            <CardDescription>Teste as conexões com o novo projeto Supabase: fmhzwcbjjdkcylohqfyy</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              <div>
+                <h3 className="font-semibold mb-2">Teste de Conexão</h3>
+                <Button onClick={testConnection} disabled={loading}>
                   {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  Testar Cadastro de Usuário
+                  Testar Conexão com Banco de Dados
                 </Button>
               </div>
+
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-2">Teste de Cadastro</h3>
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder="Email de teste"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Senha de teste (mín. 6 caracteres)"
+                    value={testPassword}
+                    onChange={(e) => setTestPassword(e.target.value)}
+                  />
+                  <Button onClick={testSignup} disabled={loading}>
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Testar Cadastro de Usuário
+                  </Button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <h3 className="font-semibold">Resultados dos Testes:</h3>
-            {results.length === 0 ? (
-              <Alert>
-                <AlertDescription>Nenhum teste executado ainda</AlertDescription>
-              </Alert>
-            ) : (
-              results.map((result, index) => (
-                <Alert key={index} variant={result.success ? "default" : "destructive"}>
-                  <div className="flex items-start gap-2">
-                    {result.success ? (
-                      <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-                    )}
-                    <div className="flex-1">
-                      <div className="font-semibold">{result.test}</div>
-                      <AlertDescription>{result.message}</AlertDescription>
-                      {result.data && (
-                        <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
-                          {JSON.stringify(result.data, null, 2)}
-                        </pre>
-                      )}
-                      <div className="text-xs text-muted-foreground mt-1">{result.timestamp}</div>
-                    </div>
-                  </div>
+            <div className="space-y-2">
+              <h3 className="font-semibold">Resultados dos Testes:</h3>
+              {results.length === 0 ? (
+                <Alert>
+                  <AlertDescription>Nenhum teste executado ainda</AlertDescription>
                 </Alert>
-              ))
-            )}
-          </div>
+              ) : (
+                results.map((result, index) => (
+                  <Alert key={index} variant={result.success ? "default" : "destructive"}>
+                    <div className="flex items-start gap-2">
+                      {result.success ? (
+                        <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                      )}
+                      <div className="flex-1">
+                        <div className="font-semibold">{result.test}</div>
+                        <AlertDescription>{result.message}</AlertDescription>
+                        {result.data && (
+                          <pre className="mt-2 text-xs bg-muted p-2 rounded overflow-auto max-h-32">
+                            {JSON.stringify(result.data, null, 2)}
+                          </pre>
+                        )}
+                        <div className="text-xs text-muted-foreground mt-1">{result.timestamp}</div>
+                      </div>
+                    </div>
+                  </Alert>
+                ))
+              )}
+            </div>
 
-          <Alert>
-            <AlertDescription>
-              <strong>Informações do Projeto:</strong>
-              <br />
-              URL: {process.env.NEXT_PUBLIC_SUPABASE_URL}
-              <br />
-              Project ID: fmhzwcbjjdkcylohqfyy
-            </AlertDescription>
-          </Alert>
-        </CardContent>
-      </Card>
-    </div>
+            <Alert>
+              <AlertDescription>
+                <strong>Informações do Projeto:</strong>
+                <br />
+                URL: {process.env.NEXT_PUBLIC_SUPABASE_URL}
+                <br />
+                Project ID: fmhzwcbjjdkcylohqfyy
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
+      </div>
+    </AdminGuard>
   )
 }
