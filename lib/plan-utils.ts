@@ -54,7 +54,5 @@ export function getRemainingQuestions(questionsToday: number, plan: UserPlan): n
 export const CAKTO_PAYMENT_URL = "https://pay.cakto.com.br/upkbydv_655583"
 
 export const PAYMENT_URLS = {
-  monthly: "https://pay.cakto.com.br/upkbydv_655583",
-  quarterly: "https://pay.cakto.com.br/gyksd75",
-  annual: "https://pay.cakto.com.br/j5jtax8",
+  lifetime: "https://pay.cakto.com.br/upkbydv_655583", // Pagamento único R$ 147,00
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { Crown, ArrowRight, Check, Gem } from "lucide-react"
+import { Crown, ArrowRight, Check, Sparkles } from "lucide-react"
 import { PlanBadge } from "./plan-badge"
 import { getPlanLimits, getRemainingQuestions } from "@/lib/plan-utils"
 import type { UserPlan } from "@/lib/plan-utils"
@@ -12,11 +12,7 @@ interface PlanStatusCardProps {
   questionsToday: number
 }
 
-const PLAN_URLS = {
-  monthly: "https://pay.cakto.com.br/upkbydv_655583",
-  quarterly: "https://pay.cakto.com.br/gyksd75",
-  annual: "https://pay.cakto.com.br/j5jtax8",
-}
+const PREMIUM_PLAN_URL = "https://pay.cakto.com.br/upkbydv_655583"
 
 export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
   const [showPlansModal, setShowPlansModal] = useState(false)
@@ -75,120 +71,64 @@ export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
       </div>
 
       <Dialog open={showPlansModal} onOpenChange={setShowPlansModal}>
-        <DialogContent className="sm:max-w-4xl bg-gradient-to-br from-slate-950 to-slate-900 border-slate-800 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl bg-gradient-to-br from-slate-950 to-slate-900 border-slate-800">
           <DialogHeader>
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Sparkles className="w-5 h-5 text-cyan-400" />
+              <span className="text-cyan-400 text-sm font-medium">Oferta Especial - Pagamento Único</span>
+            </div>
             <DialogTitle className="text-3xl font-bold text-center text-white mb-2">
-              Escolha seu plano Premium
+              Acesso Vitalício Premium
             </DialogTitle>
-            <DialogDescription className="text-center text-slate-300 text-lg">
-              Assine e tenha acesso ilimitado ao Bora Revalidar
-            </DialogDescription>
+            <DialogDescription className="text-center text-slate-300">Pague uma vez, use para sempre</DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
-            {/* Plano Mensal */}
-            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-6 hover:border-cyan-500/50 transition-all">
-              <div className="flex justify-center mb-4">
-                <Gem className="w-8 h-8 text-cyan-400" />
+          <div className="mt-6">
+            <div className="bg-slate-900/50 border-2 border-cyan-500 rounded-lg p-8">
+              <div className="text-center mb-8">
+                <div className="text-5xl font-bold text-white mb-2">R$ 147,00</div>
+                <div className="text-cyan-400 font-medium">Pagamento único • Acesso vitalício</div>
               </div>
-              <h3 className="text-2xl font-bold text-yellow-400 text-center mb-4">Plano Mensal</h3>
-              <div className="text-center mb-6">
-                <div className="text-4xl font-bold text-white mb-1">R$ 35,00</div>
-                <div className="text-slate-400">/ mês</div>
-              </div>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span>Acesso ilimitado ao Bora Revalidar</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span>Revisão de questões liberada</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span>Zero limites diários</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span>Suporte prioritário</span>
-                </li>
-              </ul>
-              <a
-                href={PLAN_URLS.monthly}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full block text-center px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors"
-              >
-                Assinar agora
-              </a>
-            </div>
 
-            {/* Plano Trimestral - Mais Popular */}
-            <div className="bg-slate-900/50 border-2 border-cyan-500 rounded-lg p-6 relative hover:border-cyan-400 transition-all">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-cyan-500 text-slate-950 px-4 py-1 rounded-full text-sm font-bold">
-                Mais Popular
-              </div>
-              <div className="flex justify-center mb-4 mt-2">
-                <Gem className="w-8 h-8 text-cyan-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-yellow-400 text-center mb-4">Plano Trimestral</h3>
-              <div className="text-center mb-6">
-                <div className="text-4xl font-bold text-white mb-1">R$ 70,00</div>
-                <div className="text-slate-400">a cada 3 meses</div>
-              </div>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-2 text-slate-300">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-8">
+                <div className="flex items-start gap-2 text-slate-300">
                   <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span className="font-semibold">15% de economia comparado ao mensal</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-300">
+                  <span>Questões ilimitadas</span>
+                </div>
+                <div className="flex items-start gap-2 text-slate-300">
                   <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span>Tudo do plano mensal incluído</span>
-                </li>
-              </ul>
-              <a
-                href={PLAN_URLS.quarterly}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full block text-center px-6 py-3 bg-cyan-500 hover:bg-cyan-600 text-slate-950 font-bold rounded-lg transition-colors"
-              >
-                Assinar agora
-              </a>
-            </div>
+                  <span>Revisão avançada</span>
+                </div>
+                <div className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                  <span>Sem limite por matéria</span>
+                </div>
+                <div className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                  <span>Estatísticas detalhadas</span>
+                </div>
+                <div className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                  <span>Simulados ilimitados</span>
+                </div>
+                <div className="flex items-start gap-2 text-slate-300">
+                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
+                  <span>Todas atualizações futuras</span>
+                </div>
+              </div>
 
-            {/* Plano Anual */}
-            <div className="bg-slate-900/50 border border-slate-700 rounded-lg p-6 hover:border-cyan-500/50 transition-all">
-              <div className="flex justify-center mb-4">
-                <Gem className="w-8 h-8 text-cyan-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-yellow-400 text-center mb-4">Plano Anual</h3>
-              <div className="text-center mb-6">
-                <div className="text-4xl font-bold text-white mb-1">R$ 300,00</div>
-                <div className="text-slate-400">/ ano</div>
-              </div>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span className="font-semibold">Mais de 30% de economia</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span>Acesso anual ilimitado</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-300">
-                  <Check className="w-5 h-5 text-cyan-400 flex-shrink-0 mt-0.5" />
-                  <span>Bônus exclusivos futuros</span>
-                </li>
-              </ul>
               <a
-                href={PLAN_URLS.annual}
+                href={PREMIUM_PLAN_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full block text-center px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-medium rounded-lg transition-colors"
+                className="w-full block text-center px-6 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-lg font-bold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-105"
               >
-                Assinar agora
+                Garantir Acesso Vitalício Agora
               </a>
+
+              <p className="text-center text-slate-500 text-sm mt-4">
+                🔒 Pagamento 100% seguro • Acesso liberado automaticamente
+              </p>
             </div>
           </div>
         </DialogContent>
