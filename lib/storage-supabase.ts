@@ -341,6 +341,34 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
   }
 }
 
+export async function getStudyQuestions(materia: string | null, temas: string[] = []): Promise<any[]> {
+  try {
+    let query = getSupabaseClient().from("questoes").select("*")
+
+    // Filtrar por matéria se especificada
+    if (materia) {
+      query = query.eq("materia", materia)
+    }
+
+    // Filtrar por temas se especificados
+    if (temas && temas.length > 0) {
+      query = query.in("tema", temas)
+    }
+
+    const { data: questoes, error } = await query.limit(2000)
+
+    if (error) {
+      console.error("Error fetching study questions:", error)
+      return []
+    }
+
+    return questoes || []
+  } catch (error) {
+    console.error("Error in getStudyQuestions:", error)
+    return []
+  }
+}
+
 export async function getQuestoesWithAlternatives(usuarioId: string, temas?: string[], limit = 2000): Promise<any[]> {
   try {
     const { data: allQuestoes, error: fetchError } = await getSupabaseClient().from("questoes").select("*").limit(limit)
@@ -815,5 +843,34 @@ export async function getSimuladoRanking(userId: string): Promise<{
   } catch (error) {
     console.error("Error in getSimuladoRanking:", error)
     return { userRank: 0, userBestScore: 0, topScores: [] }
+  }
+}
+
+export async function getTematasByMateria(materia: string): Promise<string[]> {
+  try {
+    const { data, error } = await supabase.from("questoes").select("tema").eq("materia", materia).limit(2000)
+
+    if (error) {
+      console.error("Error fetching temas by materia:", error)
+      return []
+    }
+
+    if (!data || data.length === 0) return []
+
+    const themes = new Set<string>()
+    data.forEach((q: any) => {
+      if (q.tema && typeof q.tema === "string") {
+        const normalized = q.tema.trim()
+        if (normalized) {
+          themes.add(normalized)
+        }
+      }
+    })
+
+    const sortedThemes = Array.from(themes).sort()
+    return sortedThemes
+  } catch (error) {
+    console.error("Error in getTematasByMateria:", error)
+    return []
   }
 }

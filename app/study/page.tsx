@@ -6,7 +6,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseUser } from "@/lib/auth-supabase"
 import { Navbar } from "@/components/navbar"
-import { getQuestoesWithAlternatives, saveQuizAnswer, getUserPlan, getDailyQuestionCount } from "@/lib/storage-supabase"
+import { saveQuizAnswer, getUserPlan, getDailyQuestionCount, getStudyQuestions } from "@/lib/storage-supabase"
 import { ArrowLeft, Lock, Clock } from "lucide-react"
 import { UpgradeModal } from "@/components/upgrade-modal"
 import { hasReachedDailyLimit, getRemainingQuestions } from "@/lib/plan-utils"
@@ -50,43 +50,53 @@ export default function StudyPage() {
   const [upgradeReason, setUpgradeReason] = useState<"daily_limit" | "theme_limit" | "general">("general")
   const [dailyQuestionsCount, setDailyQuestionsCount] = useState(0)
   const [isBlocked, setIsBlocked] = useState(false)
-  const [studyMode, setStudyMode] = useState<"settings" | "questions" | "complete">("settings")
+  const [studyMode, setStudyMode] = useState<"settings" | "questions" | "complete">("settings") // Voltando para "settings" para mostrar tela de configuração primeiro
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [answered, setAnswered] = useState(false)
   const [sessionStats, setSessionStats] = useState<SessionStats>({ reviewed: 0, correct: 0, incorrect: 0 })
+  const [temas, setTemas] = useState<string[]>([])
 
   useEffect(() => {
     const checkDailyLimit = async () => {
+      console.log("[v0] 🔍 Iniciando checkDailyLimit")
       try {
         const currentUser = await getSupabaseUser()
+        console.log("[v0] 👤 Current user:", currentUser?.email)
+
         if (!currentUser) {
+          console.log("[v0] ❌ Sem usuário, redirecionando para login")
           router.push("/login")
           return
         }
         setUser(currentUser)
 
         const plan = await getUserPlan(currentUser.email)
+        console.log("[v0] 📋 Plano do usuário:", plan)
         setUserPlan(plan)
 
         if (plan === "free") {
           const todayCount = await getDailyQuestionCount(currentUser.id)
+          console.log("[v0] 📊 Questões de hoje:", todayCount)
           setDailyQuestionsCount(todayCount)
 
           if (hasReachedDailyLimit(todayCount, plan)) {
+            console.log("[v0] 🚫 Limite diário atingido")
             setIsBlocked(true)
             setIsLoading(false)
             return
           }
 
           const remaining = getRemainingQuestions(todayCount, plan)
+          console.log("[v0] ⏳ Questões restantes:", remaining)
           if (remaining !== "unlimited" && remaining < 15) {
             setNumQuestions(remaining)
           }
         }
 
+        console.log("[v0] ✅ CheckDailyLimit concluído")
         setIsLoading(false)
       } catch (error) {
-        console.error("Error checking daily limit:", error)
+        console.error("[v0] ❌ Error checking daily limit:", error)
         setIsLoading(false)
       }
     }
@@ -94,76 +104,151 @@ export default function StudyPage() {
     checkDailyLimit()
   }, [router])
 
-  useEffect(() => {
-    const loadStudyCards = async () => {
-      try {
-        const currentUser = await getSupabaseUser()
-        if (!currentUser) {
-          router.push("/login")
-          return
-        }
-        setUser(currentUser)
+  const loadStudyCards = async () => {
+    console.log("[v0] 📚 Iniciando loadStudyCards")
+    console.log("[v0] Estado atual - materia:", selectedMateria, "temas:", selectedTemas)
 
-        if (!selectedMateria && !selectedTemas.length) {
-          const plan = await getUserPlan(currentUser.email)
-          setUserPlan(plan)
+    try {
+      const currentUser = await getSupabaseUser()
+      console.log("[v0] 👤 Current user:", currentUser?.email)
 
-          if (plan === "free") {
-            const todayCount = await getDailyQuestionCount(currentUser.id)
-            setDailyQuestionsCount(todayCount)
+      if (!currentUser) {
+        console.log("[v0] ❌ Sem usuário, redirecionando")
+        router.push("/login")
+        return
+      }
 
-            if (hasReachedDailyLimit(todayCount, plan)) {
-              setIsBlocked(true)
-              setIsLoading(false)
-              return
-            }
+      const plan = await getUserPlan(currentUser.email)
+      console.log("[v0] 📋 Plano verificado para limites:", plan)
+      setUserPlan(plan)
 
-            const remaining = getRemainingQuestions(dailyQuestionsCount, plan)
-            if (remaining !== "unlimited") {
-              setNumQuestions(Math.min(numQuestions, remaining as number))
-            }
-          }
+      if (plan === "premium") {
+        console.log("[v0] ✨ Usuário PREMIUM - questões ILIMITADAS, nunca bloquear")
+        setIsBlocked(false)
+      }
 
-          const allQuestions = await getQuestoesWithAlternatives(
-            currentUser.usuario_id || currentUser.id,
-            selectedTemas.length > 0 ? selectedTemas : undefined,
-          )
+      console.log("[v0] 📥 Buscando questões do banco...")
+      const allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
+      console.log("[v0] 📊 Questões recebidas:", allQuestions.length)
 
-          let questionsToStudy = allQuestions
+      const shuffled = [...allQuestions].sort(() => Math.random() - 0.5)
 
-          questionsToStudy = questionsToStudy.sort(() => Math.random() - 0.5)
+      let questionsToStudy = shuffled
+      if (plan === "free") {
+        questionsToStudy = shuffled.slice(0, 15)
+        console.log("[v0] 🎯 Modo FREE: limitando a 15 questões de", allQuestions.length)
+      } else {
+        questionsToStudy = shuffled.slice(0, numQuestions)
+        console.log("[v0] 🌟 Modo PREMIUM: usando", numQuestions, "questões de", allQuestions.length, "disponíveis")
+      }
 
-          if (userPlan === "free") {
-            const remaining = getRemainingQuestions(dailyQuestionsCount, userPlan)
-            const maxQuestions = remaining === "unlimited" ? numQuestions : Math.min(numQuestions, remaining as number)
-            questionsToStudy = questionsToStudy.slice(0, maxQuestions)
-          } else if (numQuestions > 0 && numQuestions < questionsToStudy.length) {
-            questionsToStudy = questionsToStudy.slice(0, numQuestions)
-          }
+      console.log("[v0] 📋 Total de questões para estudo:", questionsToStudy.length)
 
-          if (questionsToStudy.length === 0) {
-            setIsComplete(true)
-            setQuestions([])
-            setIsLoading(false)
-            return
-          }
+      setQuestions(questionsToStudy)
+      setCurrentIndex(0)
+      setStudyMode("questions")
+      console.log("[v0] ✅ Questões carregadas, mudando para modo 'questions'")
+      setIsLoading(false)
+    } catch (error) {
+      console.error("[v0] ❌ Error loading study cards:", error)
+      setIsLoading(false)
+    }
+  }
 
-          setQuestions(questionsToStudy)
-          setCurrentIndex(0)
-          setSelectedAnswer(null)
-          setAnswered(false)
-          setIsLoading(false)
-        }
-      } catch (error) {
-        console.error("Error loading study cards:", error)
-        setIsLoading(false)
+  const handleStartStudy = async () => {
+    setIsLoading(true)
+    await loadStudyCards()
+  }
+
+  const handleSelectAnswer = async (letter: string) => {
+    if (!answered && !isLoading) {
+      setSelectedAnswer(letter)
+    }
+  }
+
+  const handleConfirmAnswer = async () => {
+    if (!selectedAnswer || answered) return
+
+    setAnswered(true)
+
+    const correct = selectedAnswer === correctLetter
+    const newStats = {
+      ...sessionStats,
+      reviewed: sessionStats.reviewed + 1,
+      correct: sessionStats.correct + (correct ? 1 : 0),
+      incorrect: sessionStats.incorrect + (correct ? 0 : 1),
+    }
+    setSessionStats(newStats)
+
+    if (userPlan === "free") {
+      const newCount = dailyQuestionsCount + 1
+      setDailyQuestionsCount(newCount)
+
+      if (hasReachedDailyLimit(newCount, userPlan)) {
+        setIsBlocked(true)
       }
     }
 
-    loadStudyCards()
-  }, [router, selectedMateria, selectedTemas, numQuestions])
+    if (currentQuestion?.id) {
+      try {
+        const userId = user?.id || user?.usuario_id
+        await saveQuizAnswer(userId, currentQuestion.id, selectedAnswer, correct, "estudo")
+      } catch (error) {
+        console.error("Error saving answer:", error)
+      }
+    }
+  }
 
-  if (isBlocked && userPlan === "free") {
+  const handleNext = () => {
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex(currentIndex + 1)
+      setSelectedAnswer(null)
+      setAnswered(false)
+    } else {
+      setIsComplete(true)
+      setStudyMode("complete")
+    }
+  }
+
+  const currentQuestion = questions[currentIndex]
+  const correctLetter = String(currentQuestion?.correta || currentQuestion?.resposta_correta || "A")
+    .toUpperCase()
+    .trim()
+
+  const alternatives = [
+    { letter: "A", text: currentQuestion?.alternativaA },
+    { letter: "B", text: currentQuestion?.alternativaB },
+    { letter: "C", text: currentQuestion?.alternativaC },
+    { letter: "D", text: currentQuestion?.alternativaD },
+  ]
+
+  const isCorrect = selectedAnswer === correctLetter
+
+  console.log(
+    "[v0] 🎨 Renderizando - isLoading:",
+    isLoading,
+    "isBlocked:",
+    isBlocked,
+    "studyMode:",
+    studyMode,
+    "questions.length:",
+    questions.length,
+  )
+
+  if (isLoading) {
+    console.log("[v0] ⏳ Renderizando loading...")
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Carregando questões...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (isBlocked) {
+    console.log("[v0] 🚫 Renderizando tela de bloqueio")
     const hoursUntilReset = 24 - new Date().getHours()
 
     return (
@@ -220,22 +305,12 @@ export default function StudyPage() {
     )
   }
 
-  if (isLoading || !user) {
+  if (studyMode === "settings") {
     return (
-      <div>
+      <div className="min-h-screen bg-background">
         <Navbar user={user} />
-        <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
-          <p className="text-muted-foreground">Carregando questões...</p>
-        </div>
-      </div>
-    )
-  }
 
-  if (questions.length === 0 && !isComplete) {
-    return (
-      <div>
-        <Navbar user={user} />
-        <main className="max-w-3xl mx-auto px-4 py-12">
+        <main className="max-w-4xl mx-auto px-4 py-12">
           <button
             onClick={() => router.push("/dashboard")}
             className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
@@ -243,306 +318,305 @@ export default function StudyPage() {
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </button>
-          <div className="bg-card border border-border rounded-lg p-12 text-center">
-            <p className="text-muted-foreground">Nenhuma questão disponível para este filtro</p>
-            <button
-              onClick={() => {
-                router.push("/dashboard")
-              }}
-              className="mt-6 px-6 py-2 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
-            >
-              Voltar ao Dashboard
-            </button>
-          </div>
-        </main>
-      </div>
-    )
-  }
 
-  if (isComplete) {
-    return (
-      <div>
-        <Navbar user={user} />
-        <main className="max-w-3xl mx-auto px-4 py-12">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </button>
-          <div className="bg-card border border-border rounded-lg p-12 text-center">
+          <div className="bg-card border border-border rounded-xl p-6 sm:p-8">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Configurar Estudo</h1>
+            <p className="text-muted-foreground mb-8">Selecione as matérias e configure seu estudo personalizado</p>
+
+            {/* Seleção de Matéria */}
             <div className="mb-6">
-              <div className="w-16 h-16 bg-accent/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">✓</span>
-              </div>
-            </div>
-            <h1 className="text-3xl font-bold text-foreground mb-4">Sessão de Estudo Concluída!</h1>
-            <div className="grid grid-cols-3 gap-4 mb-8">
-              <div className="bg-muted/50 rounded-lg p-4">
-                <p className="text-muted-foreground text-sm">Questões Respondidas</p>
-                <p className="text-2xl font-bold text-foreground mt-2">{sessionStats.reviewed}</p>
-              </div>
-              <div className="bg-accent/10 rounded-lg p-4">
-                <p className="text-muted-foreground text-sm">Corretas</p>
-                <p className="text-2xl font-bold text-accent mt-2">{sessionStats.correct}</p>
-              </div>
-              <div className="bg-destructive/10 rounded-lg p-4">
-                <p className="text-muted-foreground text-sm">Incorretas</p>
-                <p className="text-2xl font-bold text-destructive mt-2">{sessionStats.incorrect}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => router.push("/dashboard")}
-              className="px-6 py-2 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
-            >
-              Voltar ao Dashboard
-            </button>
-          </div>
-        </main>
-      </div>
-    )
-  }
-
-  const currentQuestion = questions[currentIndex]
-  const correctLetter = String(currentQuestion?.correta || currentQuestion?.resposta_correta || "A")
-    .toUpperCase()
-    .trim()
-
-  const alternatives = [
-    { letter: "A", text: currentQuestion?.alternativaA },
-    { letter: "B", text: currentQuestion?.alternativaB },
-    { letter: "C", text: currentQuestion?.alternativaC },
-    { letter: "D", text: currentQuestion?.alternativaD },
-  ]
-
-  const isCorrect = selectedAnswer === correctLetter
-
-  const handleSelectAnswer = async (letter: string) => {
-    if (!answered && !isLoading) {
-      setSelectedAnswer(letter)
-    }
-  }
-
-  const handleConfirmAnswer = async () => {
-    if (!selectedAnswer || answered) return
-
-    setAnswered(true)
-
-    const correct = selectedAnswer === correctLetter
-    const newStats = {
-      ...sessionStats,
-      reviewed: sessionStats.reviewed + 1,
-      correct: sessionStats.correct + (correct ? 1 : 0),
-      incorrect: sessionStats.incorrect + (correct ? 0 : 1),
-    }
-    setSessionStats(newStats)
-
-    if (userPlan === "free") {
-      const newCount = dailyQuestionsCount + 1
-      setDailyQuestionsCount(newCount)
-
-      if (hasReachedDailyLimit(newCount, userPlan)) {
-        setIsBlocked(true)
-      }
-    }
-
-    if (currentQuestion?.id) {
-      try {
-        const userId = user?.id || user?.usuario_id
-        await saveQuizAnswer(userId, currentQuestion.id, selectedAnswer, correct, "estudo")
-      } catch (error) {
-        console.error("Error saving answer:", error)
-      }
-    }
-  }
-
-  const handleNext = () => {
-    if (currentIndex < questions.length - 1) {
-      setCurrentIndex(currentIndex + 1)
-      setSelectedAnswer(null)
-      setAnswered(false)
-    } else {
-      setIsComplete(true)
-      setStudyMode("complete")
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-background">
-      <Navbar user={user} />
-
-      <UpgradeModal
-        isOpen={showUpgradeModal}
-        onClose={() => {
-          setShowUpgradeModal(false)
-          router.push("/dashboard")
-        }}
-        reason={upgradeReason}
-      />
-
-      <main className="max-w-3xl mx-auto px-4 py-12">
-        <button
-          onClick={() => router.push("/dashboard")}
-          className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Voltar
-        </button>
-
-        {studyMode === "questions" && questions.length > 0 && (
-          <div className="container max-w-4xl mx-auto px-4 py-8">
-            <div className="mb-8">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-foreground">
-                  Questão {currentIndex + 1} de {questions.length}
-                </span>
-                <span className="text-sm text-muted-foreground">
-                  {Math.round(((currentIndex + 1) / questions.length) * 100)}%
-                </span>
-              </div>
-              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all duration-300"
-                  style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
-                />
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8 mb-8">
-              {currentQuestion?.tema && (
-                <div className="flex gap-2 mb-6">
-                  <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
-                    {currentQuestion.tema}
-                  </span>
-                </div>
-              )}
-
-              <h2 className="text-xl font-bold text-foreground mb-8 whitespace-pre-wrap break-words">
-                {currentQuestion?.enunciado}
-              </h2>
-
-              <div className="space-y-3 mb-8">
-                {alternatives.map((alt) => {
-                  const altLetter = alt.letter
-                  const isSelected = selectedAnswer === altLetter
-                  const isCorrectAlt = altLetter === correctLetter
-
-                  return (
-                    <button
-                      key={alt.letter}
-                      onClick={() => handleSelectAnswer(altLetter)}
-                      disabled={answered}
-                      className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
-                        answered && isSelected
-                          ? isCorrect
-                            ? "border-accent bg-accent/10"
-                            : "border-destructive bg-destructive/10"
-                          : answered && isCorrectAlt
-                            ? "border-accent bg-accent/10"
-                            : isSelected && !answered
-                              ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
-                              : "border-input hover:border-muted"
-                      } ${answered ? "cursor-default" : "cursor-pointer"}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span className="font-bold text-foreground w-6 flex-shrink-0">{altLetter}</span>
-                        <span className="text-foreground flex-1 whitespace-pre-wrap break-words">{alt.text}</span>
-                        {answered && isCorrectAlt && <span className="text-accent font-bold flex-shrink-0">✓</span>}
-                        {answered && isSelected && !isCorrect && (
-                          <span className="text-destructive font-bold flex-shrink-0">✗</span>
-                        )}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-
-              {/* Indicator when selected but not confirmed */}
-              {selectedAnswer && !answered && (
-                <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    ✓ Alternativa <strong>{selectedAnswer}</strong> selecionada. Você pode mudar sua escolha antes de
-                    confirmar.
-                  </p>
-                </div>
-              )}
-
-              {answered && (
-                <div
-                  className={`mt-4 p-4 rounded-lg ${
-                    selectedAnswer?.toUpperCase() === currentQuestion.correta?.toUpperCase()
-                      ? "bg-green-50 dark:bg-green-950/20 border-2 border-green-500"
-                      : "bg-red-50 dark:bg-red-950/20 border-2 border-red-500"
-                  }`}
-                >
-                  <p
-                    className={`font-semibold ${
-                      selectedAnswer?.toUpperCase() === currentQuestion.correta?.toUpperCase()
-                        ? "text-green-700 dark:text-green-300"
-                        : "text-red-700 dark:text-red-300"
+              <label className="block text-sm font-medium mb-3">Matéria</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[
+                  "Clínica Médica",
+                  "Clínica Cirúrgica",
+                  "Medicina Preventiva",
+                  "Pediatria",
+                  "Ginecologia e Obstetrícia",
+                  "Todas",
+                ].map((materia) => (
+                  <button
+                    key={materia}
+                    onClick={() => setSelectedMateria(materia === "Todas" ? null : materia)}
+                    className={`p-4 rounded-lg border-2 transition-all text-left ${
+                      (materia === "Todas" && selectedMateria === null) || selectedMateria === materia
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
                     }`}
                   >
-                    {selectedAnswer?.toUpperCase() === currentQuestion.correta?.toUpperCase()
-                      ? "✓ Resposta correta!"
-                      : "✗ Resposta incorreta"}
-                  </p>
-                  {selectedAnswer?.toUpperCase() !== currentQuestion.correta?.toUpperCase() && (
-                    <p className="text-sm mt-2 text-muted-foreground">
-                      A resposta correta é: <strong>{currentQuestion.correta?.toUpperCase()}</strong>
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Justificativa da questão - sempre mostra após confirmar */}
-              {answered && (
-                <div className="mt-4 rounded-lg p-4 border-2 border-[#C6A239] bg-[#0D1B2A]">
-                  <h3 className="font-semibold mb-2 text-[#C6A239] flex items-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    Justificativa da questão
-                  </h3>
-                  {currentQuestion.explicacao ? (
-                    <p className="text-sm leading-relaxed text-[#E6E6E6]">{currentQuestion.explicacao}</p>
-                  ) : (
-                    <p className="text-sm leading-relaxed text-[#C6A239] italic">
-                      A justificativa desta questão será carregada em breve. Continuamos trabalhando para melhorar seu
-                      estudo!
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-4 mt-8">
-                {!answered && (
-                  <button
-                    onClick={handleConfirmAnswer}
-                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
-                  >
-                    Confirmar Resposta
+                    <div className="font-medium">{materia}</div>
                   </button>
-                )}
-                {answered && (
-                  <button
-                    onClick={handleNext}
-                    className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
-                  >
-                    {currentIndex < questions.length - 1 ? "Próxima" : "Finalizar"}
-                  </button>
-                )}
+                ))}
               </div>
             </div>
+
+            {/* Quantidade de Questões */}
+            <div className="mb-8">
+              <label className="block text-sm font-medium mb-3">
+                Quantidade de Questões {userPlan === "free" && "(Máximo 15 no plano Free)"}
+              </label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="range"
+                  min="5"
+                  max={userPlan === "premium" ? "100" : "15"}
+                  value={numQuestions}
+                  onChange={(e) => setNumQuestions(Number.parseInt(e.target.value))}
+                  className="flex-1"
+                  disabled={userPlan === "free"}
+                />
+                <div className="w-16 text-center font-bold text-lg">{userPlan === "free" ? 15 : numQuestions}</div>
+              </div>
+              {userPlan === "free" && (
+                <p className="text-sm text-muted-foreground mt-2">
+                  Usuários premium podem estudar até 100 questões por sessão
+                </p>
+              )}
+            </div>
+
+            {/* Botão Iniciar */}
+            <button
+              onClick={handleStartStudy}
+              disabled={isLoading}
+              className="w-full bg-primary text-primary-foreground py-4 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              {isLoading ? "Carregando questões..." : "Iniciar Estudo"}
+            </button>
           </div>
-        )}
-      </main>
-    </div>
-  )
+        </main>
+      </div>
+    )
+  }
+
+  if (studyMode === "questions") {
+    console.log("[v0] 📝 Renderizando modo de questões - questão atual:", currentIndex + 1, "de", questions.length)
+
+    if (questions.length === 0) {
+      console.log("[v0] ⚠️ Nenhuma questão disponível")
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-muted-foreground mb-4">Nenhuma questão disponível no momento.</p>
+            <button
+              onClick={() => router.push("/dashboard")}
+              className="px-6 py-3 bg-primary text-primary-foreground rounded-md"
+            >
+              Voltar ao Dashboard
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <Navbar user={user} />
+
+        <UpgradeModal
+          isOpen={showUpgradeModal}
+          onClose={() => {
+            setShowUpgradeModal(false)
+            router.push("/dashboard")
+          }}
+          reason={upgradeReason}
+        />
+
+        <main className="max-w-3xl mx-auto px-4 py-12">
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </button>
+
+          {studyMode === "questions" && questions.length > 0 && (
+            <div className="container max-w-4xl mx-auto px-4 py-8">
+              <div className="mb-8">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-foreground">
+                    Questão {currentIndex + 1} de {questions.length}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    {Math.round(((currentIndex + 1) / questions.length) * 100)}%
+                  </span>
+                </div>
+                <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-300"
+                    style={{ width: `${((currentIndex + 1) / questions.length) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="bg-card border border-border rounded-lg p-8 mb-8">
+                {currentQuestion?.tema && (
+                  <div className="flex gap-2 mb-6">
+                    <span className="px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full">
+                      {currentQuestion.tema}
+                    </span>
+                  </div>
+                )}
+
+                <h2 className="text-xl font-bold text-foreground mb-8 whitespace-pre-wrap break-words">
+                  {currentQuestion?.enunciado}
+                </h2>
+
+                <div className="space-y-3 mb-8">
+                  {alternatives.map((alt) => {
+                    const altLetter = alt.letter
+                    const isSelected = selectedAnswer === altLetter
+                    const isCorrectAlt = altLetter === correctLetter
+
+                    return (
+                      <button
+                        key={alt.letter}
+                        onClick={() => handleSelectAnswer(altLetter)}
+                        disabled={answered}
+                        className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
+                          answered && isSelected
+                            ? isCorrect
+                              ? "border-accent bg-accent/10"
+                              : "border-destructive bg-destructive/10"
+                            : answered && isCorrectAlt
+                              ? "border-accent bg-accent/10"
+                              : isSelected && !answered
+                                ? "border-blue-500 bg-blue-50 dark:bg-blue-950/20"
+                                : "border-input hover:border-muted"
+                        } ${answered ? "cursor-default" : "cursor-pointer"}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="font-bold text-foreground w-6 flex-shrink-0">{altLetter}</span>
+                          <span className="text-foreground flex-1 whitespace-pre-wrap break-words">{alt.text}</span>
+                          {answered && isCorrectAlt && <span className="text-accent font-bold flex-shrink-0">✓</span>}
+                          {answered && isSelected && !isCorrect && (
+                            <span className="text-destructive font-bold flex-shrink-0">✗</span>
+                          )}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Indicator when selected but not confirmed */}
+                {selectedAnswer && !answered && (
+                  <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      ✓ Alternativa <strong>{selectedAnswer}</strong> selecionada. Você pode mudar sua escolha antes de
+                      confirmar.
+                    </p>
+                  </div>
+                )}
+
+                {answered && (
+                  <div
+                    className={`mt-4 p-4 rounded-lg ${
+                      selectedAnswer?.toUpperCase() === currentQuestion.correta?.toUpperCase()
+                        ? "bg-green-50 dark:bg-green-950/20 border-2 border-green-500"
+                        : "bg-red-50 dark:bg-red-950/20 border-2 border-red-500"
+                    }`}
+                  >
+                    <p
+                      className={`font-semibold ${
+                        selectedAnswer?.toUpperCase() === currentQuestion.correta?.toUpperCase()
+                          ? "text-green-700 dark:text-green-300"
+                          : "text-red-700 dark:text-red-300"
+                      }`}
+                    >
+                      {selectedAnswer?.toUpperCase() === currentQuestion.correta?.toUpperCase()
+                        ? "✓ Resposta correta!"
+                        : "✗ Resposta incorreta"}
+                    </p>
+                    {selectedAnswer?.toUpperCase() !== currentQuestion.correta?.toUpperCase() && (
+                      <p className="text-sm mt-2 text-muted-foreground">
+                        A resposta correta é: <strong>{currentQuestion.correta?.toUpperCase()}</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Justificativa da questão - sempre mostra após confirmar */}
+                {answered && (
+                  <div className="mt-4 rounded-lg p-4 border-2 border-[#C6A239] bg-[#0D1B2A]">
+                    <h3 className="font-semibold mb-2 text-[#C6A239] flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      Justificativa da questão
+                    </h3>
+                    {currentQuestion.explicacao ? (
+                      <p className="text-sm leading-relaxed text-[#E6E6E6]">{currentQuestion.explicacao}</p>
+                    ) : (
+                      <p className="text-sm leading-relaxed text-[#C6A239] italic">
+                        A justificativa desta questão será carregada em breve. Continuamos trabalhando para melhorar seu
+                        estudo!
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex gap-4 mt-8">
+                  {!answered && (
+                    <button
+                      onClick={handleConfirmAnswer}
+                      className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
+                    >
+                      Confirmar Resposta
+                    </button>
+                  )}
+                  {answered && (
+                    <button
+                      onClick={handleNext}
+                      className="flex-1 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
+                    >
+                      {currentIndex < questions.length - 1 ? "Próxima" : "Finalizar"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    )
+  }
+
+  if (studyMode === "complete") {
+    return (
+      <div>
+        <Navbar user={user} />
+        <main className="max-w-3xl mx-auto px-4 py-16 text-center">
+          <h1 className="text-3xl font-bold text-foreground mb-4">Sessão de Estudo Concluída!</h1>
+          <div className="grid grid-cols-3 gap-4 mb-8">
+            <div className="bg-muted/50 rounded-lg p-4">
+              <p className="text-muted-foreground text-sm">Questões Respondidas</p>
+              <p className="text-2xl font-bold text-foreground mt-2">{sessionStats.reviewed}</p>
+            </div>
+            <div className="bg-accent/10 rounded-lg p-4">
+              <p className="text-muted-foreground text-sm">Corretas</p>
+              <p className="text-2xl font-bold text-accent mt-2">{sessionStats.correct}</p>
+            </div>
+            <div className="bg-destructive/10 rounded-lg p-4">
+              <p className="text-muted-foreground text-sm">Incorretas</p>
+              <p className="text-2xl font-bold text-destructive mt-2">{sessionStats.incorrect}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/dashboard")}
+            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Voltar ao Dashboard
+          </button>
+        </main>
+      </div>
+    )
+  }
+
+  return null
 }
