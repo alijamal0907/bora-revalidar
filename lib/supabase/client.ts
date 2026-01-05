@@ -30,3 +30,7 @@ export function createClient() {
 
   return globalThis.__supabase_client
 }
+
+export function getSupabaseClient() {
+  return createClient()
+}

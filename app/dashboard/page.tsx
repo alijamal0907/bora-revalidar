@@ -18,7 +18,7 @@ import {
 } from "@/lib/storage-supabase"
 import { useDeviceSession } from "@/hooks/use-device-session"
 import Link from "next/link"
-import { Zap, TrendingUp, Target, Calendar, Brain } from "lucide-react"
+import { Zap, TrendingUp, Target, Calendar, Brain, Trophy, Crown } from "lucide-react"
 import { GoalSettingsButton } from "@/components/goal-settings-button"
 import { getDeviceInfo, storeDeviceId } from "@/lib/device-utils"
 import { registerDeviceSession } from "@/lib/storage-supabase"
@@ -26,6 +26,7 @@ import { PlanStatusCard } from "@/components/plan-status-card"
 import { getUserPlan, getDailyQuestionCount } from "@/lib/storage-supabase"
 import type { UserPlan } from "@/lib/plan-utils"
 import { getFlashcardProgressByMateria } from "@/lib/flashcards-storage"
+import { DailyGoalsSection } from "@/components/daily-goals-section"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -44,6 +45,7 @@ export default function DashboardPage() {
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
   const [questionsToday, setQuestionsToday] = useState(0)
   const [isMounted, setIsMounted] = useState(false)
+  const [isPremium, setIsPremium] = useState(false)
 
   useDeviceSession(user?.id)
 
@@ -152,6 +154,7 @@ export default function DashboardPage() {
 
         setUserPlan(plan)
         setQuestionsToday(todayCount)
+        setIsPremium(plan === "premium")
 
         const targetThemes = [
           { key: "clinica medica", label: "Clínica Médica" },
@@ -278,6 +281,7 @@ export default function DashboardPage() {
         setUserPlan(plan)
         setDailyProgress(dailyProg)
         setMonthlyProgress(monthlyProg)
+        setIsPremium(plan === "premium")
       } catch (error) {
         // Removed log of error
       }
@@ -354,6 +358,10 @@ export default function DashboardPage() {
           <PlanStatusCard plan={userPlan} questionsToday={questionsToday} />
         </div>
 
+        <div className="mb-6 sm:mb-8 lg:mb-12">
+          <DailyGoalsSection userId={user.id} isPremium={isPremium} />
+        </div>
+
         <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8 lg:mb-12">
           <Link
             href="/study"
@@ -389,6 +397,40 @@ export default function DashboardPage() {
               <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             </div>
             <p className="text-white/90 text-xs sm:text-sm">Veja seu progresso geral e análise por Matéria</p>
+          </Link>
+
+          <Link
+            href="/simulados"
+            className="bg-gradient-to-br from-teal-500 to-cyan-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group relative"
+          >
+            {!isPremium && (
+              <div className="absolute top-3 right-3 bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <Crown className="w-3 h-3" />
+                Premium
+              </div>
+            )}
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Simulados</h3>
+              <Target className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-white/90 text-xs sm:text-sm">Realize simulados completos do Revalida</p>
+          </Link>
+
+          <Link
+            href="/conquistas"
+            className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group relative"
+          >
+            {!isPremium && (
+              <div className="absolute top-3 right-3 bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <Crown className="w-3 h-3" />
+                Premium
+              </div>
+            )}
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Conquistas</h3>
+              <Trophy className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-white/90 text-xs sm:text-sm">Veja suas conquistas e progresso de badges</p>
           </Link>
         </div>
 

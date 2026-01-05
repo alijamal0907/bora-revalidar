@@ -22,7 +22,7 @@ export default function FlashcardsPage() {
   const [selectedTema, setSelectedTema] = useState<string | null>(null)
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
   const [flashcardsStudiedToday, setFlashcardsStudiedToday] = useState<number>(0)
-  const DAILY_FREE_LIMIT = 10
+  const DAILY_FREE_LIMIT = 20
 
   useEffect(() => {
     setIsMounted(true)

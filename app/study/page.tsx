@@ -6,9 +6,8 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseUser } from "@/lib/auth-supabase"
 import { Navbar } from "@/components/navbar"
-import { MultiThemeSelector } from "@/components/multi-theme-selector"
 import { getQuestoesWithAlternatives, saveQuizAnswer, getUserPlan, getDailyQuestionCount } from "@/lib/storage-supabase"
-import { Settings, ArrowLeft, Lock, Clock } from "lucide-react"
+import { ArrowLeft, Lock, Clock } from "lucide-react"
 import { UpgradeModal } from "@/components/upgrade-modal"
 import { hasReachedDailyLimit, getRemainingQuestions } from "@/lib/plan-utils"
 import type { UserPlan } from "@/lib/plan-utils"
@@ -29,6 +28,12 @@ interface Question {
   [key: string]: any
 }
 
+interface SessionStats {
+  reviewed: number
+  correct: number
+  incorrect: number
+}
+
 export default function StudyPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
@@ -36,19 +41,19 @@ export default function StudyPage() {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showAnswer, setShowAnswer] = useState(false)
   const [isComplete, setIsComplete] = useState(false)
-  const [sessionStats, setSessionStats] = useState({ reviewed: 0, correct: 0, incorrect: 0 })
   const [isLoading, setIsLoading] = useState(true)
-  const [selectedThemes, setSelectedThemes] = useState<string[]>([])
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
-  const [answered, setAnswered] = useState(false)
-  const [showSettings, setShowSettings] = useState(true)
-  const [numQuestions, setNumQuestions] = useState(20) // Default to 20 for FREE users
+  const [selectedMateria, setSelectedMateria] = useState<string | null>(null)
+  const [selectedTemas, setSelectedTemas] = useState<string[]>([])
+  const [numQuestions, setNumQuestions] = useState(15) // Default to 15 for FREE users
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [upgradeReason, setUpgradeReason] = useState<"daily_limit" | "theme_limit" | "general">("general")
   const [dailyQuestionsCount, setDailyQuestionsCount] = useState(0)
   const [isBlocked, setIsBlocked] = useState(false)
   const [studyMode, setStudyMode] = useState<"settings" | "questions" | "complete">("settings")
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
+  const [answered, setAnswered] = useState(false)
+  const [sessionStats, setSessionStats] = useState<SessionStats>({ reviewed: 0, correct: 0, incorrect: 0 })
 
   useEffect(() => {
     const checkDailyLimit = async () => {
@@ -74,7 +79,7 @@ export default function StudyPage() {
           }
 
           const remaining = getRemainingQuestions(todayCount, plan)
-          if (remaining !== "unlimited" && remaining < 20) {
+          if (remaining !== "unlimited" && remaining < 15) {
             setNumQuestions(remaining)
           }
         }
@@ -99,7 +104,7 @@ export default function StudyPage() {
         }
         setUser(currentUser)
 
-        if (!showSettings) {
+        if (!selectedMateria && !selectedTemas.length) {
           const plan = await getUserPlan(currentUser.email)
           setUserPlan(plan)
 
@@ -121,15 +126,15 @@ export default function StudyPage() {
 
           const allQuestions = await getQuestoesWithAlternatives(
             currentUser.usuario_id || currentUser.id,
-            selectedThemes.length > 0 ? selectedThemes : undefined,
+            selectedTemas.length > 0 ? selectedTemas : undefined,
           )
 
           let questionsToStudy = allQuestions
 
           questionsToStudy = questionsToStudy.sort(() => Math.random() - 0.5)
 
-          if (plan === "free") {
-            const remaining = getRemainingQuestions(dailyQuestionsCount, plan)
+          if (userPlan === "free") {
+            const remaining = getRemainingQuestions(dailyQuestionsCount, userPlan)
             const maxQuestions = remaining === "unlimited" ? numQuestions : Math.min(numQuestions, remaining as number)
             questionsToStudy = questionsToStudy.slice(0, maxQuestions)
           } else if (numQuestions > 0 && numQuestions < questionsToStudy.length) {
@@ -145,7 +150,6 @@ export default function StudyPage() {
 
           setQuestions(questionsToStudy)
           setCurrentIndex(0)
-          setSessionStats({ reviewed: 0, correct: 0, incorrect: 0 })
           setSelectedAnswer(null)
           setAnswered(false)
           setIsLoading(false)
@@ -157,7 +161,7 @@ export default function StudyPage() {
     }
 
     loadStudyCards()
-  }, [router, selectedThemes, showSettings, numQuestions])
+  }, [router, selectedMateria, selectedTemas, numQuestions])
 
   if (isBlocked && userPlan === "free") {
     const hoursUntilReset = 24 - new Date().getHours()
@@ -178,8 +182,8 @@ export default function StudyPage() {
               <Lock className="w-10 h-10 text-orange-500" />
             </div>
             <h1 className="text-3xl font-bold text-foreground mb-4">Limite Diário Atingido</h1>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Você respondeu suas 20 questões diárias do plano FREE. Volte em aproximadamente{" "}
+            <p className="text-muted-foreground mb-8 text-lg">
+              Você respondeu suas 15 questões diárias do plano FREE. Volte em aproximadamente{" "}
               <span className="font-bold text-foreground">{hoursUntilReset} horas</span> para continuar estudando.
             </p>
 
@@ -216,78 +220,6 @@ export default function StudyPage() {
     )
   }
 
-  if (showSettings) {
-    const remaining = userPlan === "free" ? getRemainingQuestions(dailyQuestionsCount, userPlan) : "unlimited"
-    const maxAllowed = remaining === "unlimited" ? 100 : (remaining as number)
-
-    return (
-      <div>
-        <Navbar user={user} />
-        <main className="max-w-md mx-auto px-4 py-12">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar
-          </button>
-          <div className="bg-card border border-border rounded-lg p-8">
-            <div className="flex items-center gap-2 mb-6">
-              <Settings className="w-6 h-6 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground">Configurações de Estudo</h1>
-            </div>
-
-            {userPlan === "free" && (
-              <div className="bg-orange-500/10 border border-orange-500/20 rounded-lg p-4 mb-6">
-                <p className="text-sm text-foreground">
-                  <span className="font-bold">Plano FREE:</span> Você pode responder até{" "}
-                  <span className="font-bold text-orange-500">{remaining}</span> questões hoje.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-3">Temas</label>
-                <MultiThemeSelector selectedThemes={selectedThemes} onThemesChange={setSelectedThemes} />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-3">
-                  Quantidade de Cartões: {numQuestions === 0 ? "Todos" : numQuestions}
-                  {userPlan === "free" && ` (máximo ${maxAllowed})`}
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max={maxAllowed}
-                  value={Math.min(numQuestions, maxAllowed)}
-                  onChange={(e) => setNumQuestions(Number.parseInt(e.target.value))}
-                  className="w-full h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                  <span>{userPlan === "free" ? `Máx ${maxAllowed}` : "Todos"}</span>
-                  <span>{maxAllowed}</span>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  setShowSettings(false)
-                  setIsLoading(true)
-                  setStudyMode("questions")
-                }}
-                className="w-full px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors mt-8"
-              >
-                Iniciar Estudo
-              </button>
-            </div>
-          </div>
-        </main>
-      </div>
-    )
-  }
-
   if (isLoading || !user) {
     return (
       <div>
@@ -315,13 +247,11 @@ export default function StudyPage() {
             <p className="text-muted-foreground">Nenhuma questão disponível para este filtro</p>
             <button
               onClick={() => {
-                setShowSettings(true)
-                setSelectedThemes([])
-                setNumQuestions(0)
+                router.push("/dashboard")
               }}
               className="mt-6 px-6 py-2 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
             >
-              Voltar às Configurações
+              Voltar ao Dashboard
             </button>
           </div>
         </main>

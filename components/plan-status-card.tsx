@@ -49,10 +49,10 @@ export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
         <div className="bg-muted/50 rounded-lg p-4 mb-4">
           <p className="text-sm text-muted-foreground mb-2">Limites do plano Free:</p>
           <ul className="text-sm text-foreground space-y-1">
-            <li>• Até 4 questões por matéria por dia</li>
-            <li>• Até 20 questões no total por dia</li>
+            <li>• Até 15 questões por dia</li>
+            <li>• Até 20 flashcards por dia</li>
             <li>
-              • Hoje você já respondeu: <strong>{questionsToday}/20</strong>
+              • Hoje você já respondeu: <strong>{questionsToday}/15</strong>
             </li>
             {typeof remaining === "number" && (
               <li className="text-orange-600 dark:text-orange-400 font-medium">• Restam {remaining} questões hoje</li>

@@ -5,7 +5,7 @@ import { X, Crown, Check, Sparkles } from "lucide-react"
 interface UpgradeModalProps {
   isOpen: boolean
   onClose: () => void
-  reason?: "daily_limit" | "theme_limit" | "review_blocked" | "general"
+  reason?: "daily_limit" | "theme_limit" | "review_blocked" | "premium_feature" | "general"
 }
 
 const PREMIUM_PLAN = {
@@ -29,7 +29,7 @@ export function UpgradeModal({ isOpen, onClose, reason = "general" }: UpgradeMod
   const messages = {
     daily_limit: {
       title: "Limite Diário Atingido",
-      description: "Você atingiu o limite de 20 questões por dia do plano Free.",
+      description: "Você atingiu o limite de 15 questões por dia do plano Free.",
     },
     theme_limit: {
       title: "Limite por Matéria Atingido",
@@ -38,6 +38,10 @@ export function UpgradeModal({ isOpen, onClose, reason = "general" }: UpgradeMod
     review_blocked: {
       title: "Revisão Exclusiva Premium",
       description: "A revisão avançada de questões é um recurso exclusivo do plano Premium.",
+    },
+    premium_feature: {
+      title: "Recurso Exclusivo Premium",
+      description: "Este recurso está disponível apenas para usuários Premium.",
     },
     general: {
       title: "Faça Upgrade para Premium",

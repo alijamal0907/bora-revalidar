@@ -37,8 +37,8 @@ export function GoalSettingsButton({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
 
-  const maxDailyGoal = userPlan === "free" ? 20 : 10000
-  const maxMonthlyGoal = userPlan === "free" ? 600 : 10000
+  const maxDailyGoal = userPlan === "free" ? 15 : 10000
+  const maxMonthlyGoal = userPlan === "free" ? 450 : 10000
 
   useEffect(() => {
     setDailyGoal(currentDailyGoal)
@@ -46,7 +46,7 @@ export function GoalSettingsButton({
   }, [currentDailyGoal, currentMonthlyGoal])
 
   const handleDailyGoalChange = (value: number) => {
-    if (userPlan === "free" && value > 20) {
+    if (userPlan === "free" && value > 15) {
       setShowUpgradeModal(true)
       return
     }
@@ -54,7 +54,7 @@ export function GoalSettingsButton({
   }
 
   const handleMonthlyGoalChange = (value: number) => {
-    if (userPlan === "free" && value > 600) {
+    if (userPlan === "free" && value > 450) {
       setShowUpgradeModal(true)
       return
     }
@@ -117,7 +117,7 @@ export function GoalSettingsButton({
             <DialogTitle>Configurar Metas de Estudo</DialogTitle>
             <DialogDescription>
               {userPlan === "free"
-                ? "Limite de 20 questões por dia no plano Free. Configure sua meta mensal também."
+                ? "Limite de 15 questões por dia no plano Free. Configure sua meta mensal também."
                 : "Configure suas metas diárias e mensais de estudo."}
             </DialogDescription>
           </DialogHeader>
@@ -143,7 +143,7 @@ export function GoalSettingsButton({
                 className="w-full"
               />
               <p className="text-xs text-muted-foreground">
-                {userPlan === "free" ? "Limite máximo: 20 questões por dia (Free)" : "Sem limites no plano Premium"}
+                {userPlan === "free" ? "Limite máximo: 15 questões por dia (Free)" : "Sem limites no plano Premium"}
               </p>
             </div>
 
@@ -160,7 +160,7 @@ export function GoalSettingsButton({
               />
               <p className="text-xs text-muted-foreground">
                 {userPlan === "free"
-                  ? "Limite máximo: 600 questões/mês (Free)"
+                  ? "Limite máximo: 450 questões/mês (Free)"
                   : "Recomendamos entre 300 e 1500 questões por mês"}
               </p>
             </div>

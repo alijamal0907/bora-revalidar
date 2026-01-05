@@ -270,16 +270,18 @@ export async function saveQuizAnswer(
   }
 
   try {
-    const { error } = await supabase.from("hist_questoes").insert([
-      {
-        user_id: userId,
-        questao_id: questaoId,
-        resposta,
-        correta,
-        origem,
-        created_at: new Date().toISOString(),
-      },
-    ])
+    const { error } = await getSupabaseClient()
+      .from("hist_questoes")
+      .insert([
+        {
+          user_id: userId,
+          questao_id: questaoId,
+          resposta,
+          correta,
+          origem,
+          created_at: new Date().toISOString(),
+        },
+      ])
 
     if (error) {
       console.error("Error saving quiz answer:", error)
@@ -695,5 +697,123 @@ export async function getUserStreak(userId: string): Promise<number> {
   } catch (error) {
     console.error("Error calculating streak:", error)
     return 0
+  }
+}
+
+export async function saveSimuladoResult(
+  userId: string,
+  quantidadeQuestoes: number,
+  acertos: number,
+  erros: number,
+  percentual: number,
+  tempoTotalSegundos: number,
+): Promise<void> {
+  try {
+    const { error } = await getSupabaseClient()
+      .from("simulados_realizados")
+      .insert([
+        {
+          user_id: userId,
+          quantidade_questoes: quantidadeQuestoes,
+          acertos,
+          erros,
+          percentual: percentual.toFixed(2),
+          tempo_total_segundos: tempoTotalSegundos,
+          data_hora: new Date().toISOString(),
+        },
+      ])
+
+    if (error) {
+      console.error("Error saving simulado result:", error)
+      throw error
+    }
+  } catch (error) {
+    console.error("Error in saveSimuladoResult:", error)
+    throw error
+  }
+}
+
+export async function getSimuladoHistory(userId: string): Promise<any[]> {
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("simulados_realizados")
+      .select("*")
+      .eq("user_id", userId)
+      .order("data_hora", { ascending: false })
+      .limit(20)
+
+    if (error) {
+      console.error("Error fetching simulado history:", error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error("Error in getSimuladoHistory:", error)
+    return []
+  }
+}
+
+export async function getSimuladoRanking(userId: string): Promise<{
+  userRank: number
+  userBestScore: number
+  topScores: any[]
+}> {
+  try {
+    // Buscar melhor pontuação do usuário
+    const { data: userBest, error: userError } = await getSupabaseClient()
+      .from("simulados_realizados")
+      .select("percentual")
+      .eq("user_id", userId)
+      .order("percentual", { ascending: false })
+      .limit(1)
+      .single()
+
+    const userBestScore = userBest?.percentual || 0
+
+    // Buscar top 10 melhores pontuações
+    const { data: allScores, error: scoresError } = await getSupabaseClient()
+      .from("simulados_realizados")
+      .select("user_id, percentual, data_hora")
+      .order("percentual", { ascending: false })
+      .limit(100)
+
+    if (scoresError) {
+      console.error("Error fetching ranking:", scoresError)
+      return { userRank: 0, userBestScore, topScores: [] }
+    }
+
+    // Agrupar por user_id e pegar apenas a melhor pontuação de cada
+    const bestByUser = new Map<string, any>()
+    allScores?.forEach((score: any) => {
+      if (!bestByUser.has(score.user_id) || bestByUser.get(score.user_id).percentual < score.percentual) {
+        bestByUser.set(score.user_id, score)
+      }
+    })
+
+    const topScores = Array.from(bestByUser.values())
+      .sort((a, b) => b.percentual - a.percentual)
+      .slice(0, 10)
+      .map((score, index) => ({
+        rank: index + 1,
+        userId: score.user_id,
+        score: score.percentual,
+        date: score.data_hora,
+      }))
+
+    // Encontrar rank do usuário
+    const userRank =
+      Array.from(bestByUser.values())
+        .sort((a, b) => b.percentual - a.percentual)
+        .findIndex((score) => score.user_id === userId) + 1
+
+    return {
+      userRank: userRank || 0,
+      userBestScore,
+      topScores,
+    }
+  } catch (error) {
+    console.error("Error in getSimuladoRanking:", error)
+    return { userRank: 0, userBestScore: 0, topScores: [] }
   }
 }

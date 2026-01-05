@@ -10,9 +10,9 @@ export interface PlanLimits {
 
 export const PLAN_LIMITS: Record<UserPlan, PlanLimits> = {
   free: {
-    dailyQuestionsTotal: 20,
+    dailyQuestionsTotal: 15,
     dailyQuestionsPerTheme: 4,
-    monthlyQuestions: 600, // 20 por dia * 30 dias
+    monthlyQuestions: 450,
     hasReview: false,
     hasAdvancedStats: false,
   },
