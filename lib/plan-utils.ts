@@ -52,7 +52,9 @@ export function getRemainingQuestions(questionsToday: number, plan: UserPlan): n
 }
 
 export const CAKTO_PAYMENT_URL = "https://pay.cakto.com.br/upkbydv_655583"
+export const MERCADOPAGO_PAYMENT_URL = "https://mpago.li/1ztGbRx"
 
 export const PAYMENT_URLS = {
-  lifetime: "https://pay.cakto.com.br/upkbydv_655583", // Pagamento único R$ 147,00
+  lifetime: "https://pay.cakto.com.br/upkbydv_655583", // PIX/Boleto - R$ 247,00
+  installment: "https://mpago.li/1ztGbRx", // Cartão/Parcelado - R$ 247,00
 }

@@ -13,8 +13,9 @@ import type { UserPlan } from "@/lib/plan-utils"
 
 const PREMIUM_PLAN = {
   name: "Acesso Vitalício Premium",
-  price: "R$ 147,00",
+  price: "R$ 247,00",
   paymentUrl: "https://pay.cakto.com.br/upkbydv_655583",
+  installmentUrl: "https://mpago.li/1ztGbRx",
   benefits: [
     "Acesso ilimitado VITALÍCIO ao Bora Revalidar",
     "Questões ilimitadas por dia",
@@ -145,19 +146,30 @@ export default function UpgradePage() {
               ))}
             </div>
 
-            {/* CTA Button - Large and Prominent */}
-            <a
-              href={PREMIUM_PLAN.paymentUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full text-center px-8 py-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xl font-bold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30"
-            >
-              Garantir Acesso Vitalício Agora
-            </a>
+            {/* Payment Options */}
+            <div className="space-y-4">
+              <a
+                href={PREMIUM_PLAN.paymentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-center px-8 py-5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-xl font-bold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-105 shadow-lg shadow-orange-500/30"
+              >
+                Pagar com PIX ou Boleto
+              </a>
+
+              <a
+                href={PREMIUM_PLAN.installmentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-center px-8 py-5 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white text-xl font-bold rounded-xl hover:from-cyan-600 hover:to-cyan-700 transition-all transform hover:scale-105 shadow-lg shadow-cyan-500/30"
+              >
+                Pagar no Cartão ou Parcelado
+              </a>
+            </div>
 
             {/* Security Note */}
             <p className="text-center text-gray-500 text-sm mt-6">
-              🔒 Pagamento 100% seguro via Cakto • Acesso liberado automaticamente
+              🔒 Pagamento 100% seguro • Acesso liberado automaticamente
             </p>
           </div>
         </div>

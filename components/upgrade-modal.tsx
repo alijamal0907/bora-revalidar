@@ -10,8 +10,9 @@ interface UpgradeModalProps {
 
 const PREMIUM_PLAN = {
   name: "Acesso Vitalício Premium",
-  price: "R$ 147,00",
+  price: "R$ 247,00",
   link: "https://pay.cakto.com.br/upkbydv_655583",
+  installmentLink: "https://mpago.li/1ztGbRx",
   benefits: [
     "Acesso ilimitado VITALÍCIO",
     "Questões ilimitadas por dia",
@@ -89,14 +90,25 @@ export function UpgradeModal({ isOpen, onClose, reason = "general" }: UpgradeMod
             ))}
           </ul>
 
-          <a
-            href={PREMIUM_PLAN.link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all text-center transform hover:scale-105"
-          >
-            Garantir Acesso Vitalício
-          </a>
+          <div className="space-y-3">
+            <a
+              href={PREMIUM_PLAN.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all text-center transform hover:scale-105"
+            >
+              Pagar com PIX ou Boleto
+            </a>
+
+            <a
+              href={PREMIUM_PLAN.installmentLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white font-bold rounded-lg hover:from-cyan-600 hover:to-cyan-700 transition-all text-center transform hover:scale-105"
+            >
+              Pagar no Cartão ou Parcelado
+            </a>
+          </div>
         </div>
 
         <button

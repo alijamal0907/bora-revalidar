@@ -13,6 +13,7 @@ interface PlanStatusCardProps {
 }
 
 const PREMIUM_PLAN_URL = "https://pay.cakto.com.br/upkbydv_655583"
+const PREMIUM_INSTALLMENT_URL = "https://mpago.li/1ztGbRx"
 
 export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
   const [showPlansModal, setShowPlansModal] = useState(false)
@@ -86,7 +87,7 @@ export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
           <div className="mt-6">
             <div className="bg-slate-900/50 border-2 border-cyan-500 rounded-lg p-8">
               <div className="text-center mb-8">
-                <div className="text-5xl font-bold text-white mb-2">R$ 147,00</div>
+                <div className="text-5xl font-bold text-white mb-2">R$ 247,00</div>
                 <div className="text-cyan-400 font-medium">Pagamento único • Acesso vitalício</div>
               </div>
 
@@ -117,16 +118,27 @@ export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
                 </div>
               </div>
 
-              <a
-                href={PREMIUM_PLAN_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="w-full block text-center px-6 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-lg font-bold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-105"
-              >
-                Garantir Acesso Vitalício Agora
-              </a>
+              <div className="space-y-3 mb-4">
+                <a
+                  href={PREMIUM_PLAN_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full block text-center px-6 py-4 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-lg font-bold rounded-lg hover:from-orange-600 hover:to-orange-700 transition-all transform hover:scale-105"
+                >
+                  Pagar com PIX ou Boleto
+                </a>
 
-              <p className="text-center text-slate-500 text-sm mt-4">
+                <a
+                  href={PREMIUM_INSTALLMENT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full block text-center px-6 py-4 bg-gradient-to-r from-cyan-500 to-cyan-600 text-white text-lg font-bold rounded-lg hover:from-cyan-600 hover:to-cyan-700 transition-all transform hover:scale-105"
+                >
+                  Pagar no Cartão ou Parcelado
+                </a>
+              </div>
+
+              <p className="text-center text-slate-500 text-sm">
                 🔒 Pagamento 100% seguro • Acesso liberado automaticamente
               </p>
             </div>
