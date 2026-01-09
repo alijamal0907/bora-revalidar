@@ -341,16 +341,30 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
   }
 }
 
+const MATERIA_VARIATIONS: { [key: string]: string[] } = {
+  "Clínica Médica": ["Clínica Médica", "clinica medica", "Clinica Medica"],
+  "Clínica Cirúrgica": ["Clínica Cirúrgica", "clinica cirurgica", "Cirurgia"],
+  Pediatria: ["Pediatria", "pediatria"],
+  "Ginecologia e Obstetrícia": [
+    "Ginecologia e Obstetrícia",
+    "Ginecologia e obstetrícia",
+    "ginecologia e obstetricia",
+    "Ginecologia",
+  ],
+  "Medicina Preventiva": ["Medicina Preventiva", "medicina preventiva"],
+}
+
 export async function getStudyQuestions(materia: string | null, temas: string[] = []): Promise<any[]> {
   try {
     let query = getSupabaseClient().from("questoes").select("*")
 
-    // Filtrar por matéria se especificada
-    if (materia) {
-      query = query.eq("materia", materia)
+    // Filtrar por matéria se especificada (busca nas variações de tema)
+    if (materia && materia !== "Todas") {
+      const variations = MATERIA_VARIATIONS[materia] || [materia]
+      query = query.in("tema", variations)
     }
 
-    // Filtrar por temas se especificados
+    // Filtrar por temas específicos se fornecidos (sobrescreve o filtro de matéria)
     if (temas && temas.length > 0) {
       query = query.in("tema", temas)
     }
@@ -848,7 +862,15 @@ export async function getSimuladoRanking(userId: string): Promise<{
 
 export async function getTematasByMateria(materia: string): Promise<string[]> {
   try {
-    const { data, error } = await supabase.from("questoes").select("tema").eq("materia", materia).limit(2000)
+    // Se for "Todas", retornar todos os temas
+    if (materia === "Todas") {
+      return getUniqueThemes("")
+    }
+
+    // Buscar variações da matéria
+    const variations = MATERIA_VARIATIONS[materia] || [materia]
+
+    const { data, error } = await supabase.from("questoes").select("tema").in("tema", variations).limit(2000)
 
     if (error) {
       console.error("Error fetching temas by materia:", error)
@@ -867,10 +889,55 @@ export async function getTematasByMateria(materia: string): Promise<string[]> {
       }
     })
 
-    const sortedThemes = Array.from(themes).sort()
-    return sortedThemes
+    return Array.from(themes).sort()
   } catch (error) {
     console.error("Error in getTematasByMateria:", error)
+    return []
+  }
+}
+
+export async function getCorrectlyAnsweredQuestions(userId: string): Promise<string[]> {
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("hist_questoes")
+      .select("questao_id")
+      .eq("user_id", userId)
+      .eq("correta", true)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching correct answers:", error)
+      return []
+    }
+
+    // Retorna apenas IDs únicos de questões respondidas corretamente
+    const uniqueIds = [...new Set(data?.map((item) => item.questao_id) || [])]
+    return uniqueIds
+  } catch (error) {
+    console.error("Error in getCorrectlyAnsweredQuestions:", error)
+    return []
+  }
+}
+
+export async function getWrongQuestionIds(userId: string): Promise<string[]> {
+  try {
+    const { data, error } = await getSupabaseClient()
+      .from("hist_questoes")
+      .select("questao_id")
+      .eq("user_id", userId)
+      .eq("correta", false)
+      .order("created_at", { ascending: false })
+
+    if (error) {
+      console.error("Error fetching wrong question IDs:", error)
+      return []
+    }
+
+    // Retorna IDs únicos de questões erradas
+    const uniqueIds = [...new Set(data?.map((item) => item.questao_id) || [])]
+    return uniqueIds
+  } catch (error) {
+    console.error("Error in getWrongQuestionIds:", error)
     return []
   }
 }

@@ -6,7 +6,14 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseUser } from "@/lib/auth-supabase"
 import { Navbar } from "@/components/navbar"
-import { saveQuizAnswer, getUserPlan, getDailyQuestionCount, getStudyQuestions } from "@/lib/storage-supabase"
+import {
+  saveQuizAnswer,
+  getUserPlan,
+  getDailyQuestionCount,
+  getStudyQuestions,
+  getWrongQuestionIds,
+  getCorrectlyAnsweredQuestions,
+} from "@/lib/storage-supabase"
 import { ArrowLeft, Lock, Clock } from "lucide-react"
 import { UpgradeModal } from "@/components/upgrade-modal"
 import { hasReachedDailyLimit, getRemainingQuestions } from "@/lib/plan-utils"
@@ -105,7 +112,7 @@ export default function StudyPage() {
   }, [router])
 
   const loadStudyCards = async () => {
-    console.log("[v0] 📚 Iniciando loadStudyCards")
+    console.log("[v0] 📚 Iniciando loadStudyCards com espaçamento repetido")
     console.log("[v0] Estado atual - materia:", selectedMateria, "temas:", selectedTemas)
 
     try {
@@ -127,27 +134,69 @@ export default function StudyPage() {
         setIsBlocked(false)
       }
 
+      console.log("[v0] 🔄 Buscando histórico de respostas para espaçamento repetido...")
+      const userId = currentUser.id || currentUser.usuario_id
+      const [wrongQuestionIds, correctQuestionIds] = await Promise.all([
+        getWrongQuestionIds(userId),
+        getCorrectlyAnsweredQuestions(userId),
+      ])
+
+      console.log("[v0] ❌ Questões erradas anteriormente:", wrongQuestionIds.length)
+      console.log("[v0] ✅ Questões já acertadas:", correctQuestionIds.length)
+
       console.log("[v0] 📥 Buscando questões do banco...")
       const allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
-      console.log("[v0] 📊 Questões recebidas:", allQuestions.length)
+      console.log("[v0] 📊 Questões recebidas do banco:", allQuestions.length)
 
-      const shuffled = [...allQuestions].sort(() => Math.random() - 0.5)
+      // 1. Separar questões em três grupos
+      const wrongQuestions = allQuestions.filter((q) => wrongQuestionIds.includes(q.id))
+      const correctQuestions = allQuestions.filter((q) => correctQuestionIds.includes(q.id))
+      const newQuestions = allQuestions.filter(
+        (q) => !wrongQuestionIds.includes(q.id) && !correctQuestionIds.includes(q.id),
+      )
 
-      let questionsToStudy = shuffled
+      console.log("[v0] 🎯 Categorização de questões:")
+      console.log("[v0]    📌 Questões erradas (prioridade ALTA):", wrongQuestions.length)
+      console.log("[v0]    🆕 Questões novas (prioridade MÉDIA):", newQuestions.length)
+      console.log("[v0]    ✓ Questões já acertadas (prioridade BAIXA):", correctQuestions.length)
+
+      // 2. Embaralhar cada grupo separadamente
+      const shuffledWrong = [...wrongQuestions].sort(() => Math.random() - 0.5)
+      const shuffledNew = [...newQuestions].sort(() => Math.random() - 0.5)
+      const shuffledCorrect = [...correctQuestions].sort(() => Math.random() - 0.5)
+
+      // 3. Montar lista final com prioridade: erradas > novas > já acertadas
+      const prioritizedQuestions = [
+        ...shuffledWrong, // Prioridade 1: Questões erradas devem aparecer até acertar
+        ...shuffledNew, // Prioridade 2: Questões nunca respondidas
+        ...shuffledCorrect, // Prioridade 3: Questões já acertadas (revisão)
+      ]
+
+      console.log("[v0] 🔀 Lista priorizada montada:", prioritizedQuestions.length, "questões")
+
+      let questionsToStudy = prioritizedQuestions
       if (plan === "free") {
-        questionsToStudy = shuffled.slice(0, 15)
-        console.log("[v0] 🎯 Modo FREE: limitando a 15 questões de", allQuestions.length)
+        questionsToStudy = prioritizedQuestions.slice(0, 15)
+        console.log("[v0] 🎯 Modo FREE: limitando a 15 questões (com prioridade para erradas)")
       } else {
-        questionsToStudy = shuffled.slice(0, numQuestions)
-        console.log("[v0] 🌟 Modo PREMIUM: usando", numQuestions, "questões de", allQuestions.length, "disponíveis")
+        questionsToStudy = prioritizedQuestions.slice(0, numQuestions)
+        console.log("[v0] 🌟 Modo PREMIUM: usando", numQuestions, "questões (com prioridade para erradas)")
       }
 
-      console.log("[v0] 📋 Total de questões para estudo:", questionsToStudy.length)
+      console.log("[v0] 📋 Composição final do estudo:")
+      const finalWrong = questionsToStudy.filter((q) => wrongQuestionIds.includes(q.id)).length
+      const finalNew = questionsToStudy.filter(
+        (q) => !wrongQuestionIds.includes(q.id) && !correctQuestionIds.includes(q.id),
+      ).length
+      const finalCorrect = questionsToStudy.filter((q) => correctQuestionIds.includes(q.id)).length
+      console.log("[v0]    ❌ Erradas:", finalWrong)
+      console.log("[v0]    🆕 Novas:", finalNew)
+      console.log("[v0]    ✓ Revisão:", finalCorrect)
 
       setQuestions(questionsToStudy)
       setCurrentIndex(0)
       setStudyMode("questions")
-      console.log("[v0] ✅ Questões carregadas, mudando para modo 'questions'")
+      console.log("[v0] ✅ Questões carregadas com espaçamento repetido, mudando para modo 'questions'")
       setIsLoading(false)
     } catch (error) {
       console.error("[v0] ❌ Error loading study cards:", error)
