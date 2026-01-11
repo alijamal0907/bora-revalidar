@@ -382,10 +382,10 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
               {roomCode && (
-                <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-8 text-center text-white">
-                  <h2 className="text-lg font-semibold mb-2">Código da Sala</h2>
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-6 sm:p-8 text-center text-white">
+                  <h2 className="text-base sm:text-lg font-semibold mb-2">Código da Sala</h2>
                   <div className="flex items-center justify-center gap-3">
-                    <p className="text-5xl font-mono font-bold tracking-wider">{roomCode}</p>
+                    <p className="text-4xl sm:text-5xl font-mono font-bold tracking-wider">{roomCode}</p>
                     <Button
                       onClick={handleCopyCode}
                       size="sm"
@@ -395,23 +395,23 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
                       {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     </Button>
                   </div>
-                  <p className="text-sm mt-3 text-white/80">Compartilhe este código com seus amigos</p>
+                  <p className="text-xs sm:text-sm mt-3 text-white/80">Compartilhe este código com seus amigos</p>
                 </div>
               )}
 
-              <div className="bg-card border border-border rounded-xl p-6">
-                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+              <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+                <h3 className="font-semibold text-base sm:text-lg mb-4 flex items-center gap-2">
                   <Users className="w-5 h-5" />
                   Participantes ({participants.length}/10)
                 </h3>
                 <div className="space-y-2">
                   {participants.map((participant, index) => (
                     <div key={participant.id} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
                         {index + 1}
                       </div>
                       <div className="flex-1">
-                        <p className="font-medium">
+                        <p className="font-medium text-sm sm:text-base">
                           {participant.user_id === userId ? "Você" : `Participante ${index + 1}`}
                           {participant.is_host && " 👑"}
                         </p>
@@ -420,27 +420,9 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
                   ))}
                 </div>
               </div>
-
-              {isHost && (
-                <Button
-                  onClick={handleStartSimulation}
-                  disabled={isStarting}
-                  size="lg"
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold"
-                >
-                  <Play className="w-5 h-5 mr-2" />
-                  {isStarting ? "Iniciando..." : "Iniciar Simulado"}
-                </Button>
-              )}
-
-              {!isHost && (
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
-                  <p className="text-sm text-muted-foreground">Aguardando o host iniciar o simulado...</p>
-                </div>
-              )}
             </div>
 
-            <div className="bg-card border border-border rounded-xl p-4 flex flex-col h-[600px]">
+            <div className="bg-card border border-border rounded-xl p-4 flex flex-col h-[400px] lg:h-[600px]">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
                 <MessageCircle className="w-4 h-4" />
                 Chat
@@ -471,6 +453,26 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
                 </Button>
               </div>
             </div>
+          </div>
+
+          <div className="mt-6">
+            {isHost && (
+              <Button
+                onClick={handleStartSimulation}
+                disabled={isStarting}
+                size="lg"
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold text-base sm:text-lg py-6"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                {isStarting ? "Iniciando..." : "Iniciar Simulado"}
+              </Button>
+            )}
+
+            {!isHost && (
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
+                <p className="text-sm text-muted-foreground">Aguardando o host iniciar o simulado...</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
