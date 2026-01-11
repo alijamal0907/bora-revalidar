@@ -18,7 +18,7 @@ import {
 } from "@/lib/storage-supabase"
 import { useDeviceSession } from "@/hooks/use-device-session"
 import Link from "next/link"
-import { Zap, TrendingUp, Target, Calendar, Brain, Trophy, Crown } from "lucide-react"
+import { Zap, TrendingUp, Target, Calendar, Brain, Trophy, Crown, Users } from "lucide-react"
 import { GoalSettingsButton } from "@/components/goal-settings-button"
 import { getDeviceInfo, storeDeviceId } from "@/lib/device-utils"
 import { registerDeviceSession } from "@/lib/storage-supabase"
@@ -431,6 +431,23 @@ export default function DashboardPage() {
               <Trophy className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             </div>
             <p className="text-white/90 text-xs sm:text-sm">Veja suas conquistas e progresso de badges</p>
+          </Link>
+
+          <Link
+            href="/grupo"
+            className="bg-gradient-to-br from-pink-500 to-purple-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group relative"
+          >
+            {!isPremium && (
+              <div className="absolute top-3 right-3 bg-yellow-500 text-black text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                <Crown className="w-3 h-3" />
+                Premium
+              </div>
+            )}
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Estudo em Grupo</h3>
+              <Users className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-white/90 text-xs sm:text-sm">Estude com amigos em tempo real</p>
           </Link>
         </div>
 

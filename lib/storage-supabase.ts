@@ -439,6 +439,35 @@ export async function getUserPlan(email: string): Promise<"free" | "premium"> {
   }
 }
 
+export async function getUserProfile(): Promise<{ id: string; email: string; plan: "free" | "premium" } | null> {
+  try {
+    const supabase = getSupabaseClient()
+
+    // Buscar usuário autenticado
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      console.error("Error getting authenticated user:", authError)
+      return null
+    }
+
+    // Buscar plano do usuário
+    const plan = await getUserPlan(user.email || "")
+
+    return {
+      id: user.id,
+      email: user.email || "",
+      plan,
+    }
+  } catch (error) {
+    console.error("Error in getUserProfile:", error)
+    return null
+  }
+}
+
 export async function getProgressByTheme(userId: string): Promise<any[]> {
   try {
     const { data: historico, error: histError } = await supabase.from("hist_questoes").select("*").eq("user_id", userId)

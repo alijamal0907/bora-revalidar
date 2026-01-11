@@ -1,0 +1,367 @@
+import { createClient } from "@/lib/supabase/client"
+
+export type GroupRoom = {
+  id: string
+  room_code: string
+  host_user_id: string
+  question_count: number
+  status: "open" | "closed" | "finished"
+  created_at: string
+  updated_at: string
+}
+
+export type RoomParticipant = {
+  id: string
+  room_id: string
+  user_id: string
+  is_host: boolean
+  joined_at: string
+  finished_at?: string
+  total_time_seconds?: number
+}
+
+export type RoomAnswer = {
+  id: string
+  room_id: string
+  user_id: string
+  question_pk: string
+  selected_answer: string
+  is_correct: boolean
+  answered_at: string
+}
+
+// Gerar código único de 6 caracteres
+function generateRoomCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  let code = ""
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return code
+}
+
+// Criar sala
+export async function createGroupRoom(
+  userId: string,
+  questionCount: number,
+): Promise<{ room: GroupRoom; code: string } | null> {
+  const supabase = createClient()
+  const roomCode = generateRoomCode()
+
+  const { data: room, error } = await supabase
+    .from("group_study_rooms")
+    .insert({
+      room_code: roomCode,
+      host_user_id: userId,
+      question_count: questionCount,
+      status: "open",
+    })
+    .select()
+    .single()
+
+  if (error) {
+    console.error("Erro ao criar sala:", error)
+    return null
+  }
+
+  // Adicionar host como participante
+  await supabase.from("group_study_participants").insert({
+    room_id: room.id,
+    user_id: userId,
+    is_host: true,
+  })
+
+  return { room, code: roomCode }
+}
+
+// Entrar em sala por código
+export async function joinGroupRoom(userId: string, roomCode: string): Promise<GroupRoom | null> {
+  const supabase = createClient()
+
+  const { data: room, error } = await supabase
+    .from("group_study_rooms")
+    .select()
+    .eq("room_code", roomCode.toUpperCase())
+    .eq("status", "open")
+    .single()
+
+  if (error || !room) {
+    console.error("Sala não encontrada:", error)
+    return null
+  }
+
+  // Adicionar participante
+  const { error: joinError } = await supabase.from("group_study_participants").insert({
+    room_id: room.id,
+    user_id: userId,
+    is_host: false,
+  })
+
+  if (joinError) {
+    console.error("Erro ao entrar na sala:", joinError)
+    return null
+  }
+
+  return room
+}
+
+// Buscar participantes da sala
+export async function getRoomParticipants(roomId: string): Promise<RoomParticipant[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("group_study_participants")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("joined_at", { ascending: true })
+
+  if (error) {
+    console.error("Erro ao buscar participantes:", error)
+    return []
+  }
+
+  return data || []
+}
+
+// Salvar resposta do participante
+export async function saveGroupAnswer(
+  roomId: string,
+  userId: string,
+  questionPk: string,
+  selectedAnswer: string,
+  isCorrect: boolean,
+): Promise<boolean> {
+  const supabase = createClient()
+
+  const { error } = await supabase.from("group_study_answers").insert({
+    room_id: roomId,
+    user_id: userId,
+    question_pk: questionPk,
+    selected_answer: selectedAnswer,
+    is_correct: isCorrect,
+  })
+
+  if (error) {
+    console.error("Erro ao salvar resposta:", error)
+    return false
+  }
+
+  return true
+}
+
+// Buscar progresso dos participantes
+export async function getRoomProgress(roomId: string): Promise<Map<string, number>> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase.from("group_study_answers").select("user_id").eq("room_id", roomId)
+
+  if (error) {
+    console.error("Erro ao buscar progresso:", error)
+    return new Map()
+  }
+
+  const progressMap = new Map<string, number>()
+  data?.forEach((answer) => {
+    const current = progressMap.get(answer.user_id) || 0
+    progressMap.set(answer.user_id, current + 1)
+  })
+
+  return progressMap
+}
+
+// Finalizar participação
+export async function finishGroupStudy(roomId: string, userId: string, totalTimeSeconds: number): Promise<boolean> {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from("group_study_participants")
+    .update({
+      finished_at: new Date().toISOString(),
+      total_time_seconds: totalTimeSeconds,
+    })
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+
+  if (error) {
+    console.error("Erro ao finalizar participação:", error)
+    return false
+  }
+
+  return true
+}
+
+// Fechar sala (apenas host)
+export async function closeGroupRoom(roomId: string, userId: string): Promise<boolean> {
+  const supabase = createClient()
+
+  const { error } = await supabase
+    .from("group_study_rooms")
+    .update({ status: "closed" })
+    .eq("id", roomId)
+    .eq("host_user_id", userId)
+
+  if (error) {
+    console.error("Erro ao fechar sala:", error)
+    return false
+  }
+
+  return true
+}
+
+// Buscar ranking da sala
+export async function getRoomRanking(roomId: string): Promise<any[]> {
+  const supabase = createClient()
+
+  const { data: answers, error } = await supabase
+    .from("group_study_answers")
+    .select("user_id, is_correct")
+    .eq("room_id", roomId)
+
+  if (error) {
+    console.error("Erro ao buscar ranking:", error)
+    return []
+  }
+
+  const scoreMap = new Map<string, { correct: number; total: number }>()
+
+  answers?.forEach((answer) => {
+    const current = scoreMap.get(answer.user_id) || { correct: 0, total: 0 }
+    scoreMap.set(answer.user_id, {
+      correct: current.correct + (answer.is_correct ? 1 : 0),
+      total: current.total + 1,
+    })
+  })
+
+  return Array.from(scoreMap.entries())
+    .map(([userId, stats]) => ({
+      user_id: userId,
+      correct: stats.correct,
+      total: stats.total,
+      percentage: (stats.correct / stats.total) * 100,
+    }))
+    .sort((a, b) => b.correct - a.correct)
+}
+
+export async function startGroupRoom(roomId: string, userId: string, questionIds: string[]): Promise<boolean> {
+  const supabase = createClient()
+
+  console.log("[v0] Iniciando sala:", roomId, "com", questionIds.length, "questões")
+
+  // Verificar se é o host
+  const { data: room, error: roomError } = await supabase
+    .from("group_study_rooms")
+    .select("host_user_id")
+    .eq("id", roomId)
+    .single()
+
+  if (roomError || !room || room.host_user_id !== userId) {
+    console.error("[v0] Usuário não é host ou erro:", roomError)
+    return false
+  }
+
+  const { data: existingQuestions } = await supabase
+    .from("group_study_room_questions")
+    .select("id")
+    .eq("room_id", roomId)
+    .limit(1)
+
+  if (existingQuestions && existingQuestions.length > 0) {
+    console.log("[v0] Simulado já foi iniciado anteriormente")
+    return true // Retorna sucesso porque já está iniciado
+  }
+
+  // Atualizar status para 'closed' (simulado iniciado)
+  const { error: updateError } = await supabase.from("group_study_rooms").update({ status: "closed" }).eq("id", roomId)
+
+  if (updateError) {
+    console.error("[v0] Erro ao atualizar status da sala:", updateError)
+    return false
+  }
+
+  // Salvar questões da sala
+  const questionsToInsert = questionIds.map((questionPk, index) => ({
+    room_id: roomId,
+    question_pk: questionPk,
+    question_order: index,
+  }))
+
+  const { error: questionsError } = await supabase.from("group_study_room_questions").insert(questionsToInsert)
+
+  if (questionsError) {
+    console.error("[v0] Erro ao salvar questões da sala:", questionsError.message)
+    return false
+  }
+
+  console.log("[v0] Sala iniciada com sucesso!")
+  return true
+}
+
+export async function getRoomQuestions(roomId: string): Promise<string[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("group_study_room_questions")
+    .select("question_pk")
+    .eq("room_id", roomId)
+    .order("question_order", { ascending: true })
+
+  if (error) {
+    console.error("[v0] Erro ao buscar questões da sala:", error)
+    return []
+  }
+
+  return data?.map((q) => q.question_pk) || []
+}
+
+export async function sendChatMessage(roomId: string, userId: string, message: string): Promise<boolean> {
+  const supabase = createClient()
+
+  const { error } = await supabase.from("group_study_chat").insert({
+    room_id: roomId,
+    user_id: userId,
+    message: message.trim(),
+  })
+
+  if (error) {
+    console.error("[v0] Erro ao enviar mensagem:", error)
+    return false
+  }
+
+  return true
+}
+
+export async function getChatMessages(roomId: string): Promise<any[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("group_study_chat")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: true })
+    .limit(100)
+
+  if (error) {
+    console.error("[v0] Erro ao buscar mensagens:", error)
+    return []
+  }
+
+  return data || []
+}
+
+export async function getUserWrongAnswers(roomId: string, userId: string): Promise<string[]> {
+  const supabase = createClient()
+
+  const { data, error } = await supabase
+    .from("group_study_answers")
+    .select("question_pk")
+    .eq("room_id", roomId)
+    .eq("user_id", userId)
+    .eq("is_correct", false)
+
+  if (error) {
+    console.error("[v0] Erro ao buscar respostas erradas:", error)
+    return []
+  }
+
+  return data?.map((a) => a.question_pk) || []
+}
