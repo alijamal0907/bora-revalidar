@@ -64,7 +64,6 @@ export async function createGroupRoom(
     return null
   }
 
-  // Adicionar host como participante
   await supabase.from("group_study_participants").insert({
     room_id: room.id,
     user_id: userId,

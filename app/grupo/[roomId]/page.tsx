@@ -98,32 +98,6 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   }, [roomId, router])
 
   useEffect(() => {
-    async function loadChat() {
-      const messages = await getChatMessages(roomId)
-      setChatMessages(messages)
-    }
-
-    loadChat()
-
-    const interval = setInterval(loadChat, 3000)
-    return () => clearInterval(interval)
-  }, [roomId])
-
-  useEffect(() => {
-    // O chat agora só rola quando o usuário está interagindo com ele
-  }, [chatMessages])
-
-  useEffect(() => {
-    if (roomStatus !== "started" || startTime === 0) return
-
-    const interval = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTime) / 1000))
-    }, 1000)
-
-    return () => clearInterval(interval)
-  }, [startTime, roomStatus])
-
-  useEffect(() => {
     if (!userId) return
 
     const supabase = createClient()
@@ -139,6 +113,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
           filter: `room_id=eq.${roomId}`,
         },
         async () => {
+          console.log("[v0] Participantes atualizados via realtime")
           const updated = await getRoomParticipants(roomId)
           setParticipants(updated)
         },
@@ -172,12 +147,44 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
           setProgress(updated)
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "group_study_chat",
+          filter: `room_id=eq.${roomId}`,
+        },
+        async (payload) => {
+          console.log("[v0] Nova mensagem via realtime")
+          setChatMessages((prev) => [...prev, payload.new])
+        },
+      )
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
   }, [userId, roomId])
+
+  useEffect(() => {
+    async function loadChat() {
+      const messages = await getChatMessages(roomId)
+      setChatMessages(messages)
+    }
+
+    loadChat()
+  }, [roomId])
+
+  useEffect(() => {
+    if (roomStatus !== "started" || startTime === 0) return
+
+    const interval = setInterval(() => {
+      setElapsedTime(Math.floor((Date.now() - startTime) / 1000))
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [startTime, roomStatus])
 
   const loadSimulationQuestions = async () => {
     console.log("[v0] Carregando questões do simulado...")
