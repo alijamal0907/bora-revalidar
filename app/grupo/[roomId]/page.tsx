@@ -15,6 +15,7 @@ import {
   sendChatMessage,
   getChatMessages,
   getUserWrongAnswers,
+  deleteGroupRoom,
   type RoomParticipant,
 } from "@/lib/group-study"
 import { createClient } from "@/lib/supabase/client"
@@ -109,7 +110,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   }, [roomId])
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
+    // O chat agora só rola quando o usuário está interagindo com ele
   }, [chatMessages])
 
   useEffect(() => {
@@ -251,17 +252,23 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
       is_correct: isCorrect,
     })
 
+    await new Promise((resolve) => setTimeout(resolve, 2000))
+
     const nextIndex = questions.findIndex((q) => q.pk === questionPk) + 1
     if (nextIndex < questions.length) {
       setCurrentQuestionIndex(nextIndex)
       setSelectedAnswer(null)
     } else {
       console.log("[v0] Última questão respondida, finalizando...")
-      finishGroupStudy(roomId, userId, elapsedTime)
-      getRoomRanking(roomId).then((finalRanking) => {
-        setRanking(finalRanking)
-        setRoomStatus("finished")
-      })
+      await finishGroupStudy(roomId, userId, elapsedTime)
+
+      if (isHost) {
+        await deleteGroupRoom(roomId)
+      }
+
+      const finalRanking = await getRoomRanking(roomId)
+      setRanking(finalRanking)
+      setRoomStatus("finished")
     }
   }
 
@@ -388,7 +395,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
               <div className="bg-card border border-border rounded-xl p-6">
                 <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
                   <Users className="w-5 h-5" />
-                  Participantes ({participants.length})
+                  Participantes ({participants.length}/10)
                 </h3>
                 <div className="space-y-2">
                   {participants.map((participant, index) => (

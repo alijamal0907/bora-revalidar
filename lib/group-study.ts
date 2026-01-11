@@ -90,6 +90,27 @@ export async function joinGroupRoom(userId: string, roomCode: string): Promise<G
     return null
   }
 
+  const { data: existingParticipants } = await supabase
+    .from("group_study_participants")
+    .select("id")
+    .eq("room_id", room.id)
+
+  if (existingParticipants && existingParticipants.length >= 10) {
+    console.error("Sala está cheia (máximo 10 participantes)")
+    return null
+  }
+
+  const { data: alreadyInRoom } = await supabase
+    .from("group_study_participants")
+    .select("id")
+    .eq("room_id", room.id)
+    .eq("user_id", userId)
+    .single()
+
+  if (alreadyInRoom) {
+    return room // Já está na sala, retorna sucesso
+  }
+
   // Adicionar participante
   const { error: joinError } = await supabase.from("group_study_participants").insert({
     room_id: room.id,
@@ -364,4 +385,17 @@ export async function getUserWrongAnswers(roomId: string, userId: string): Promi
   }
 
   return data?.map((a) => a.question_pk) || []
+}
+
+export async function deleteGroupRoom(roomId: string): Promise<boolean> {
+  const supabase = createClient()
+
+  const { error } = await supabase.from("group_study_rooms").delete().eq("id", roomId)
+
+  if (error) {
+    console.error("Erro ao deletar sala:", error)
+    return false
+  }
+
+  return true
 }
