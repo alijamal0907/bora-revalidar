@@ -371,6 +371,8 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   }
 
   if (roomStatus === "lobby") {
+    console.log("[v0] Renderizando lobby - isHost:", isHost, "userId:", userId, "participants:", participants)
+
     return (
       <div className="min-h-screen bg-background">
         <div className="container max-w-4xl mx-auto px-4 py-8">
@@ -420,6 +422,24 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
                   ))}
                 </div>
               </div>
+
+              <div className="w-full">
+                {isHost ? (
+                  <Button
+                    onClick={handleStartSimulation}
+                    disabled={isStarting}
+                    size="lg"
+                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold text-base sm:text-lg py-6 shadow-lg"
+                  >
+                    <Play className="w-5 h-5 mr-2" />
+                    {isStarting ? "Iniciando..." : "Iniciar Simulado"}
+                  </Button>
+                ) : (
+                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
+                    <p className="text-sm text-muted-foreground">Aguardando o host iniciar o simulado...</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="bg-card border border-border rounded-xl p-4 flex flex-col h-[400px] lg:h-[600px]">
@@ -453,26 +473,6 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
                 </Button>
               </div>
             </div>
-          </div>
-
-          <div className="mt-6">
-            {isHost && (
-              <Button
-                onClick={handleStartSimulation}
-                disabled={isStarting}
-                size="lg"
-                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold text-base sm:text-lg py-6"
-              >
-                <Play className="w-5 h-5 mr-2" />
-                {isStarting ? "Iniciando..." : "Iniciar Simulado"}
-              </Button>
-            )}
-
-            {!isHost && (
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
-                <p className="text-sm text-muted-foreground">Aguardando o host iniciar o simulado...</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
