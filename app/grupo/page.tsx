@@ -40,20 +40,34 @@ export default function GrupoPage() {
       return
     }
 
-    if (!userId) return
+    if (!userId) {
+      setError("Usuário não identificado. Faça login novamente.")
+      return
+    }
 
     setLoading(true)
     setError("")
 
-    const result = await createGroupRoom(userId, questionCount)
+    console.log("[v0] Iniciando criação de sala:", { userId, questionCount })
 
-    if (result) {
-      router.push(`/grupo/${result.room.id}?code=${result.code}`)
-    } else {
-      setError("Erro ao criar sala. Tente novamente.")
+    try {
+      const result = await createGroupRoom(userId, questionCount)
+
+      console.log("[v0] Resultado da criação:", result)
+
+      if (result && result.room && result.code) {
+        console.log("[v0] Navegando para sala:", `/grupo/${result.room.id}?code=${result.code}`)
+        router.push(`/grupo/${result.room.id}?code=${result.code}`)
+      } else {
+        console.error("[v0] Resultado inválido:", result)
+        setError("Erro ao criar sala. Verifique se as tabelas do banco de dados existem.")
+        setLoading(false)
+      }
+    } catch (err) {
+      console.error("[v0] Exceção ao criar sala:", err)
+      setError("Erro inesperado ao criar sala. Tente novamente.")
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   const handleJoinRoom = async () => {

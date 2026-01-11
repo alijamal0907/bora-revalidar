@@ -46,7 +46,13 @@ export async function createGroupRoom(
   questionCount: number,
 ): Promise<{ room: GroupRoom; code: string } | null> {
   const supabase = createClient()
-  const roomCode = generateRoomCode()
+
+  console.log("[v0] Iniciando criação da sala:", { userId, questionCount })
+
+  // Gerar código único de 6 caracteres
+  const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+
+  console.log("[v0] Código gerado:", roomCode)
 
   const { data: room, error } = await supabase
     .from("group_study_rooms")
@@ -60,15 +66,31 @@ export async function createGroupRoom(
     .single()
 
   if (error) {
-    console.error("Erro ao criar sala:", error)
+    console.error("[v0] Erro ao criar sala:", error)
     return null
   }
 
-  await supabase.from("group_study_participants").insert({
+  if (!room) {
+    console.error("[v0] Sala não foi criada - sem dados retornados")
+    return null
+  }
+
+  console.log("[v0] Sala criada com sucesso:", room)
+
+  const { error: participantError } = await supabase.from("group_study_participants").insert({
     room_id: room.id,
     user_id: userId,
     is_host: true,
   })
+
+  if (participantError) {
+    console.error("[v0] Erro ao adicionar host como participante:", participantError)
+    // Deletar sala se não conseguir adicionar o participante
+    await supabase.from("group_study_rooms").delete().eq("id", room.id)
+    return null
+  }
+
+  console.log("[v0] Host adicionado como participante. Retornando:", { room, code: roomCode })
 
   return { room, code: roomCode }
 }
