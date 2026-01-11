@@ -16,7 +16,6 @@ import {
   getChatMessages,
   getUserWrongAnswers,
   deleteGroupRoom,
-  type RoomParticipant,
 } from "@/lib/group-study"
 import { createClient } from "@/lib/supabase/client"
 import { QuestionStudyMode } from "@/components/question-study-mode"
@@ -33,7 +32,7 @@ type Question = {
   tema: string
 }
 
-type RoomStatus = "lobby" | "started" | "finished" | "review"
+type RoomStatus = "open" | "started" | "finished" | "review"
 
 function GroupRoomContent({ params }: { params: { roomId: string } }) {
   const router = useRouter()
@@ -41,34 +40,68 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   const roomCode = searchParams.get("code")
 
   const [userId, setUserId] = useState<string | null>(null)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
   const [roomId] = useState(params.roomId)
-  const [roomStatus, setRoomStatus] = useState<RoomStatus>("lobby")
-  const [participants, setParticipants] = useState<RoomParticipant[]>([])
+  const [roomStatus, setRoomStatus] = useState<RoomStatus>("open")
+  const [participants, setParticipants] = useState<any[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
-  const [progress, setProgress] = useState<Map<string, number>>(new Map())
-  const [ranking, setRanking] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [startTime, setStartTime] = useState<number>(0)
-  const [elapsedTime, setElapsedTime] = useState(0)
-  const [copiedCode, setCopiedCode] = useState(false)
-  const [userAnswers, setUserAnswers] = useState<{ [key: string]: string }>({})
-  const [showChat, setShowChat] = useState(true)
-  const [roomQuestionCount, setRoomQuestionCount] = useState<number | null>(null)
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
+  const [answeredQuestions, setAnsweredQuestions] = useState<Set<string>>(new Set())
+  const [progress, setProgress] = useState<any[]>([])
+  const [isStarting, setIsStarting] = useState(false)
+  const [timer, setTimer] = useState(0)
+  const [roomQuestionCount, setRoomQuestionCount] = useState(50)
+  const [hostUserId, setHostUserId] = useState<string | null>(null)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const [loading, setLoading] = useState(false)
   const [chatMessages, setChatMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState("")
-  const chatEndRef = useRef<HTMLDivElement>(null)
-  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
-  const [isStarting, setIsStarting] = useState(false)
 
   const isHost = useMemo(() => {
-    if (!userId || participants.length === 0) return false
-    const currentParticipant = participants.find((p) => p.user_id === userId)
-    return currentParticipant?.is_host || false
-  }, [userId, participants])
+    const result = userId && hostUserId && userId === hostUserId
+    console.log("[v0] isHost calculado:", {
+      userId,
+      hostUserId,
+      isHost: result,
+      userEmail,
+    })
+    return result
+  }, [userId, hostUserId, userEmail])
+
+  useEffect(() => {
+    async function getUser() {
+      const supabase = createClient()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
+        setUserEmail(user.email || null)
+      }
+    }
+    getUser()
+  }, [])
 
   useEffect(() => {
     async function loadLobby() {
+      const supabase = createClient()
+
+      const { data: roomData } = await supabase
+        .from("group_study_rooms")
+        .select("status, question_count, host_user_id")
+        .eq("id", roomId)
+        .single()
+
+      if (!roomData) {
+        router.push("/grupo")
+        return
+      }
+
+      setRoomStatus(roomData.status)
+      setRoomQuestionCount(roomData.question_count)
+      setHostUserId(roomData.host_user_id)
+
       const profile = await getUserProfile()
       if (!profile) {
         router.push("/login")
@@ -161,14 +194,14 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   }, [roomId])
 
   useEffect(() => {
-    if (roomStatus !== "started" || startTime === 0) return
+    if (roomStatus !== "started" || timer === 0) return
 
     const interval = setInterval(() => {
-      setElapsedTime(Math.floor((Date.now() - startTime) / 1000))
+      setTimer(timer - 1)
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [startTime, roomStatus])
+  }, [timer, roomStatus])
 
   const loadSimulationQuestions = async () => {
     setLoading(true)
@@ -203,7 +236,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
       setQuestions(orderedQuestions)
       setCurrentQuestionIndex(0)
       setRoomStatus("started")
-      setStartTime(Date.now())
+      setTimer(roomQuestionCount * 60) // Assuming each question takes 1 minute
       setLoading(false)
     } catch (error) {
       console.error("[v0] Erro ao carregar questões:", error)
@@ -219,7 +252,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
 
     const isCorrect = answer === currentQuestion.correta
 
-    setUserAnswers({ ...userAnswers, [questionPk]: answer })
+    setAnsweredQuestions((prev) => prev.add(questionPk))
 
     const supabase = createClient()
     await supabase.from("group_study_answers").upsert({
@@ -230,21 +263,19 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
       is_correct: isCorrect,
     })
 
-    await new Promise((resolve) => setTimeout(resolve, 2000))
-
     const nextIndex = questions.findIndex((q) => q.pk === questionPk) + 1
     if (nextIndex < questions.length) {
       setCurrentQuestionIndex(nextIndex)
       setSelectedAnswer(null)
     } else {
-      await finishGroupStudy(roomId, userId, elapsedTime)
+      await finishGroupStudy(roomId, userId, timer)
 
       if (isHost) {
         await deleteGroupRoom(roomId)
       }
 
       const finalRanking = await getRoomRanking(roomId)
-      setRanking(finalRanking)
+      setProgress(finalRanking)
       setRoomStatus("finished")
     }
   }
@@ -301,7 +332,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
       }
 
       const shuffled = allQuestions.sort(() => Math.random() - 0.5)
-      const selectedQuestions = shuffled.slice(0, roomQuestionCount || 25)
+      const selectedQuestions = shuffled.slice(0, roomQuestionCount)
       const questionPks = selectedQuestions.map((q) => q.pk)
 
       const success = await startGroupRoom(roomId, userId, questionPks)
@@ -333,7 +364,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
     )
   }
 
-  if (roomStatus === "lobby") {
+  if (roomStatus === "open") {
     return (
       <div className="min-h-screen bg-background">
         <div className="container max-w-6xl mx-auto p-4 sm:p-6">
@@ -446,7 +477,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
 
   if (roomStatus === "started") {
     const currentQuestion = questions[currentQuestionIndex]
-    const myProgress = progress.get(userId || "") || 0
+    const myProgress = answeredQuestions.size
 
     if (!currentQuestion) {
       return (
@@ -471,20 +502,20 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2 text-sm">
                 <Clock className="w-4 h-4" />
-                <span className="font-mono">{formatTime(elapsedTime)}</span>
+                <span className="font-mono">{formatTime(timer)}</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
                 <Users className="w-4 h-4" />
                 <span>{participants.length}</span>
               </div>
-              <Button onClick={() => setShowChat(!showChat)} variant="outline" size="sm">
+              <Button onClick={() => router.push("/grupo")} variant="outline" size="sm">
                 <MessageCircle className="w-4 h-4" />
               </Button>
             </div>
           </div>
 
-          <div className={`grid ${showChat ? "grid-cols-1 lg:grid-cols-4" : "grid-cols-1"} gap-4`}>
-            <div className={showChat ? "lg:col-span-3" : "col-span-1"}>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div className="lg:col-span-3">
               <div className="bg-card border border-border rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm text-muted-foreground">
@@ -497,7 +528,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
                 <div className="w-full bg-muted rounded-full h-2">
                   <div
                     className="bg-primary h-2 rounded-full transition-all duration-300"
-                    style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
+                    style={{ width: `${(myProgress / questions.length) * 100}%` }}
                   />
                 </div>
               </div>
@@ -548,58 +579,56 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
               </div>
             </div>
 
-            {showChat && (
-              <div className="lg:col-span-1 bg-card border border-border rounded-lg p-4 flex flex-col h-[calc(100vh-200px)]">
-                <h3 className="font-semibold mb-3 flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Progresso
-                </h3>
-                <div className="mb-4 space-y-2">
-                  {participants.map((participant) => {
-                    const participantProgress = progress.get(participant.user_id) || 0
-                    return (
-                      <div key={participant.id} className="flex items-center justify-between text-sm">
-                        <span className="truncate">
-                          {participant.user_id === userId ? "Você" : "Part."}
-                          {participant.is_host && " 👑"}
-                        </span>
-                        <span className="text-muted-foreground">
-                          {participantProgress}/{questions.length}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                <h3 className="font-semibold mb-3 flex items-center gap-2 border-t pt-3">
-                  <MessageCircle className="w-4 h-4" />
-                  Chat
-                </h3>
-
-                <div className="flex-1 overflow-y-auto mb-3 space-y-2">
-                  {chatMessages.map((msg) => (
-                    <div key={msg.id} className="text-xs">
-                      <span className="font-semibold text-primary">{msg.user_id === userId ? "Você" : "P"}:</span>{" "}
-                      <span className="text-foreground">{msg.message}</span>
+            <div className="lg:col-span-1 bg-card border border-border rounded-lg p-4 flex flex-col h-[calc(100vh-200px)]">
+              <h3 className="font-semibold mb-3 flex items-center gap-2">
+                <Users className="w-4 h-4" />
+                Progresso
+              </h3>
+              <div className="mb-4 space-y-2">
+                {participants.map((participant) => {
+                  const participantProgress = answeredQuestions.size // Simplified for demonstration
+                  return (
+                    <div key={participant.id} className="flex items-center justify-between text-sm">
+                      <span className="truncate">
+                        {participant.user_id === userId ? "Você" : "Part."}
+                        {participant.is_host && " 👑"}
+                      </span>
+                      <span className="text-muted-foreground">
+                        {participantProgress}/{questions.length}
+                      </span>
                     </div>
-                  ))}
-                  <div ref={chatEndRef} />
-                </div>
-
-                <div className="flex gap-2">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                    placeholder="Mensagem..."
-                    className="flex-1 text-sm"
-                  />
-                  <Button onClick={handleSendMessage} size="icon">
-                    <Send className="w-3 h-3" />
-                  </Button>
-                </div>
+                  )
+                })}
               </div>
-            )}
+
+              <h3 className="font-semibold mb-3 flex items-center gap-2 border-t pt-3">
+                <MessageCircle className="w-4 h-4" />
+                Chat
+              </h3>
+
+              <div className="flex-1 overflow-y-auto mb-3 space-y-2">
+                {chatMessages.map((msg) => (
+                  <div key={msg.id} className="text-xs">
+                    <span className="font-semibold text-primary">{msg.user_id === userId ? "Você" : "P"}:</span>{" "}
+                    <span className="text-foreground">{msg.message}</span>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+
+              <div className="flex gap-2">
+                <Input
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
+                  placeholder="Mensagem..."
+                  className="flex-1 text-sm"
+                />
+                <Button onClick={handleSendMessage} size="icon">
+                  <Send className="w-3 h-3" />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -653,7 +682,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
           <p className="text-muted-foreground mb-8">Confira o ranking dos participantes</p>
 
           <div className="space-y-3">
-            {ranking.map((entry, index) => (
+            {progress.map((entry, index) => (
               <div key={entry.user_id} className="bg-muted/50 rounded-lg p-4 flex items-center gap-4">
                 <div className="text-2xl font-bold text-primary">#{index + 1}</div>
                 <div className="flex-1 text-left">
