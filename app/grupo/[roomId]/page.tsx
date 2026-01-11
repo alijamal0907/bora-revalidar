@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense } from "react"
+import { useState, useEffect, useRef, Suspense, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, Users, Clock, Trophy, MessageCircle, Send, Copy, Check, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -41,7 +41,6 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   const roomCode = searchParams.get("code")
 
   const [userId, setUserId] = useState<string | null>(null)
-  const [isHost, setIsHost] = useState(false)
   const [roomId] = useState(params.roomId)
   const [roomStatus, setRoomStatus] = useState<RoomStatus>("lobby")
   const [participants, setParticipants] = useState<RoomParticipant[]>([])
@@ -62,6 +61,13 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [isStarting, setIsStarting] = useState(false)
 
+  const isHost = useMemo(() => {
+    const hostParticipant = participants.find((p) => p.user_id === userId)
+    const isHostValue = hostParticipant?.is_host === true
+    console.log("[v0] useMemo isHost - userId:", userId, "participants:", participants, "isHost:", isHostValue)
+    return isHostValue
+  }, [participants, userId])
+
   useEffect(() => {
     async function loadLobby() {
       console.log("[v0] Carregando lobby da sala:", roomId)
@@ -75,21 +81,6 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
 
       const roomParticipants = await getRoomParticipants(roomId)
       setParticipants(roomParticipants)
-
-      const hostParticipant = roomParticipants.find((p) => p.is_host)
-      setIsHost(hostParticipant?.user_id === profile.id)
-
-      const supabase = createClient()
-      const { data: roomData } = await supabase
-        .from("group_study_rooms")
-        .select("question_count")
-        .eq("id", roomId)
-        .single()
-
-      if (roomData) {
-        console.log("[v0] Quantidade de questões da sala:", roomData.question_count)
-        setRoomQuestionCount(roomData.question_count)
-      }
 
       setLoading(false)
     }
@@ -424,21 +415,34 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
               </div>
 
               <div className="w-full">
-                {isHost ? (
-                  <Button
-                    onClick={handleStartSimulation}
-                    disabled={isStarting}
-                    size="lg"
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold text-base sm:text-lg py-6 shadow-lg"
-                  >
-                    <Play className="w-5 h-5 mr-2" />
-                    {isStarting ? "Iniciando..." : "Iniciar Simulado"}
-                  </Button>
-                ) : (
-                  <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
-                    <p className="text-sm text-muted-foreground">Aguardando o host iniciar o simulado...</p>
-                  </div>
-                )}
+                {(() => {
+                  console.log(
+                    "[v0] Renderizando botão - isHost:",
+                    isHost,
+                    "userId:",
+                    userId,
+                    "participants:",
+                    participants,
+                  )
+                  return isHost ? (
+                    <Button
+                      onClick={handleStartSimulation}
+                      disabled={isStarting}
+                      size="lg"
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold text-base sm:text-lg py-6 shadow-lg"
+                    >
+                      <Play className="w-5 h-5 mr-2" />
+                      {isStarting ? "Iniciando..." : "Iniciar Simulado"}
+                    </Button>
+                  ) : (
+                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
+                      <p className="text-sm text-muted-foreground">Aguardando o host iniciar o simulado...</p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Debug: isHost={String(isHost)}, userId={userId}
+                      </p>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
