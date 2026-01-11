@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense, useMemo } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
-import { ArrowLeft, Users, Clock, Trophy, MessageCircle, Send, Copy, Check, Play } from "lucide-react"
+import { ArrowLeft, Users, Clock, Trophy, MessageCircle, Send, Copy, Play } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { getUserProfile } from "@/lib/storage-supabase"
@@ -62,16 +62,13 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   const [isStarting, setIsStarting] = useState(false)
 
   const isHost = useMemo(() => {
-    const hostParticipant = participants.find((p) => p.user_id === userId)
-    const isHostValue = hostParticipant?.is_host === true
-    console.log("[v0] useMemo isHost - userId:", userId, "participants:", participants, "isHost:", isHostValue)
-    return isHostValue
-  }, [participants, userId])
+    if (!userId || participants.length === 0) return false
+    const currentParticipant = participants.find((p) => p.user_id === userId)
+    return currentParticipant?.is_host || false
+  }, [userId, participants])
 
   useEffect(() => {
     async function loadLobby() {
-      console.log("[v0] Carregando lobby da sala:", roomId)
-
       const profile = await getUserProfile()
       if (!profile) {
         router.push("/login")
@@ -104,7 +101,6 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
           filter: `room_id=eq.${roomId}`,
         },
         async () => {
-          console.log("[v0] Participantes atualizados via realtime")
           const updated = await getRoomParticipants(roomId)
           setParticipants(updated)
         },
@@ -118,9 +114,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
           filter: `id=eq.${roomId}`,
         },
         async (payload) => {
-          console.log("[v0] Status da sala mudou:", payload)
           if (payload.new && (payload.new as any).status === "closed") {
-            console.log("[v0] Simulado iniciado! Carregando questões...")
             await loadSimulationQuestions()
           }
         },
@@ -147,7 +141,6 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
           filter: `room_id=eq.${roomId}`,
         },
         async (payload) => {
-          console.log("[v0] Nova mensagem via realtime")
           setChatMessages((prev) => [...prev, payload.new])
         },
       )
@@ -178,13 +171,11 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   }, [startTime, roomStatus])
 
   const loadSimulationQuestions = async () => {
-    console.log("[v0] Carregando questões do simulado...")
     setLoading(true)
 
     try {
       const supabase = createClient()
 
-      // Buscar PKs das questões da sala
       const { data: roomQuestions } = await supabase
         .from("group_study_room_questions")
         .select("question_pk")
@@ -192,26 +183,19 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
         .order("question_order", { ascending: true })
 
       if (!roomQuestions || roomQuestions.length === 0) {
-        console.error("[v0] Nenhuma questão encontrada para a sala")
         setLoading(false)
         return
       }
 
       const questionPks = roomQuestions.map((q) => q.question_pk)
-      console.log("[v0] PKs das questões:", questionPks.length)
 
-      // Buscar questões completas
       const { data: fullQuestions } = await supabase.from("questoes").select("*").in("pk", questionPks)
 
       if (!fullQuestions) {
-        console.error("[v0] Erro ao carregar questões completas")
         setLoading(false)
         return
       }
 
-      console.log("[v0] Questões carregadas:", fullQuestions.length)
-
-      // Ordenar questões pela ordem da sala
       const orderedQuestions = questionPks
         .map((pk) => fullQuestions.find((q) => q.pk === pk))
         .filter(Boolean) as Question[]
@@ -221,8 +205,6 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
       setRoomStatus("started")
       setStartTime(Date.now())
       setLoading(false)
-
-      console.log("[v0] Simulado pronto para começar!")
     } catch (error) {
       console.error("[v0] Erro ao carregar questões:", error)
       setLoading(false)
@@ -236,8 +218,6 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
     if (!currentQuestion) return
 
     const isCorrect = answer === currentQuestion.correta
-
-    console.log("[v0] Salvando resposta:", { questionPk, answer, isCorrect })
 
     setUserAnswers({ ...userAnswers, [questionPk]: answer })
 
@@ -257,7 +237,6 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
       setCurrentQuestionIndex(nextIndex)
       setSelectedAnswer(null)
     } else {
-      console.log("[v0] Última questão respondida, finalizando...")
       await finishGroupStudy(roomId, userId, elapsedTime)
 
       if (isHost) {
@@ -283,15 +262,13 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   const handleCopyCode = () => {
     if (roomCode) {
       navigator.clipboard.writeText(roomCode)
-      setCopiedCode(true)
-      setTimeout(() => setCopiedCode(false), 2000)
+      alert("Código copiado!")
     }
   }
 
   const handleReviewWrongAnswers = async () => {
     if (!userId) return
 
-    console.log("[v0] Revisando questões erradas...")
     const wrongIds = await getUserWrongAnswers(roomId, userId)
 
     if (wrongIds.length === 0) {
@@ -313,14 +290,12 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
     if (!userId || !isHost || isStarting) return
 
     setIsStarting(true)
-    console.log("[v0] Iniciando simulado...")
 
     try {
       const supabase = createClient()
       const { data: allQuestions } = await supabase.from("questoes").select("pk").limit(2000)
 
       if (!allQuestions || allQuestions.length === 0) {
-        console.error("[v0] Nenhuma questão disponível")
         setIsStarting(false)
         return
       }
@@ -329,16 +304,10 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
       const selectedQuestions = shuffled.slice(0, roomQuestionCount || 25)
       const questionPks = selectedQuestions.map((q) => q.pk)
 
-      console.log("[v0] Questões selecionadas:", questionPks.length)
-
       const success = await startGroupRoom(roomId, userId, questionPks)
 
       if (success) {
-        console.log("[v0] Sala iniciada com sucesso!")
         await loadSimulationQuestions()
-        console.log("[v0] Simulado iniciado com sucesso!")
-      } else {
-        console.error("[v0] Erro ao iniciar sala")
       }
     } catch (error) {
       console.error("[v0] Erro ao iniciar simulado:", error)
@@ -356,45 +325,67 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <p className="text-muted-foreground">Carregando sala...</p>
+        </div>
       </div>
     )
   }
 
   if (roomStatus === "lobby") {
-    console.log("[v0] Renderizando lobby - isHost:", isHost, "userId:", userId, "participants:", participants)
-
     return (
       <div className="min-h-screen bg-background">
-        <div className="container max-w-4xl mx-auto px-4 py-8">
-          <Button onClick={() => router.push("/grupo")} variant="ghost" className="mb-6">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Sair da Sala
-          </Button>
+        <div className="container max-w-6xl mx-auto p-4 sm:p-6">
+          {/* Header */}
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-3xl sm:text-4xl font-bold mb-2">Sala de Estudo em Grupo</h1>
+            <p className="text-muted-foreground">Aguardando participantes entrarem...</p>
+          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-6">
-              {roomCode && (
-                <div className="bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl p-6 sm:p-8 text-center text-white">
-                  <h2 className="text-base sm:text-lg font-semibold mb-2">Código da Sala</h2>
-                  <div className="flex items-center justify-center gap-3">
-                    <p className="text-4xl sm:text-5xl font-mono font-bold tracking-wider">{roomCode}</p>
-                    <Button
-                      onClick={handleCopyCode}
-                      size="sm"
-                      variant="secondary"
-                      className="bg-white/20 hover:bg-white/30"
-                    >
-                      {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </Button>
-                  </div>
-                  <p className="text-xs sm:text-sm mt-3 text-white/80">Compartilhe este código com seus amigos</p>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+            {/* Código da Sala e Botão Iniciar */}
+            <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+              {/* Código da Sala */}
+              <div className="bg-card border border-border rounded-xl p-6 sm:p-8 text-center">
+                <p className="text-sm text-muted-foreground mb-2">Código da Sala</p>
+                <div className="text-4xl sm:text-5xl font-bold text-primary mb-4 tracking-wider">{roomCode}</div>
+                <Button variant="outline" onClick={handleCopyCode} className="w-full sm:w-auto bg-transparent">
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copiar Código
+                </Button>
+              </div>
+
+              {/* Botão Iniciar Simulado */}
+              {isHost ? (
+                <Button
+                  onClick={handleStartSimulation}
+                  disabled={isStarting || participants.length === 0}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white py-6 text-lg sm:text-xl font-bold shadow-lg"
+                >
+                  {isStarting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
+                      Iniciando...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-6 h-6 mr-3" />
+                      Iniciar Simulado ({roomQuestionCount} questões)
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <div className="w-full bg-muted border border-border rounded-lg py-6 px-4 text-center">
+                  <Clock className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">Aguardando o host iniciar o simulado...</p>
                 </div>
               )}
 
-              <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
-                <h3 className="font-semibold text-base sm:text-lg mb-4 flex items-center gap-2">
-                  <Users className="w-5 h-5" />
+              {/* Participantes */}
+              <div className="bg-card border border-border rounded-xl p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
                   Participantes ({participants.length}/10)
                 </h3>
                 <div className="space-y-2">
@@ -413,39 +404,9 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
                   ))}
                 </div>
               </div>
-
-              <div className="w-full">
-                {(() => {
-                  console.log(
-                    "[v0] Renderizando botão - isHost:",
-                    isHost,
-                    "userId:",
-                    userId,
-                    "participants:",
-                    participants,
-                  )
-                  return isHost ? (
-                    <Button
-                      onClick={handleStartSimulation}
-                      disabled={isStarting}
-                      size="lg"
-                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold text-base sm:text-lg py-6 shadow-lg"
-                    >
-                      <Play className="w-5 h-5 mr-2" />
-                      {isStarting ? "Iniciando..." : "Iniciar Simulado"}
-                    </Button>
-                  ) : (
-                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 text-center">
-                      <p className="text-sm text-muted-foreground">Aguardando o host iniciar o simulado...</p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Debug: isHost={String(isHost)}, userId={userId}
-                      </p>
-                    </div>
-                  )
-                })()}
-              </div>
             </div>
 
+            {/* Chat */}
             <div className="bg-card border border-border rounded-xl p-4 flex flex-col h-[400px] lg:h-[600px]">
               <h3 className="font-semibold mb-3 flex items-center gap-2">
                 <MessageCircle className="w-4 h-4" />
