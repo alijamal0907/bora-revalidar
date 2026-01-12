@@ -165,6 +165,8 @@ export async function getRoomParticipants(roomId: string): Promise<RoomParticipa
   return data || []
 }
 
+export const getParticipants = getRoomParticipants
+
 // Salvar resposta do participante
 export async function saveGroupAnswer(
   roomId: string,
@@ -175,13 +177,18 @@ export async function saveGroupAnswer(
 ): Promise<boolean> {
   const supabase = createClient()
 
-  const { error } = await supabase.from("group_study_answers").insert({
-    room_id: roomId,
-    user_id: userId,
-    question_pk: questionPk,
-    selected_answer: selectedAnswer,
-    is_correct: isCorrect,
-  })
+  const { error } = await supabase.from("group_study_answers").upsert(
+    {
+      room_id: roomId,
+      user_id: userId,
+      question_pk: questionPk,
+      selected_answer: selectedAnswer,
+      is_correct: isCorrect,
+    },
+    {
+      onConflict: "room_id,user_id,question_pk",
+    },
+  )
 
   if (error) {
     console.error("Erro ao salvar resposta:", error)
@@ -254,6 +261,7 @@ export async function closeGroupRoom(roomId: string, userId: string): Promise<bo
 export async function getRoomRanking(roomId: string): Promise<any[]> {
   const supabase = createClient()
 
+  // Buscar respostas
   const { data: answers, error } = await supabase
     .from("group_study_answers")
     .select("user_id, is_correct")
@@ -263,6 +271,17 @@ export async function getRoomRanking(roomId: string): Promise<any[]> {
     console.error("[v0] Erro ao buscar ranking:", error)
     return []
   }
+
+  // Buscar participantes para pegar os nomes
+  const { data: participants } = await supabase
+    .from("group_study_participants")
+    .select("user_id, user_name")
+    .eq("room_id", roomId)
+
+  const participantNames = new Map<string, string>()
+  participants?.forEach((p) => {
+    participantNames.set(p.user_id, p.user_name || "Participante")
+  })
 
   const scoreMap = new Map<string, { correct: number; total: number }>()
 
@@ -275,11 +294,13 @@ export async function getRoomRanking(roomId: string): Promise<any[]> {
   })
 
   return Array.from(scoreMap.entries())
-    .map(([userId, stats]) => ({
-      user_id: userId,
+    .map(([visitorId, stats]) => ({
+      user_id: visitorId,
+      visitorId: visitorId,
+      visitorName: participantNames.get(visitorId) || "Participante",
       correct: stats.correct,
       total: stats.total,
-      percentage: (stats.correct / stats.total) * 100,
+      percentage: stats.total > 0 ? (stats.correct / stats.total) * 100 : 0,
     }))
     .sort((a, b) => b.correct - a.correct)
 }
@@ -406,6 +427,25 @@ export async function getUserWrongAnswers(roomId: string, userId: string): Promi
   }
 
   return data?.map((a) => a.question_pk) || []
+}
+
+export async function getRandomQuestions(count: number): Promise<any[]> {
+  const supabase = createClient()
+
+  // Buscar questões aleatórias do banco
+  const { data, error } = await supabase
+    .from("questoes")
+    .select("*")
+    .limit(count * 3) // Buscar 3x mais para ter margem de escolha
+
+  if (error || !data || data.length === 0) {
+    console.error("[v0] Erro ao buscar questões aleatórias:", error)
+    return []
+  }
+
+  // Embaralhar e retornar apenas a quantidade solicitada
+  const shuffled = data.sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, count)
 }
 
 export async function deleteGroupRoom(roomId: string): Promise<boolean> {

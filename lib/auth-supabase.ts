@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client"
 
-function getSupabaseClient() {
+export function getSupabaseClient() {
   return createClient()
 }
 
