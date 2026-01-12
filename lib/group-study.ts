@@ -32,7 +32,7 @@ export type RoomAnswer = {
 
 // Gerar código único de 6 caracteres
 function generateRoomCode(): string {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
   let code = ""
   for (let i = 0; i < 6; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length))
@@ -50,7 +50,7 @@ export async function createGroupRoom(
   console.log("[v0] Iniciando criação da sala:", { userId, questionCount })
 
   // Gerar código único de 6 caracteres
-  const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase()
+  const roomCode = generateRoomCode()
 
   console.log("[v0] Código gerado:", roomCode)
 
@@ -260,7 +260,7 @@ export async function getRoomRanking(roomId: string): Promise<any[]> {
     .eq("room_id", roomId)
 
   if (error) {
-    console.error("Erro ao buscar ranking:", error)
+    console.error("[v0] Erro ao buscar ranking:", error)
     return []
   }
 
