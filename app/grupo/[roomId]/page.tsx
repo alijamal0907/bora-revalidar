@@ -179,24 +179,6 @@ export default function GroupRoomPage() {
     }
   }, [userId, roomId])
 
-  useEffect(() => {
-    if (roomStatus === "started" && !isLoadingQuestions && questions.length === 0) {
-      loadSimulationQuestions()
-    }
-  }, [roomStatus])
-
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
-    if (roomStatus === "started") {
-      interval = setInterval(() => {
-        setTimer((prev) => prev + 1)
-      }, 1000)
-    }
-    return () => {
-      if (interval) clearInterval(interval)
-    }
-  }, [roomStatus])
-
   const loadSimulationQuestions = useCallback(async () => {
     if (isLoadingQuestions) return
 
@@ -242,6 +224,25 @@ export default function GroupRoomPage() {
     setSelectedAnswer(null)
     setIsLoadingQuestions(false)
   }, [roomId, isLoadingQuestions])
+
+  useEffect(() => {
+    if (roomStatus === "started" && !isLoadingQuestions && questions.length === 0) {
+      console.log("[v0] useEffect disparado - carregando questões")
+      loadSimulationQuestions()
+    }
+  }, [roomStatus, isLoadingQuestions, questions.length, loadSimulationQuestions])
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    if (roomStatus === "started") {
+      interval = setInterval(() => {
+        setTimer((prev) => prev + 1)
+      }, 1000)
+    }
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [roomStatus])
 
   const handleAnswer = async (questionPk: string, answer: string) => {
     if (!userId || !answer) return
