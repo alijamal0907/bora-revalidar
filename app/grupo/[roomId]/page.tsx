@@ -85,34 +85,61 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
 
   useEffect(() => {
     async function loadLobby() {
+      console.log("[v0] ===== INICIANDO CARREGAMENTO DO LOBBY =====")
+      console.log("[v0] Room ID:", roomId)
+
       const supabase = createClient()
 
-      const { data: roomData } = await supabase
+      console.log("[v0] Buscando dados da sala no banco...")
+      const { data: roomData, error: roomError } = await supabase
         .from("group_study_rooms")
         .select("status, question_count, host_user_id")
         .eq("id", roomId)
         .single()
 
+      console.log("[v0] Resposta do banco:", { roomData, roomError })
+
+      if (roomError) {
+        console.error("[v0] ERRO ao buscar sala:", roomError)
+        console.error("[v0] Detalhes do erro:", {
+          message: roomError.message,
+          code: roomError.code,
+          details: roomError.details,
+          hint: roomError.hint,
+        })
+      }
+
       if (!roomData) {
+        console.error("[v0] SALA NÃO ENCONTRADA - Redirecionando para /grupo")
+        console.error("[v0] Possível causa: RLS bloqueando leitura ou sala não existe")
         router.push("/grupo")
         return
       }
 
+      console.log("[v0] Sala encontrada com sucesso:", roomData)
       setRoomStatus(roomData.status)
       setRoomQuestionCount(roomData.question_count)
       setHostUserId(roomData.host_user_id)
 
+      console.log("[v0] Buscando perfil do usuário...")
       const profile = await getUserProfile()
+
       if (!profile) {
+        console.error("[v0] Usuário não autenticado - Redirecionando para /login")
         router.push("/login")
         return
       }
+
+      console.log("[v0] Usuário autenticado:", { id: profile.id, email: profile.email })
       setUserId(profile.id)
 
+      console.log("[v0] Buscando participantes da sala...")
       const roomParticipants = await getRoomParticipants(roomId)
+      console.log("[v0] Participantes encontrados:", roomParticipants.length)
       setParticipants(roomParticipants)
 
       setLoading(false)
+      console.log("[v0] ===== LOBBY CARREGADO COM SUCESSO =====")
     }
 
     loadLobby()
@@ -204,27 +231,38 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   }, [timer, roomStatus])
 
   const loadSimulationQuestions = async () => {
+    console.log("[v0] loadSimulationQuestions INICIADO")
     setLoading(true)
 
     try {
       const supabase = createClient()
+      console.log("[v0] Buscando questões da sala:", roomId)
 
-      const { data: roomQuestions } = await supabase
+      const { data: roomQuestions, error: roomError } = await supabase
         .from("group_study_room_questions")
         .select("question_pk")
         .eq("room_id", roomId)
         .order("question_order", { ascending: true })
 
+      console.log("[v0] Questões da sala retornadas:", { count: roomQuestions?.length, error: roomError })
+
       if (!roomQuestions || roomQuestions.length === 0) {
+        console.log("[v0] ERRO: Nenhuma questão encontrada na sala")
         setLoading(false)
         return
       }
 
       const questionPks = roomQuestions.map((q) => q.question_pk)
+      console.log("[v0] PKs das questões:", questionPks)
 
-      const { data: fullQuestions } = await supabase.from("questoes").select("*").in("pk", questionPks)
+      const { data: fullQuestions, error: questionsError } = await supabase
+        .from("questoes")
+        .select("*")
+        .in("pk", questionPks)
+      console.log("[v0] Questões completas retornadas:", { count: fullQuestions?.length, error: questionsError })
 
       if (!fullQuestions) {
+        console.log("[v0] ERRO: Não foi possível carregar dados completos das questões")
         setLoading(false)
         return
       }
@@ -233,13 +271,17 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
         .map((pk) => fullQuestions.find((q) => q.pk === pk))
         .filter(Boolean) as Question[]
 
+      console.log("[v0] Questões ordenadas:", orderedQuestions.length)
+      console.log("[v0] Primeira questão:", orderedQuestions[0])
+
       setQuestions(orderedQuestions)
       setCurrentQuestionIndex(0)
       setRoomStatus("started")
-      setTimer(roomQuestionCount * 60) // Assuming each question takes 1 minute
+      setTimer(roomQuestionCount * 60)
       setLoading(false)
+      console.log("[v0] Estado atualizado com sucesso! Status: started")
     } catch (error) {
-      console.error("[v0] Erro ao carregar questões:", error)
+      console.error("[v0] ERRO CRÍTICO ao carregar questões:", error)
       setLoading(false)
     }
   }
@@ -318,15 +360,23 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   }
 
   const handleStartSimulation = async () => {
-    if (!userId || !isHost || isStarting) return
+    if (!userId || !isHost || isStarting) {
+      console.log("[v0] handleStartSimulation bloqueado:", { userId, isHost, isStarting })
+      return
+    }
 
+    console.log("[v0] handleStartSimulation INICIADO")
     setIsStarting(true)
 
     try {
       const supabase = createClient()
-      const { data: allQuestions } = await supabase.from("questoes").select("pk").limit(2000)
+      console.log("[v0] Buscando questões aleatórias do banco...")
+      const { data: allQuestions, error: questionsError } = await supabase.from("questoes").select("pk").limit(2000)
+
+      console.log("[v0] Questões retornadas:", { count: allQuestions?.length, error: questionsError })
 
       if (!allQuestions || allQuestions.length === 0) {
+        console.log("[v0] ERRO: Nenhuma questão disponível no banco")
         setIsStarting(false)
         return
       }
@@ -335,15 +385,24 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
       const selectedQuestions = shuffled.slice(0, roomQuestionCount)
       const questionPks = selectedQuestions.map((q) => q.pk)
 
+      console.log("[v0] Questões selecionadas:", { count: questionPks.length, pks: questionPks.slice(0, 5) })
+      console.log("[v0] Chamando startGroupRoom...")
+
       const success = await startGroupRoom(roomId, userId, questionPks)
+      console.log("[v0] startGroupRoom resultado:", success)
 
       if (success) {
+        console.log("[v0] Chamando loadSimulationQuestions após sucesso...")
         await loadSimulationQuestions()
+        console.log("[v0] loadSimulationQuestions concluído!")
+      } else {
+        console.log("[v0] ERRO: startGroupRoom retornou false")
       }
     } catch (error) {
-      console.error("[v0] Erro ao iniciar simulado:", error)
+      console.error("[v0] ERRO CRÍTICO ao iniciar simulado:", error)
     } finally {
       setIsStarting(false)
+      console.log("[v0] handleStartSimulation FINALIZADO")
     }
   }
 

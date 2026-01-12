@@ -420,3 +420,87 @@ export async function deleteGroupRoom(roomId: string): Promise<boolean> {
 
   return true
 }
+
+export async function debugGroupStudySetup() {
+  const supabase = createClient()
+
+  const results = {
+    authenticated: false,
+    userId: null as string | null,
+    userEmail: null as string | null,
+    tablesExist: {
+      rooms: false,
+      participants: false,
+      questions: false,
+      chat: false,
+      answers: false,
+    },
+    canInsert: {
+      rooms: false,
+      participants: false,
+    },
+    realtimeEnabled: false,
+    errors: [] as string[],
+  }
+
+  try {
+    // 1. Verificar autenticação
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError) {
+      results.errors.push(`Auth error: ${authError.message}`)
+    } else if (user) {
+      results.authenticated = true
+      results.userId = user.id
+      results.userEmail = user.email || null
+    }
+
+    // 2. Verificar se tabelas existem
+    const tableChecks = [
+      { name: "rooms", table: "group_study_rooms" },
+      { name: "participants", table: "group_study_participants" },
+      { name: "questions", table: "group_study_room_questions" },
+      { name: "chat", table: "group_study_chat" },
+      { name: "answers", table: "group_study_answers" },
+    ]
+
+    for (const check of tableChecks) {
+      const { error } = await supabase.from(check.table).select("id").limit(1)
+      if (!error) {
+        results.tablesExist[check.name as keyof typeof results.tablesExist] = true
+      } else {
+        results.errors.push(`Table ${check.table}: ${error.message}`)
+      }
+    }
+
+    // 3. Testar inserção (e deletar imediatamente)
+    if (results.authenticated && results.tablesExist.rooms) {
+      const testRoom = {
+        room_code: "TEST99",
+        host_user_id: results.userId,
+        question_count: 25,
+        status: "open",
+      }
+
+      const { data: insertedRoom, error: insertError } = await supabase
+        .from("group_study_rooms")
+        .insert(testRoom)
+        .select()
+        .single()
+
+      if (!insertError && insertedRoom) {
+        results.canInsert.rooms = true
+        // Deletar imediatamente
+        await supabase.from("group_study_rooms").delete().eq("id", insertedRoom.id)
+      } else if (insertError) {
+        results.errors.push(`Insert test: ${insertError.message}`)
+      }
+    }
+  } catch (err: any) {
+    results.errors.push(`Unexpected error: ${err.message}`)
+  }
+
+  return results
+}

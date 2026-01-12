@@ -7,7 +7,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { getUserProfile } from "@/lib/storage-supabase"
-import { createGroupRoom, joinGroupRoom } from "@/lib/group-study"
+import { createGroupRoom, joinGroupRoom, debugGroupStudySetup } from "@/lib/group-study"
 import { UpgradeModal } from "@/components/upgrade-modal"
 
 export default function GrupoPage() {
@@ -20,6 +20,7 @@ export default function GrupoPage() {
   const [roomCode, setRoomCode] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
+  const [debugInfo, setDebugInfo] = useState<any>(null)
 
   useEffect(() => {
     async function loadUser() {
@@ -95,6 +96,14 @@ export default function GrupoPage() {
     setLoading(false)
   }
 
+  const handleDebug = async () => {
+    console.log("[v0] Iniciando diagnóstico...")
+    const info = await debugGroupStudySetup()
+    setDebugInfo(info)
+    console.log("[v0] Diagnóstico completo:", info)
+    alert(JSON.stringify(info, null, 2))
+  }
+
   if (!userId) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -112,6 +121,10 @@ export default function GrupoPage() {
             Voltar
           </Button>
         </Link>
+
+        <Button onClick={handleDebug} variant="outline" className="mb-4 w-full bg-transparent">
+          🔍 Diagnóstico de Problemas
+        </Button>
 
         {!isPremium && (
           <div className="bg-gradient-to-r from-orange-500/10 to-yellow-500/10 border border-orange-500/20 rounded-lg p-4 mb-6">
