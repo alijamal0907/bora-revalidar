@@ -180,10 +180,8 @@ export default function GroupRoomPage() {
   }, [userId, roomId])
 
   const loadSimulationQuestions = useCallback(async () => {
-    if (isLoadingQuestions) return
-
-    setIsLoadingQuestions(true)
     console.log("[v0] loadSimulationQuestions - Iniciando para sala:", roomId)
+    setIsLoadingQuestions(true)
     const supabase = getSupabaseClient()
 
     const { data: roomQuestions, error: rqError } = await supabase
@@ -223,14 +221,21 @@ export default function GroupRoomPage() {
     setCurrentQuestionIndex(0)
     setSelectedAnswer(null)
     setIsLoadingQuestions(false)
-  }, [roomId, isLoadingQuestions])
+  }, [roomId])
 
   useEffect(() => {
-    if (roomStatus === "started" && !isLoadingQuestions && questions.length === 0) {
-      console.log("[v0] useEffect disparado - carregando questões")
+    if (roomStatus === "started" && questions.length === 0 && !isLoadingQuestions) {
+      console.log(
+        "[v0] useEffect disparado - Status:",
+        roomStatus,
+        "Questions:",
+        questions.length,
+        "Loading:",
+        isLoadingQuestions,
+      )
       loadSimulationQuestions()
     }
-  }, [roomStatus, isLoadingQuestions, questions.length, loadSimulationQuestions])
+  }, [roomStatus, questions.length, isLoadingQuestions])
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
