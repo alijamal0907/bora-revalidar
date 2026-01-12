@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -199,7 +199,7 @@ export default function GroupRoomPage() {
     }
   }, [roomStatus])
 
-  const loadSimulationQuestions = async () => {
+  const loadSimulationQuestions = useCallback(async () => {
     console.log("[v0] loadSimulationQuestions - Iniciando para sala:", roomId)
     const supabase = getSupabaseClient()
 
@@ -237,7 +237,13 @@ export default function GroupRoomPage() {
     setQuestions(orderedQuestions)
     setCurrentQuestionIndex(0)
     setSelectedAnswer(null)
-  }
+  }, [roomId])
+
+  useEffect(() => {
+    if (roomStatus === "started" && questions.length === 0) {
+      loadSimulationQuestions()
+    }
+  }, [roomStatus, loadSimulationQuestions, questions.length])
 
   const handleAnswer = async (questionPk: string, answer: string) => {
     if (!userId || !answer) return
