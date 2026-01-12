@@ -235,7 +235,7 @@ export default function GroupRoomPage() {
       )
       loadSimulationQuestions()
     }
-  }, [roomStatus, questions.length, isLoadingQuestions])
+  }, [roomStatus, questions.length, isLoadingQuestions, loadSimulationQuestions])
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
