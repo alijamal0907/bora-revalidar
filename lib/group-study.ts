@@ -349,7 +349,7 @@ export async function startGroupRoom(roomId: string, userId: string, questionIds
 
   console.log("[v0] Questões inseridas com sucesso, atualizando status...")
 
-  const { error: updateError } = await supabase.from("group_study_rooms").update({ status: "started" }).eq("id", roomId)
+  const { error: updateError } = await supabase.from("group_study_rooms").update({ status: "closed" }).eq("id", roomId)
 
   if (updateError) {
     console.error("[v0] Erro ao atualizar status da sala:", updateError)

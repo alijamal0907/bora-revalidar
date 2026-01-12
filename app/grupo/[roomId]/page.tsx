@@ -41,7 +41,7 @@ export default function GroupRoomPage() {
 
   const [userId, setUserId] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [roomStatus, setRoomStatus] = useState<"open" | "started" | "finished">("open")
+  const [roomStatus, setRoomStatus] = useState<"open" | "closed" | "finished">("open")
   const [participants, setParticipants] = useState<any[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -224,7 +224,7 @@ export default function GroupRoomPage() {
   }, [roomId])
 
   useEffect(() => {
-    if (roomStatus === "started" && questions.length === 0 && !isLoadingQuestions) {
+    if (roomStatus === "closed" && questions.length === 0 && !isLoadingQuestions) {
       console.log(
         "[v0] useEffect disparado - Status:",
         roomStatus,
@@ -239,7 +239,7 @@ export default function GroupRoomPage() {
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null
-    if (roomStatus === "started") {
+    if (roomStatus === "closed") {
       interval = setInterval(() => {
         setTimer((prev) => prev + 1)
       }, 1000)
@@ -828,7 +828,7 @@ export default function GroupRoomPage() {
   }
 
   // Renderização condicional - SIMULADO EM ANDAMENTO
-  if (roomStatus === "started" && questions.length > 0) {
+  if (roomStatus === "closed" && questions.length > 0) {
     const currentQuestion = questions[currentQuestionIndex]
 
     return (
