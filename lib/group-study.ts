@@ -305,6 +305,7 @@ export async function getRoomRanking(roomId: string): Promise<any[]> {
     .sort((a, b) => b.correct - a.correct)
 }
 
+// Iniciar sala (apenas host)
 export async function startGroupRoom(roomId: string, userId: string, questionIds: string[]): Promise<boolean> {
   const supabase = createClient()
 
@@ -333,15 +334,6 @@ export async function startGroupRoom(roomId: string, userId: string, questionIds
     return true // Retorna sucesso porque já está iniciado
   }
 
-  // Atualizar status para 'closed' (simulado iniciado)
-  const { error: updateError } = await supabase.from("group_study_rooms").update({ status: "closed" }).eq("id", roomId)
-
-  if (updateError) {
-    console.error("[v0] Erro ao atualizar status da sala:", updateError)
-    return false
-  }
-
-  // Salvar questões da sala
   const questionsToInsert = questionIds.map((questionPk, index) => ({
     room_id: roomId,
     question_pk: questionPk,
@@ -355,10 +347,20 @@ export async function startGroupRoom(roomId: string, userId: string, questionIds
     return false
   }
 
+  console.log("[v0] Questões inseridas com sucesso, atualizando status...")
+
+  const { error: updateError } = await supabase.from("group_study_rooms").update({ status: "started" }).eq("id", roomId)
+
+  if (updateError) {
+    console.error("[v0] Erro ao atualizar status da sala:", updateError)
+    return false
+  }
+
   console.log("[v0] Sala iniciada com sucesso!")
   return true
 }
 
+// Buscar questões da sala
 export async function getRoomQuestions(roomId: string): Promise<string[]> {
   const supabase = createClient()
 
@@ -376,6 +378,7 @@ export async function getRoomQuestions(roomId: string): Promise<string[]> {
   return data?.map((q) => q.question_pk) || []
 }
 
+// Enviar mensagem de chat
 export async function sendChatMessage(roomId: string, userId: string, message: string): Promise<boolean> {
   const supabase = createClient()
 
@@ -393,6 +396,7 @@ export async function sendChatMessage(roomId: string, userId: string, message: s
   return true
 }
 
+// Buscar mensagens de chat
 export async function getChatMessages(roomId: string): Promise<any[]> {
   const supabase = createClient()
 
@@ -411,6 +415,7 @@ export async function getChatMessages(roomId: string): Promise<any[]> {
   return data || []
 }
 
+// Buscar respostas erradas do usuário
 export async function getUserWrongAnswers(roomId: string, userId: string): Promise<string[]> {
   const supabase = createClient()
 
@@ -429,6 +434,7 @@ export async function getUserWrongAnswers(roomId: string, userId: string): Promi
   return data?.map((a) => a.question_pk) || []
 }
 
+// Buscar questões aleatórias
 export async function getRandomQuestions(count: number): Promise<any[]> {
   const supabase = createClient()
 
@@ -448,6 +454,7 @@ export async function getRandomQuestions(count: number): Promise<any[]> {
   return shuffled.slice(0, count)
 }
 
+// Deletar sala
 export async function deleteGroupRoom(roomId: string): Promise<boolean> {
   const supabase = createClient()
 
@@ -461,6 +468,7 @@ export async function deleteGroupRoom(roomId: string): Promise<boolean> {
   return true
 }
 
+// Debugar configuração do estudo em grupo
 export async function debugGroupStudySetup() {
   const supabase = createClient()
 
