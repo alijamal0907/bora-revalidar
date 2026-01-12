@@ -61,6 +61,7 @@ export default function GroupRoomPage() {
   const [visitorName, setVisitorName] = useState<string | null>(null)
   const [localCorrect, setLocalCorrect] = useState(0)
   const [localWrong, setLocalWrong] = useState(0)
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false)
 
   const [isReviewMode, setIsReviewMode] = useState(false)
   const [reviewQuestions, setReviewQuestions] = useState<Question[]>([])
@@ -155,9 +156,6 @@ export default function GroupRoomPage() {
         async (payload: any) => {
           if (payload.new?.status) {
             setRoomStatus(payload.new.status)
-            if (payload.new.status === "started") {
-              await loadSimulationQuestions()
-            }
           }
         },
       )
@@ -182,7 +180,7 @@ export default function GroupRoomPage() {
   }, [userId, roomId])
 
   useEffect(() => {
-    if (roomStatus === "started") {
+    if (roomStatus === "started" && !isLoadingQuestions && questions.length === 0) {
       loadSimulationQuestions()
     }
   }, [roomStatus])
@@ -200,6 +198,9 @@ export default function GroupRoomPage() {
   }, [roomStatus])
 
   const loadSimulationQuestions = useCallback(async () => {
+    if (isLoadingQuestions) return
+
+    setIsLoadingQuestions(true)
     console.log("[v0] loadSimulationQuestions - Iniciando para sala:", roomId)
     const supabase = getSupabaseClient()
 
@@ -213,6 +214,7 @@ export default function GroupRoomPage() {
 
     if (rqError || !roomQuestions || roomQuestions.length === 0) {
       console.log("[v0] Nenhuma questão encontrada para a sala ou erro:", rqError)
+      setIsLoadingQuestions(false)
       return
     }
 
@@ -225,6 +227,7 @@ export default function GroupRoomPage() {
 
     if (qError || !questionsData) {
       console.log("[v0] Erro ao buscar questões:", qError)
+      setIsLoadingQuestions(false)
       return
     }
 
@@ -237,13 +240,8 @@ export default function GroupRoomPage() {
     setQuestions(orderedQuestions)
     setCurrentQuestionIndex(0)
     setSelectedAnswer(null)
-  }, [roomId])
-
-  useEffect(() => {
-    if (roomStatus === "started" && questions.length === 0) {
-      loadSimulationQuestions()
-    }
-  }, [roomStatus, loadSimulationQuestions, questions.length])
+    setIsLoadingQuestions(false)
+  }, [roomId, isLoadingQuestions])
 
   const handleAnswer = async (questionPk: string, answer: string) => {
     if (!userId || !answer) return
