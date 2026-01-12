@@ -392,7 +392,8 @@ export default function GroupRoomPage() {
       const questionIds = randomQuestions.map((q) => q.pk)
       await startGroupRoom(roomId, userId, questionIds)
       console.log("[v0] Sala iniciada com sucesso!")
-      setRoomStatus("started")
+      // Aguardar um pouco para o Realtime disparar
+      await new Promise((resolve) => setTimeout(resolve, 500))
       await loadSimulationQuestions()
     } catch (error) {
       console.error("[v0] Erro ao iniciar sala:", error)
