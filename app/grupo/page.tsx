@@ -236,10 +236,9 @@ export default function GrupoPage() {
                 <label className="block text-sm font-medium mb-2">Código da Sala</label>
                 <Input
                   type="text"
-                  placeholder="Digite o código de 6 caracteres"
+                  placeholder="Digite o código da sala"
                   value={roomCode}
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                  maxLength={6}
                   className="w-full text-center text-2xl font-mono tracking-widest"
                 />
               </div>
@@ -256,7 +255,7 @@ export default function GrupoPage() {
                 </Button>
                 <Button
                   onClick={handleJoinRoom}
-                  disabled={loading || roomCode.length !== 6}
+                  disabled={loading || roomCode.length === 0}
                   className="flex-1 bg-green-500 hover:bg-green-600"
                 >
                   {loading ? "Entrando..." : "Entrar"}

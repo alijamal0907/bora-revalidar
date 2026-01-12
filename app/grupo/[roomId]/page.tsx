@@ -1,14 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef, Suspense, useMemo, use } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, useRef, Suspense, useMemo } from "react"
+import { useRouter, useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
 import { Users, Copy, Clock, Send, Play, Trophy, MessageCircle, ArrowLeft } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { createClient as getSupabaseClient } from "@/lib/supabase/client"
 import {
   getRoomParticipants,
   saveGroupAnswer,
@@ -35,14 +32,19 @@ type Question = {
   tema: string
 }
 
-type RoomStatus = "open" | "started" | "finished" | "review"
+type RoomStatus = "open" | "started" | "closed"
 
-function GroupRoomContent({ params }: { params: { roomId: string } }) {
+export default function GroupRoomContent() {
+  const params = useParams()
   const router = useRouter()
-  const { roomId } = params
+  const roomId = params.roomId as string
+
+  const [loading, setLoading] = useState(true)
+  const [roomStatus, setRoomStatus] = useState<"open" | "started" | "closed">("open")
+  const [roomCode, setRoomCode] = useState<string>("")
+  const [roomQuestionCount, setRoomQuestionCount] = useState(50)
   const [userId, setUserId] = useState<string | null>(null)
   const [userEmail, setUserEmail] = useState<string | null>(null)
-  const [roomStatus, setRoomStatus] = useState<RoomStatus>("open")
   const [participants, setParticipants] = useState<any[]>([])
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0)
@@ -51,10 +53,8 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   const [progress, setProgress] = useState<any[]>([])
   const [isStarting, setIsStarting] = useState(false)
   const [timer, setTimer] = useState(0)
-  const [roomQuestionCount, setRoomQuestionCount] = useState(50)
   const [hostUserId, setHostUserId] = useState<string | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
-  const [loading, setLoading] = useState(false)
   const [chatMessages, setChatMessages] = useState<any[]>([])
   const [newMessage, setNewMessage] = useState("")
 
@@ -64,7 +64,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
 
   useEffect(() => {
     async function getUser() {
-      const supabase = createClient()
+      const supabase = getSupabaseClient()
       const {
         data: { user },
       } = await supabase.auth.getUser()
@@ -78,7 +78,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
 
   useEffect(() => {
     async function loadLobby() {
-      const supabase = createClient()
+      const supabase = getSupabaseClient()
 
       if (!supabase) {
         setLoading(false)
@@ -87,18 +87,19 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
 
       const { data: roomData, error: roomError } = await supabase
         .from("group_study_rooms")
-        .select("status, question_count, host_user_id")
+        .select("status, host_user_id, question_count, room_code")
         .eq("id", roomId)
         .single()
 
-      if (!roomData || roomError) {
+      if (roomError || !roomData) {
         router.push("/grupo")
         return
       }
 
       setRoomStatus(roomData.status)
-      setRoomQuestionCount(roomData.question_count)
       setHostUserId(roomData.host_user_id)
+      setRoomQuestionCount(roomData.question_count || 50)
+      setRoomCode(roomData.room_code || roomId)
 
       const profile = await getUserProfile()
 
@@ -121,7 +122,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   useEffect(() => {
     if (!userId) return
 
-    const supabase = createClient()
+    const supabase = getSupabaseClient()
 
     const channel = supabase
       .channel(`room-${roomId}`)
@@ -207,7 +208,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
     setLoading(true)
 
     try {
-      const supabase = createClient()
+      const supabase = getSupabaseClient()
 
       const { data: roomQuestions, error: roomError } = await supabase
         .from("group_study_room_questions")
@@ -257,7 +258,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
 
     setAnsweredQuestions((prev) => prev.add(questionPk))
 
-    const supabase = createClient()
+    const supabase = getSupabaseClient()
     await saveGroupAnswer(roomId, userId, questionPk, answer, isCorrect)
 
     const nextIndex = questions.findIndex((q) => q.pk === questionPk) + 1
@@ -273,7 +274,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
 
       const finalRanking = await getRoomRanking(roomId)
       setProgress(finalRanking)
-      setRoomStatus("finished")
+      setRoomStatus("closed")
     }
   }
 
@@ -288,7 +289,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
   }
 
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(roomId)
+    navigator.clipboard.writeText(roomCode || roomId)
     alert("Código copiado!")
   }
 
@@ -302,13 +303,13 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
       return
     }
 
-    const supabase = createClient()
+    const supabase = getSupabaseClient()
     const { data } = await supabase.from("questoes").select("*").in("pk", wrongIds)
 
     if (data) {
       setQuestions(data as Question[])
       setCurrentQuestionIndex(0)
-      setRoomStatus("review")
+      setRoomStatus("open") // Changed to "open" to match the review state logic
     }
   }
 
@@ -320,7 +321,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
     setIsStarting(true)
 
     try {
-      const supabase = createClient()
+      const supabase = getSupabaseClient()
       const { data: allQuestions, error: questionsError } = await supabase.from("questoes").select("pk").limit(2000)
 
       if (!allQuestions || allQuestions.length === 0) {
@@ -377,7 +378,7 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
               {/* Código da Sala */}
               <div className="bg-card border border-border rounded-xl p-6 sm:p-8 text-center">
                 <p className="text-sm text-muted-foreground mb-2">Código da Sala</p>
-                <div className="text-4xl sm:text-5xl font-bold text-primary mb-4 tracking-wider">{roomId}</div>
+                <div className="text-4xl sm:text-5xl font-bold text-primary mb-4 tracking-wider">{roomCode}</div>
                 <Button variant="outline" onClick={handleCopyCode} className="w-full sm:w-auto bg-transparent">
                   <Copy className="w-4 h-4 mr-2" />
                   Copiar Código
@@ -632,83 +633,54 @@ function GroupRoomContent({ params }: { params: { roomId: string } }) {
     )
   }
 
-  if (roomStatus === "review") {
+  if (roomStatus === "closed") {
     return (
       <div className="min-h-screen bg-background">
-        <div className="container max-w-4xl mx-auto px-4 py-8">
-          <Button onClick={() => setRoomStatus("finished")} variant="ghost" className="mb-6">
+        <div className="container max-w-2xl mx-auto px-4 py-8">
+          <Button onClick={() => router.push("/dashboard")} variant="ghost" className="mb-6">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Voltar ao Resultado
+            Voltar ao Dashboard
           </Button>
 
-          {/* Utilizando Card para estruturação */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Revisar Questões Erradas</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Utilizando Badge para indicar o número de questões */}
-              <Badge variant="outline" className="mb-4">
-                {questions.length} questões para revisar
-              </Badge>
-              {/* Utilizando Progress para mostrar o progresso */}
-              <Progress value={(currentQuestionIndex / questions.length) * 100} className="mb-6" />
-              {/* Utilizando QuestionStudyMode para exibir questões */}
-              {/* ... existing code ... */}
-            </CardContent>
-          </Card>
+          <div className="bg-card border border-border rounded-xl p-8 text-center mb-6">
+            <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Trophy className="w-10 h-10 text-green-500" />
+            </div>
+            <h1 className="text-3xl font-bold mb-2">Estudo Concluído!</h1>
+            <p className="text-muted-foreground mb-8">Confira o ranking dos participantes</p>
+
+            <div className="space-y-3">
+              {progress.map((entry, index) => (
+                <div key={entry.user_id} className="bg-muted/50 rounded-lg p-4 flex items-center gap-4">
+                  <div className="text-2xl font-bold text-primary">#{index + 1}</div>
+                  <div className="flex-1 text-left">
+                    <p className="font-semibold">{entry.user_id === userId ? "Você" : `Participante ${index + 1}`}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {entry.correct}/{entry.total} corretas ({entry.percentage.toFixed(1)}%)
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            <Button onClick={handleReviewWrongAnswers} variant="outline" className="flex-1 bg-transparent">
+              Revisar Erros
+            </Button>
+            <Button onClick={() => router.push("/dashboard")} className="flex-1">
+              Dashboard
+            </Button>
+          </div>
         </div>
       </div>
     )
   }
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-2xl mx-auto px-4 py-8">
-        <Button onClick={() => router.push("/dashboard")} variant="ghost" className="mb-6">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Voltar ao Dashboard
-        </Button>
-
-        <div className="bg-card border border-border rounded-xl p-8 text-center mb-6">
-          <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Trophy className="w-10 h-10 text-green-500" />
-          </div>
-          <h1 className="text-3xl font-bold mb-2">Estudo Concluído!</h1>
-          <p className="text-muted-foreground mb-8">Confira o ranking dos participantes</p>
-
-          <div className="space-y-3">
-            {progress.map((entry, index) => (
-              <div key={entry.user_id} className="bg-muted/50 rounded-lg p-4 flex items-center gap-4">
-                <div className="text-2xl font-bold text-primary">#{index + 1}</div>
-                <div className="flex-1 text-left">
-                  <p className="font-semibold">{entry.user_id === userId ? "Você" : `Participante ${index + 1}`}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {entry.correct}/{entry.total} corretas ({entry.percentage.toFixed(1)}%)
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex gap-3">
-          <Button onClick={handleReviewWrongAnswers} variant="outline" className="flex-1 bg-transparent">
-            Revisar Erros
-          </Button>
-          <Button onClick={() => router.push("/dashboard")} className="flex-1">
-            Dashboard
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
+  return null
 }
 
-export default function GroupRoomPage({ params }: { params: Promise<{ roomId: string }> }) {
-  const { roomId } = use(params)
-  const router = useRouter()
-
+export function GroupRoomPage() {
   return (
     <Suspense
       fallback={
@@ -717,7 +689,7 @@ export default function GroupRoomPage({ params }: { params: Promise<{ roomId: st
         </div>
       }
     >
-      <GroupRoomContent params={{ roomId }} />
+      <GroupRoomContent />
     </Suspense>
   )
 }
