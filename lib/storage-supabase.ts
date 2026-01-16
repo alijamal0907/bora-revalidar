@@ -600,6 +600,20 @@ export async function registerDeviceSession(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const now = new Date()
+    const supabase = getSupabaseClient()
+
+    const { error: deactivateError } = await supabase
+      .from("user_devices")
+      .update({
+        active: false,
+        ended_at: now.toISOString(),
+      })
+      .eq("user_id", userId)
+      .neq("device_id", deviceInfo.deviceId)
+
+    if (deactivateError) {
+      console.error("Error deactivating other sessions:", deactivateError)
+    }
 
     // Verificar se já existe uma sessão para este dispositivo
     const { data: existingDevice, error: checkError } = await supabase
@@ -610,13 +624,15 @@ export async function registerDeviceSession(
       .single()
 
     if (existingDevice) {
-      // Atualizar last_active
+      // Atualizar e reativar a sessão deste dispositivo
       const { error: updateError } = await supabase
         .from("user_devices")
         .update({
           last_active: now.toISOString(),
           user_agent: deviceInfo.userAgent,
           platform: deviceInfo.platform,
+          active: true, // Garantir que está ativo
+          ended_at: null, // Limpar ended_at
         })
         .eq("id", existingDevice.id)
 
@@ -625,7 +641,7 @@ export async function registerDeviceSession(
         return { success: false, message: "Erro ao atualizar sessão" }
       }
 
-      return { success: true, message: "Sessão atualizada" }
+      return { success: true, message: "Sessão atualizada - outras sessões foram encerradas" }
     }
 
     // Criar nova sessão se não existe
@@ -647,15 +663,37 @@ export async function registerDeviceSession(
       return { success: false, message: "Erro ao criar sessão" }
     }
 
-    return { success: true, message: "Sessão criada com sucesso" }
+    return { success: true, message: "Sessão criada - outras sessões foram encerradas" }
   } catch (error) {
     console.error("Error in registerDeviceSession:", error)
     return { success: false, message: "Erro ao processar sessão" }
   }
 }
 
+export async function checkSessionActive(userId: string, deviceId: string): Promise<boolean> {
+  try {
+    const supabase = getSupabaseClient()
+
+    const { data, error } = await supabase
+      .from("user_devices")
+      .select("active")
+      .eq("user_id", userId)
+      .eq("device_id", deviceId)
+      .single()
+
+    if (error || !data) {
+      return false
+    }
+
+    return data.active === true
+  } catch (error) {
+    console.error("Error checking session:", error)
+    return false
+  }
+}
+
 export async function checkDeviceSession(userId: string, deviceId: string): Promise<boolean> {
-  return true
+  return await checkSessionActive(userId, deviceId)
 }
 
 export async function createSubscriptionFromCakto(

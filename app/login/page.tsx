@@ -1,8 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { signInSupabase, signUpSupabase, sendPasswordResetOTP, verifyOTPAndResetPassword } from "@/lib/auth-supabase"
 import { registerDeviceSession } from "@/lib/storage-supabase"
 import { getDeviceInfo, storeDeviceId } from "@/lib/device-utils"
@@ -34,6 +34,14 @@ export default function LoginPage() {
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
 
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const reason = searchParams.get("reason")
+    if (reason === "session_expired") {
+      setError("Sua sessão foi encerrada porque você fez login em outro dispositivo.")
+    }
+  }, [searchParams])
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
