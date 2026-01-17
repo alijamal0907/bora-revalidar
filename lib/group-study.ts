@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client"
+import { getGroupStudyQuestions } from "./smart-questions"
 
 export type GroupRoom = {
   id: string
@@ -435,22 +436,27 @@ export async function getUserWrongAnswers(roomId: string, userId: string): Promi
 }
 
 // Buscar questões aleatórias
-export async function getRandomQuestions(count: number): Promise<any[]> {
+export async function getRandomQuestions(count: number, participantIds?: string[]): Promise<any[]> {
+  // Se tiver participantes, usar busca inteligente do grupo
+  if (participantIds && participantIds.length > 0) {
+    return getGroupStudyQuestions(participantIds, count)
+  }
+
+  // Fallback para busca simples (compatibilidade)
   const supabase = createClient()
 
-  // Buscar questões aleatórias do banco
-  const { data, error } = await supabase
+  const { data: questions, error } = await supabase
     .from("questoes")
     .select("*")
-    .limit(count * 3) // Buscar 3x mais para ter margem de escolha
+    .limit(count * 3)
 
-  if (error || !data || data.length === 0) {
-    console.error("[v0] Erro ao buscar questões aleatórias:", error)
+  if (error || !questions) {
+    console.error("Erro ao buscar questões:", error)
     return []
   }
 
-  // Embaralhar e retornar apenas a quantidade solicitada
-  const shuffled = data.sort(() => Math.random() - 0.5)
+  // Embaralhar e retornar
+  const shuffled = [...questions].sort(() => Math.random() - 0.5)
   return shuffled.slice(0, count)
 }
 

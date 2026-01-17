@@ -468,6 +468,64 @@ export async function getUserProfile(): Promise<{ id: string; email: string; pla
   }
 }
 
+export function normalizeThemeToMateria(tema: string): string {
+  if (!tema) return "Outros"
+
+  const temaLower = tema.toLowerCase().trim()
+
+  // Pediatria
+  if (temaLower.includes("pediatria")) {
+    return "Pediatria"
+  }
+
+  // Clínica Médica
+  if (
+    temaLower.includes("clínica médica") ||
+    temaLower.includes("clinica medica") ||
+    temaLower === "clínica" ||
+    temaLower === "clinica"
+  ) {
+    return "Clínica Médica"
+  }
+
+  // Ginecologia e Obstetrícia
+  if (
+    temaLower.includes("ginecologia") ||
+    temaLower.includes("obstetrícia") ||
+    temaLower.includes("obstetricia") ||
+    temaLower.includes("go") ||
+    temaLower === "gineco"
+  ) {
+    return "Ginecologia e Obstetrícia"
+  }
+
+  // Medicina Preventiva
+  if (
+    temaLower.includes("medicina preventiva") ||
+    temaLower.includes("preventiva") ||
+    temaLower.includes("saúde coletiva") ||
+    temaLower.includes("saude coletiva") ||
+    temaLower.includes("epidemiologia")
+  ) {
+    return "Medicina Preventiva"
+  }
+
+  // Clínica Cirúrgica / Cirurgia
+  if (
+    temaLower.includes("cirurgia") ||
+    temaLower.includes("cirúrgica") ||
+    temaLower.includes("cirurgica") ||
+    temaLower.includes("clínica cirúrgica") ||
+    temaLower.includes("clinica cirurgica") ||
+    temaLower.includes("urgência") ||
+    temaLower.includes("urgencia")
+  ) {
+    return "Clínica Cirúrgica"
+  }
+
+  return "Outros"
+}
+
 export async function getProgressByTheme(userId: string): Promise<any[]> {
   try {
     const { data: historico, error: histError } = await supabase.from("hist_questoes").select("*").eq("user_id", userId)
@@ -492,32 +550,44 @@ export async function getProgressByTheme(userId: string): Promise<any[]> {
       return []
     }
 
+    const mainMaterias = [
+      "Pediatria",
+      "Clínica Médica",
+      "Ginecologia e Obstetrícia",
+      "Medicina Preventiva",
+      "Clínica Cirúrgica",
+    ]
+
     const themeMap: { [key: string]: { total: number; correct: number; wrong: number } } = {}
+
+    // Inicializar todas as matérias principais com zero
+    mainMaterias.forEach((materia) => {
+      themeMap[materia] = { total: 0, correct: 0, wrong: 0 }
+    })
 
     historico.forEach((h: any) => {
       const questao = questoes.find((q: any) => q.id === h.questao_id)
       if (questao && questao.tema) {
-        const theme = questao.tema
+        const normalizedTheme = normalizeThemeToMateria(questao.tema)
 
-        if (!themeMap[theme]) {
-          themeMap[theme] = { total: 0, correct: 0, wrong: 0 }
-        }
-
-        themeMap[theme].total++
-        if (h.correta) {
-          themeMap[theme].correct++
-        } else {
-          themeMap[theme].wrong++
+        // Só contabilizar se for uma das matérias principais
+        if (mainMaterias.includes(normalizedTheme)) {
+          themeMap[normalizedTheme].total++
+          if (h.correta) {
+            themeMap[normalizedTheme].correct++
+          } else {
+            themeMap[normalizedTheme].wrong++
+          }
         }
       }
     })
 
-    const result = Object.entries(themeMap).map(([theme, stats]) => ({
+    const result = mainMaterias.map((theme) => ({
       theme,
-      total: stats.total,
-      correct: stats.correct,
-      wrong: stats.wrong,
-      percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+      total: themeMap[theme].total,
+      correct: themeMap[theme].correct,
+      wrong: themeMap[theme].wrong,
+      percentage: themeMap[theme].total > 0 ? Math.round((themeMap[theme].correct / themeMap[theme].total) * 100) : 0,
     }))
 
     return result
