@@ -51,10 +51,10 @@ export function Navbar({ user }: NavbarProps) {
         <div className="flex justify-between items-center h-14">
           <Link href="/" className="flex items-center gap-2">
             <div className="relative w-8 h-8 sm:w-9 sm:h-9">
-              <Image src="/images/logo.png" alt="Bora Revalidar" fill className="object-contain" priority />
+              <Image src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-01-18%20at%2013.42.00-h5YH5w6TEQRvNKBn0ZdfMByfc3Wdz8.jpeg" alt="Bora Revalidar" fill className="object-contain" priority />
             </div>
             <span className="text-base sm:text-lg font-bold bg-gradient-to-r from-teal-400 to-orange-400 bg-clip-text text-transparent">
-              Bora Revalidar
+              BORA Revalidar
             </span>
           </Link>
 

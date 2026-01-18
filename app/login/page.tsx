@@ -211,11 +211,11 @@ export default function LoginPage() {
           <div className="text-center mb-8">
             <div className="mb-4">
               <Image
-                src="/images/logo.png"
+                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-01-18%20at%2013.42.00-eEUvEhPtKWySrpAANLMfN0oqvBqxpr.jpeg"
                 alt="Bora Revalidar"
                 width={300}
                 height={120}
-                className="mx-auto"
+                className="leading-5 border-0 mx-auto"
                 priority
               />
             </div>

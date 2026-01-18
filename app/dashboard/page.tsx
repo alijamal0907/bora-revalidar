@@ -156,40 +156,36 @@ export default function DashboardPage() {
         setQuestionsToday(todayCount)
         setIsPremium(plan === "premium")
 
-        const targetThemes = [
-          { key: "clinica medica", label: "Clínica Médica" },
-          { key: "cirurgia", label: "Cirurgia" },
-          { key: "medicina preventiva", label: "Medicina Preventiva" },
-          { key: "pediatria", label: "Pediatria" },
-          { key: "ginecologia e obstetricia", label: "Ginecologia e Obstetrícia" },
+        // As 5 matérias principais (já normalizadas pela função getProgressByTheme)
+        const targetMaterias = [
+          "Clínica Médica",
+          "Clínica Cirúrgica",
+          "Medicina Preventiva",
+          "Pediatria",
+          "Ginecologia e Obstetrícia",
         ]
 
-        const processedProgress = targetThemes
-          .map((target) => {
-            const matches = progress.filter((p) => {
-              const normalizedP = p.theme
-                .toLowerCase()
-                .trim()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-              return normalizedP === target.key
-            })
+        const processedProgress = targetMaterias
+          .map((materia) => {
+            // Busca direta pelo nome normalizado retornado por getProgressByTheme
+            const match = progress.find((p) => p.theme === materia)
 
-            const stats = matches.reduce(
-              (acc, curr) => ({
-                total: acc.total + curr.total,
-                correct: acc.correct + curr.correct,
-                wrong: acc.wrong + curr.wrong,
-              }),
-              { total: 0, correct: 0, wrong: 0 },
-            )
+            if (match) {
+              return {
+                theme: materia,
+                total: match.total,
+                correct: match.correct,
+                wrong: match.wrong,
+                percentage: match.total > 0 ? Math.round((match.correct / match.total) * 100) : 0,
+              }
+            }
 
             return {
-              theme: target.label,
-              total: stats.total,
-              correct: stats.correct,
-              wrong: stats.wrong,
-              percentage: stats.total > 0 ? Math.round((stats.correct / stats.total) * 100) : 0,
+              theme: materia,
+              total: 0,
+              correct: 0,
+              wrong: 0,
+              percentage: 0,
             }
           })
           .filter((p) => p.total > 0)
@@ -532,23 +528,13 @@ export default function DashboardPage() {
         <div className="bg-card border border-border rounded-xl p-4 sm:p-6 lg:p-8 mb-6 sm:mb-8 lg:mb-12">
           <h2 className="text-xl sm:text-2xl font-bold text-foreground mb-4 sm:mb-6 lg:mb-8">Progresso por Matéria</h2>
           {themeProgress.length > 0 ? (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {themeProgress.map((theme) => {
                 const percentage = Math.round((theme.correct / theme.total) * 100)
                 return (
-                  <div key={theme.theme} className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-foreground text-sm sm:text-base">{theme.theme}</span>
-                      <span className="text-xs sm:text-sm text-muted-foreground">
-                        {theme.correct}/{theme.total} ({percentage}%)
-                      </span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2 sm:h-2.5 overflow-hidden">
-                      <div
-                        className="bg-primary h-full rounded-full transition-all duration-500"
-                        style={{ width: `${percentage}%` }}
-                      />
-                    </div>
+                  <div key={theme.theme} className="bg-muted/50 rounded-lg p-4 text-center">
+                    <span className="font-medium text-foreground text-sm sm:text-base block mb-2">{theme.theme}</span>
+                    <span className="text-2xl sm:text-3xl font-bold text-primary">{percentage}%</span>
                   </div>
                 )
               })}
@@ -565,25 +551,15 @@ export default function DashboardPage() {
             Progresso de Flashcards por Matéria
           </h2>
           {flashcardProgress.length > 0 && flashcardProgress.some((f) => f.total > 0) ? (
-            <div className="space-y-4 sm:space-y-6">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
               {flashcardProgress
                 .filter((fc) => fc.total > 0)
                 .map((fc) => {
                   const percentage = Math.round((fc.correct / fc.total) * 100)
                   return (
-                    <div key={fc.materia} className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-foreground text-sm sm:text-base">{fc.materia}</span>
-                        <span className="text-xs sm:text-sm text-muted-foreground">
-                          {fc.correct}/{fc.total} ({percentage}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-muted rounded-full h-2 sm:h-2.5 overflow-hidden">
-                        <div
-                          className="bg-gradient-to-r from-purple-500 to-purple-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
+                    <div key={fc.materia} className="bg-muted/50 rounded-lg p-4 text-center">
+                      <span className="font-medium text-foreground text-sm sm:text-base block mb-2">{fc.materia}</span>
+                      <span className="text-2xl sm:text-3xl font-bold text-purple-500">{percentage}%</span>
                     </div>
                   )
                 })}

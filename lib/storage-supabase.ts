@@ -471,30 +471,37 @@ export async function getUserProfile(): Promise<{ id: string; email: string; pla
 export function normalizeThemeToMateria(tema: string): string {
   if (!tema) return "Outros"
 
-  const temaLower = tema.toLowerCase().trim()
+  const temaLower = tema.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
 
-  // Pediatria
-  if (temaLower.includes("pediatria")) {
-    return "Pediatria"
+  // Clínica Cirúrgica / Cirurgia - VERIFICAR PRIMEIRO (antes de clínica médica)
+  if (
+    temaLower.includes("cirurgia") ||
+    temaLower.includes("cirurgica") ||
+    temaLower.includes("clinica cirurgica") ||
+    temaLower.includes("urgencia") ||
+    temaLower.includes("trauma") ||
+    temaLower.includes("proctologia") ||
+    temaLower.includes("vascular") ||
+    temaLower.includes("cirurgia geral")
+  ) {
+    return "Clínica Cirúrgica"
   }
 
-  // Clínica Médica
+  // Pediatria
   if (
-    temaLower.includes("clínica médica") ||
-    temaLower.includes("clinica medica") ||
-    temaLower === "clínica" ||
-    temaLower === "clinica"
+    temaLower.includes("pediatria") ||
+    temaLower.includes("neonatologia") ||
+    temaLower.includes("neonatal")
   ) {
-    return "Clínica Médica"
+    return "Pediatria"
   }
 
   // Ginecologia e Obstetrícia
   if (
     temaLower.includes("ginecologia") ||
-    temaLower.includes("obstetrícia") ||
     temaLower.includes("obstetricia") ||
-    temaLower.includes("go") ||
-    temaLower === "gineco"
+    temaLower.includes("gineco") ||
+    temaLower === "go"
   ) {
     return "Ginecologia e Obstetrícia"
   }
@@ -503,24 +510,39 @@ export function normalizeThemeToMateria(tema: string): string {
   if (
     temaLower.includes("medicina preventiva") ||
     temaLower.includes("preventiva") ||
-    temaLower.includes("saúde coletiva") ||
     temaLower.includes("saude coletiva") ||
-    temaLower.includes("epidemiologia")
+    temaLower.includes("epidemiologia") ||
+    temaLower.includes("imunizacoes") ||
+    temaLower.includes("imunizacao") ||
+    temaLower.includes("medicina de familia") ||
+    temaLower.includes("gestao") ||
+    temaLower.includes("tabagismo") ||
+    temaLower.includes("medicina social")
   ) {
     return "Medicina Preventiva"
   }
 
-  // Clínica Cirúrgica / Cirurgia
+  // Clínica Médica - verificar por último (pega o resto das especialidades clínicas)
   if (
-    temaLower.includes("cirurgia") ||
-    temaLower.includes("cirúrgica") ||
-    temaLower.includes("cirurgica") ||
-    temaLower.includes("clínica cirúrgica") ||
-    temaLower.includes("clinica cirurgica") ||
-    temaLower.includes("urgência") ||
-    temaLower.includes("urgencia")
+    temaLower.includes("clinica medica") ||
+    temaLower.includes("clinica") ||
+    temaLower.includes("gastroenterologia") ||
+    temaLower.includes("pneumologia") ||
+    temaLower.includes("neurologia") ||
+    temaLower.includes("infectologia") ||
+    temaLower.includes("dermatologia") ||
+    temaLower.includes("cardiologia") ||
+    temaLower.includes("emergencia") ||
+    temaLower.includes("psiquiatria") ||
+    temaLower.includes("oftalmologia") ||
+    temaLower.includes("saude mental") ||
+    temaLower.includes("endocrinologia") ||
+    temaLower.includes("hematologia") ||
+    temaLower.includes("reumatologia") ||
+    temaLower.includes("nefrologia") ||
+    temaLower.includes("oncologia")
   ) {
-    return "Clínica Cirúrgica"
+    return "Clínica Médica"
   }
 
   return "Outros"
