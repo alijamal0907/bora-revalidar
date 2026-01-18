@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { ChevronLeft, CheckCircle, XCircle, RotateCcw, Trophy } from "lucide-react"
 import type { Flashcard } from "@/lib/flashcards-storage"
-import { saveFlashcardAnswer } from "@/lib/flashcards-storage"
+import { saveFlashcardAnswer, deleteFlashcardAnswer } from "@/lib/flashcards-storage"
 import { getSupabaseUser } from "@/lib/auth-supabase"
 
 interface FlashcardStudyModeProps {
@@ -15,7 +15,14 @@ interface FlashcardStudyModeProps {
   onFlashcardAnswered?: () => void
 }
 
-export default function FlashcardStudyMode({
+// Tipo para rastrear respostas de cada card
+interface CardAnswer {
+  flashcardId: string
+  correct: boolean
+  answeredAt: string
+}
+
+function FlashcardStudyMode({
   materia,
   tema,
   onBack,
@@ -32,6 +39,8 @@ export default function FlashcardStudyMode({
   const [isFinished, setIsFinished] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  // Rastreia respostas por índice do card para permitir reversão
+  const [answersMap, setAnswersMap] = useState<Map<number, CardAnswer>>(new Map())
 
   useEffect(() => {
     const loadUser = async () => {
@@ -72,16 +81,48 @@ export default function FlashcardStudyMode({
   }
 
   const handleCorrect = async () => {
-    setCorrect(correct + 1)
+    const currentCard = flashcards[currentIndex]
+    const previousAnswer = answersMap.get(currentIndex)
+    
+    // Se já tinha uma resposta anterior para este card, reverte ela primeiro
+    if (previousAnswer) {
+      if (previousAnswer.correct) {
+        // Já estava como acerto, não faz nada (evita duplicação)
+        moveToNext()
+        return
+      } else {
+        // Era erro, agora é acerto: reverte o erro
+        setWrong(prev => Math.max(0, prev - 1))
+        setWrongCards(prev => prev.filter(c => c.id !== currentCard.id))
+        // Remove a resposta anterior do banco
+        if (userId && currentCard?.id) {
+          try {
+            await deleteFlashcardAnswer(userId, currentCard.id, previousAnswer.answeredAt)
+          } catch (error) {
+            console.error("Error deleting previous answer:", error)
+          }
+        }
+      }
+    }
+    
+    setCorrect(prev => prev + 1)
+    
+    // Registra a nova resposta
+    const answeredAt = new Date().toISOString()
+    setAnswersMap(prev => new Map(prev).set(currentIndex, {
+      flashcardId: currentCard.id,
+      correct: true,
+      answeredAt
+    }))
 
-    if (userId && flashcards[currentIndex]?.id) {
+    if (userId && currentCard?.id) {
       try {
         await saveFlashcardAnswer(
           userId,
-          flashcards[currentIndex].id,
+          currentCard.id,
           true,
-          flashcards[currentIndex].materia,
-          flashcards[currentIndex].tema,
+          currentCard.materia,
+          currentCard.tema,
         )
         if (onFlashcardAnswered) {
           onFlashcardAnswered()
@@ -95,17 +136,51 @@ export default function FlashcardStudyMode({
   }
 
   const handleWrong = async () => {
-    setWrong(wrong + 1)
-    setWrongCards([...wrongCards, flashcards[currentIndex]])
+    const currentCard = flashcards[currentIndex]
+    const previousAnswer = answersMap.get(currentIndex)
+    
+    // Se já tinha uma resposta anterior para este card, reverte ela primeiro
+    if (previousAnswer) {
+      if (!previousAnswer.correct) {
+        // Já estava como erro, não faz nada (evita duplicação)
+        moveToNext()
+        return
+      } else {
+        // Era acerto, agora é erro: reverte o acerto
+        setCorrect(prev => Math.max(0, prev - 1))
+        // Remove a resposta anterior do banco
+        if (userId && currentCard?.id) {
+          try {
+            await deleteFlashcardAnswer(userId, currentCard.id, previousAnswer.answeredAt)
+          } catch (error) {
+            console.error("Error deleting previous answer:", error)
+          }
+        }
+      }
+    }
+    
+    setWrong(prev => prev + 1)
+    // Só adiciona ao wrongCards se não estiver lá ainda
+    if (!wrongCards.find(c => c.id === currentCard.id)) {
+      setWrongCards(prev => [...prev, currentCard])
+    }
+    
+    // Registra a nova resposta
+    const answeredAt = new Date().toISOString()
+    setAnswersMap(prev => new Map(prev).set(currentIndex, {
+      flashcardId: currentCard.id,
+      correct: false,
+      answeredAt
+    }))
 
-    if (userId && flashcards[currentIndex]?.id) {
+    if (userId && currentCard?.id) {
       try {
         await saveFlashcardAnswer(
           userId,
-          flashcards[currentIndex].id,
+          currentCard.id,
           false,
-          flashcards[currentIndex].materia,
-          flashcards[currentIndex].tema,
+          currentCard.materia,
+          currentCard.tema,
         )
         if (onFlashcardAnswered) {
           onFlashcardAnswered()
@@ -135,6 +210,7 @@ export default function FlashcardStudyMode({
     setWrongCards([])
     setIsFinished(false)
     setShowAnswer(false)
+    setAnswersMap(new Map()) // Reseta o mapa de respostas
   }
 
   const handleRestart = () => {
@@ -144,12 +220,17 @@ export default function FlashcardStudyMode({
     setWrongCards([])
     setIsFinished(false)
     setShowAnswer(false)
+    setAnswersMap(new Map()) // Reseta o mapa de respostas
   }
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      setShowAnswer(false)
-      setCurrentIndex(currentIndex - 1)
+      const previousIndex = currentIndex - 1
+      const previousAnswer = answersMap.get(previousIndex)
+      
+      setCurrentIndex(previousIndex)
+      // Mostra a resposta se o card já foi respondido
+      setShowAnswer(previousAnswer !== undefined)
     }
   }
 
@@ -392,8 +473,9 @@ export default function FlashcardStudyMode({
           )}
         </div>
       </div>
-    </div>
+  </div>
   )
 }
 
 export { FlashcardStudyMode }
+export default FlashcardStudyMode

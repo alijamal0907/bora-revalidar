@@ -350,6 +350,27 @@ export async function saveFlashcardAnswer(
   }
 }
 
+export async function deleteFlashcardAnswer(
+  userId: string,
+  flashcardId: string,
+  answeredAt: string,
+): Promise<void> {
+  const supabase = getSupabaseClient()
+
+  // Deleta a resposta específica baseada no timestamp
+  const { error } = await supabase
+    .from("flashcard_history")
+    .delete()
+    .eq("user_id", userId)
+    .eq("flashcard_id", flashcardId)
+    .eq("answered_at", answeredAt)
+
+  if (error) {
+    console.error("Error deleting flashcard answer:", error)
+    throw error
+  }
+}
+
 export async function getWrongFlashcardsCountByMateria(userId: string): Promise<Record<string, number>> {
   const supabase = getSupabaseClient()
   const { data, error } = await supabase
