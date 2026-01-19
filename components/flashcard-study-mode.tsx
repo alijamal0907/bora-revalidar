@@ -5,7 +5,7 @@ import { ChevronLeft, CheckCircle, XCircle, RotateCcw, Trophy, Zap } from "lucid
 import type { Flashcard } from "@/lib/flashcards-storage"
 import { saveFlashcardAnswer, deleteFlashcardAnswer } from "@/lib/flashcards-storage"
 import { getSupabaseUser } from "@/lib/auth-supabase"
-import { generateSmartContent, updateLearningStatus, type SmartFlashcard } from "@/lib/smart-flashcards-v2"
+import { generateSmartContent, updateLearningStatus, type SmartFlashcard } from "@/lib/smart-flashcards-v3"
 
 interface FlashcardStudyModeProps {
   materia: string
