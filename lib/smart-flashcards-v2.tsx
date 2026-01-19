@@ -348,8 +348,8 @@ export function generateLocalFallbackAlternative(verso: string): {
   let alternativa = verso
   const modificacoesAplicadas: string[] = []
   
-  // MODIFICAÇÃO 1: Altera TODOS os números/doses encontrados
-  const numerosMatch = alternativa.match(/\b(\d+)\s*(mg|ml|g|UI|mcg|mmHg|ms|bpm|%)/gi)
+  // MODIFICAÇÃO 1: Altera TODOS os números/doses/porcentagens/idades encontrados
+  const numerosMatch = alternativa.match(/\b(\d+)\s*(mg|ml|g|UI|mcg|mmHg|ms|bpm|%|anos?|meses|dias?|h|horas?)/gi)
   if (numerosMatch && numerosMatch.length > 0) {
     for (const numeroOriginal of numerosMatch) {
       const valor = Number.parseInt(numeroOriginal)
@@ -362,6 +362,34 @@ export function generateLocalFallbackAlternative(verso: string): {
       alternativa = alternativa.replace(numeroOriginal, `${novoValor}${unidade}`)
       modificacoesAplicadas.push(`${numeroOriginal} → ${novoValor}${unidade}`)
     }
+  }
+  
+  // MODIFICAÇÃO 1.5: Altera idades específicas (ex: ">65 anos", "<40 anos")
+  const idadesMatch = alternativa.match(/([<>≥≤])\s*(\d+)\s*anos?/gi)
+  if (idadesMatch && idadesMatch.length > 0) {
+    for (const idadeOriginal of idadesMatch) {
+      const valor = Number.parseInt(idadeOriginal.match(/\d+/)?.[0] || "0")
+      const sinal = idadeOriginal.match(/[<>≥≤]/)?.[0] || ""
+      
+      // Altera idade por valor próximo
+      const novoValor = Math.random() > 0.5 ? valor + 5 : Math.max(1, valor - 5)
+      
+      alternativa = alternativa.replace(idadeOriginal, `${sinal}${novoValor} anos`)
+      modificacoesAplicadas.push(`IDADE: ${idadeOriginal} → ${sinal}${novoValor} anos`)
+    }
+  }
+  
+  // MODIFICAÇÃO 1.6: Altera sexo (masculino/feminino, homem/mulher)
+  if (alternativa.match(/\b(masculino|homem|homens)\b/gi)) {
+    alternativa = alternativa.replace(/\bmasculino\b/gi, "feminino")
+    alternativa = alternativa.replace(/\bhomem\b/gi, "mulher")
+    alternativa = alternativa.replace(/\bhomens\b/gi, "mulheres")
+    modificacoesAplicadas.push("SEXO: masculino → feminino")
+  } else if (alternativa.match(/\b(feminino|mulher|mulheres)\b/gi)) {
+    alternativa = alternativa.replace(/\bfeminino\b/gi, "masculino")
+    alternativa = alternativa.replace(/\bmulher\b/gi, "homem")
+    alternativa = alternativa.replace(/\bmulheres\b/gi, "homens")
+    modificacoesAplicadas.push("SEXO: feminino → masculino")
   }
   
   // MODIFICAÇÃO 2: Altera TODOS os tempos encontrados
@@ -454,28 +482,66 @@ export function generateLocalFallbackAlternative(verso: string): {
     }
   }
   
-  // MODIFICAÇÃO 6: Substitui termo clínico similar (se houver)
-  const substituicoesTermos: [RegExp, string][] = [
-    [/\bprimeiro\b/gi, "principal"],
-    [/\bprincipal\b/gi, "primeiro"],
-    [/\bmaior\b/gi, "mais comum"],
-    [/\belevada\b/gi, "aumentada"],
-    [/\baguda\b/gi, "grave"],
-    [/\bcrônica\b/gi, "persistente"],
-    [/\binicial\b/gi, "primária"],
-    [/\bessencial\b/gi, "fundamental"],
-    [/\bespecífico\b/gi, "característico"],
-    [/\bprecoce\b/gi, "inicial"],
-    [/\btardio\b/gi, "posterior"],
+  // MODIFICAÇÃO 6: ANTÔNIMOS CLÍNICOS (inversão de conceitos opostos)
+  const antonimosClinicosMap: [RegExp, string][] = [
+    // Antônimos de gravidade
+    [/\bgrave\b/gi, "leve"],
+    [/\bleve\b/gi, "grave"],
+    [/\bsevero\b/gi, "moderado"],
+    [/\bmoderado\b/gi, "severo"],
+    
+    // Antônimos temporais
+    [/\bagudo\b/gi, "crônico"],
+    [/\baguda\b/gi, "crônica"],
+    [/\bcrônico\b/gi, "agudo"],
+    [/\bcrônica\b/gi, "aguda"],
+    [/\bprecoce\b/gi, "tardio"],
+    [/\btardio\b/gi, "precoce"],
+    [/\binicial\b/gi, "final"],
+    [/\bfinal\b/gi, "inicial"],
+    
+    // Antônimos de posição/direção
+    [/\banterior\b/gi, "posterior"],
+    [/\bposterior\b/gi, "anterior"],
+    [/\bsuperior\b/gi, "inferior"],
+    [/\binferior\b/gi, "superior"],
+    [/\bdireito\b/gi, "esquerdo"],
+    [/\besquerdo\b/gi, "direito"],
+    
+    // Antônimos de valores
+    [/\belevado\b/gi, "reduzido"],
+    [/\belevada\b/gi, "reduzida"],
+    [/\breduzido\b/gi, "elevado"],
+    [/\breduzida\b/gi, "elevada"],
+    [/\baumentado\b/gi, "diminuído"],
+    [/\baumentada\b/gi, "diminuída"],
+    [/\bdiminuído\b/gi, "aumentado"],
+    [/\bdiminuída\b/gi, "aumentada"],
+    [/\bnormal\b/gi, "alterado"],
+    [/\balterado\b/gi, "normal"],
+    
+    // Antônimos de presença
+    [/\bpresente\b/gi, "ausente"],
+    [/\bausente\b/gi, "presente"],
+    [/\bpositivo\b/gi, "negativo"],
+    [/\bnegativo\b/gi, "positivo"],
+    
+    // Antônimos de estabilidade
+    [/\bestável\b/gi, "instável"],
+    [/\binstável\b/gi, "estável"],
+    [/\bcompensado\b/gi, "descompensado"],
+    [/\bdescompensado\b/gi, "compensado"],
   ]
   
-  for (const [pattern, replacement] of substituicoesTermos) {
+  for (const [pattern, replacement] of antonimosClinicosMap) {
+    if (modificacoesAplicadas.length >= 6) break // Máximo 6 modificações principais
+    
     if (pattern.test(alternativa)) {
       const match = alternativa.match(pattern)
       if (match) {
         alternativa = alternativa.replace(pattern, replacement)
-        modificacoesAplicadas.push(`${match[0]} → ${replacement}`)
-        break
+        modificacoesAplicadas.push(`ANTÔNIMO: ${match[0]} → ${replacement}`)
+        break // Apenas um antônimo para não exagerar
       }
     }
   }
@@ -612,16 +678,45 @@ export function generateLocalFallbackAlternative(verso: string): {
     }
   }
   
-  // ÚLTIMO RECURSO: Adiciona advérbio temporal discreto
-  console.warn(`[v0] ⚠️ Último recurso: adicionando advérbio temporal`)
-  const comAdverbio = verso.replace(/^([A-Z])/, "Geralmente, $1".toLowerCase())
+  // ÚLTIMO RECURSO ABSOLUTO: Se não aplicou NADA, força antônimo mais genérico
+  console.error(`[v0] ❌ ÚLTIMO RECURSO: forçando modificação genérica`)
   
+  // Última tentativa: procura qualquer palavra que possa ser invertida
+  const ultimoRecurso: [RegExp, string][] = [
+    [/\bé\b/gi, "não é"],
+    [/\bnão é\b/gi, "é"],
+    [/\bcom\b/gi, "sem"],
+    [/\bsem\b/gi, "com"],
+    [/\bdeve\b/gi, "pode"],
+    [/\bpode\b/gi, "deve"],
+  ]
+  
+  for (const [pattern, replacement] of ultimoRecurso) {
+    if (pattern.test(verso)) {
+      const alternativa = verso.replace(pattern, replacement)
+      if (alternativa !== verso) {
+        console.log(`[v0] ✓ Último recurso aplicado`)
+        return {
+          alternativa,
+          modificacao: {
+            tipo: "inversao-generica",
+            original: "afirmação original",
+            modificado: "afirmação invertida",
+            nivel: "basico",
+          },
+        }
+      }
+    }
+  }
+  
+  // Se REALMENTE nada funcionou, retorna o verso (será pulado)
+  console.error(`[v0] ❌❌ IMPOSSÍVEL gerar alternativa - flashcard será pulado`)
   return {
-    alternativa: comAdverbio.charAt(0).toUpperCase() + comAdverbio.slice(1),
+    alternativa: verso,
     modificacao: {
-      tipo: "adverbio-temporal",
-      original: "afirmação categórica",
-      modificado: "afirmação generalizada",
+      tipo: "impossivel",
+      original: "sem modificação possível",
+      modificado: "flashcard será pulado",
       nivel: "basico",
     },
   }
