@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronLeft, CheckCircle, XCircle, RotateCcw, Trophy } from "lucide-react"
+import { ChevronLeft, CheckCircle, XCircle, RotateCcw, Trophy, Zap } from "lucide-react"
 import type { Flashcard } from "@/lib/flashcards-storage"
 import { saveFlashcardAnswer, deleteFlashcardAnswer } from "@/lib/flashcards-storage"
 import { getSupabaseUser } from "@/lib/auth-supabase"
+import { generateSmartContent, updateLearningStatus, type SmartFlashcard } from "@/lib/smart-flashcards-v2"
 
 interface FlashcardStudyModeProps {
   materia: string
@@ -13,13 +14,24 @@ interface FlashcardStudyModeProps {
   fetchFlashcards: () => Promise<Flashcard[]>
   userPlan?: "free" | "premium"
   onFlashcardAnswered?: () => void
+  selectedQuantity?: number
 }
 
-// Tipo para rastrear respostas de cada card
-interface CardAnswer {
+// Tipo estendido com conteudo inteligente
+interface SmartFlashcardExtended extends Flashcard {
+  alternativa_tendenciosa?: string
+  comentario_explicativo?: string
+}
+
+// Status de aprendizado
+type LearningStatus = "novo" | "errou_1" | "errou_2" | "consolidado"
+
+// Rastreamento de status por flashcard
+interface FlashcardLearningState {
   flashcardId: string
-  correct: boolean
-  answeredAt: string
+  status: LearningStatus
+  wrongCount: number
+  lastAnswered: number // indice da ultima resposta
 }
 
 function FlashcardStudyMode({
@@ -29,18 +41,28 @@ function FlashcardStudyMode({
   fetchFlashcards,
   userPlan = "free",
   onFlashcardAnswered,
+  selectedQuantity = 10,
 }: FlashcardStudyModeProps) {
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([])
+  const [flashcards, setFlashcards] = useState<SmartFlashcardExtended[]>([])
+  const [allFlashcards, setAllFlashcards] = useState<SmartFlashcardExtended[]>([]) // Armazena todos os flashcards disponiveis
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [selectedAnswer, setSelectedAnswer] = useState<"correct" | "wrong" | null>(null)
   const [showAnswer, setShowAnswer] = useState(false)
   const [correct, setCorrect] = useState(0)
   const [wrong, setWrong] = useState(0)
-  const [wrongCards, setWrongCards] = useState<Flashcard[]>([])
   const [isFinished, setIsFinished] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
-  // Rastreia respostas por índice do card para permitir reversão
-  const [answersMap, setAnswersMap] = useState<Map<number, CardAnswer>>(new Map())
+  const [learningStates, setLearningStates] = useState<Map<string, FlashcardLearningState>>(new Map())
+  const [shuffledOptions, setShuffledOptions] = useState<{ text: string; isCorrect: boolean }[]>([])
+  const [interactionCount, setInteractionCount] = useState(0)
+  const [wrongCards, setWrongCards] = useState<Flashcard[]>([])
+  const [answersMap, setAnswersMap] = useState<Map<number, { flashcardId: string; correct: boolean; answeredAt: string }>>(new Map())
+  const [canLoadMore, setCanLoadMore] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+
+  const [previousAnswer, setPreviousAnswer] = useState<{ flashcardId: string; correct: boolean; answeredAt: string } | null>(null)
+  const [showFeedback, setShowFeedback] = useState(false)
 
   useEffect(() => {
     const loadUser = async () => {
@@ -62,10 +84,42 @@ function FlashcardStudyMode({
         setIsLoading(true)
         const cards = await fetchFlashcards()
 
-        const { orderFlashcardsWithSpacedRepetition } = await import("@/lib/flashcards-storage")
-        const orderedCards = await orderFlashcardsWithSpacedRepetition(userId, cards)
+        // Ordena com repeticao inteligente
+        const orderedCards = await orderWithSmartRepetition(cards)
+        
+        // Gera conteudo inteligente para cada flashcard
+        const cardsWithSmartContent = await Promise.all(
+          orderedCards.map(async (card) => {
+            const smartContent = await generateSmartContent(card as SmartFlashcard)
+            
+            // Pula apenas se falhou completamente na geração (caso extremamente raro)
+            if (!smartContent || !smartContent.alternativa_tendenciosa) {
+              console.warn(`[v0] ⚠️ Flashcard pulado - falha crítica na geração`)
+              return null
+            }
+            
+            return {
+              ...card,
+              alternativa_tendenciosa: smartContent.alternativa_tendenciosa,
+              comentario_explicativo: smartContent.comentario_explicativo,
+            }
+          })
+        )
 
-        setFlashcards(orderedCards)
+        // Remove nulls
+        const validCards = cardsWithSmartContent.filter((card): card is SmartFlashcardExtended => card !== null)
+
+        console.log(`[v0] ${validCards.length}/${orderedCards.length} flashcards carregados com sucesso`)
+
+        // Armazena todos os flashcards disponiveis
+        setAllFlashcards(validCards)
+        
+        // Mostra apenas a quantidade selecionada inicialmente
+        setFlashcards(validCards.slice(0, selectedQuantity))
+        
+        // Verifica se ha mais flashcards para revelar
+        setCanLoadMore(validCards.length > selectedQuantity)
+        
         setIsLoading(false)
       } catch (error) {
         console.error("Error loading flashcards:", error)
@@ -74,126 +128,165 @@ function FlashcardStudyMode({
     }
 
     loadFlashcards()
-  }, [fetchFlashcards, userId])
+  }, [fetchFlashcards, userId, selectedQuantity])
 
-  const handleShowAnswer = () => {
-    setShowAnswer(true)
+  // Ordena flashcards com repeticao inteligente APRIMORADA
+  const orderWithSmartRepetition = async (cards: Flashcard[]) => {
+    const cardsWithPriority = cards.map((card, index) => {
+      const state = learningStates.get(card.id)
+      let priority = 0
+
+      if (!state || state.status === "novo") {
+        priority = 1000 + index // Novos tem prioridade ABAIXO de errou_2
+      } else if (state.status === "errou_1") {
+        // Reaparece apos 3 cards
+        const interval = interactionCount - state.lastAnswered
+        if (interval >= 3) {
+          priority = -500 // Prioridade media-alta
+        } else {
+          priority = 9999 // Baixa prioridade (ainda nao e hora)
+        }
+      } else if (state.status === "errou_2") {
+        // Reaparece apos 6 cards - MAXIMA PRIORIDADE sobre novos
+        const interval = interactionCount - state.lastAnswered
+        if (interval >= 6) {
+          priority = -2000 // Maxima prioridade (acima de novos)
+        } else {
+          priority = 9999 // Baixa prioridade
+        }
+      } else if (state.status === "consolidado") {
+        priority = 10000 // Consolidados vao pro final
+      }
+
+      return { card, priority, state }
+    })
+
+    // Ordena por prioridade
+    const sorted = cardsWithPriority.sort((a, b) => a.priority - b.priority)
+
+    // BLINDAGEM: Evita repeticao dentro de 2 cards consecutivos
+    const finalOrder: Flashcard[] = []
+    const used = new Set<string>()
+
+    for (const item of sorted) {
+      // Verifica se algum dos ultimos 2 cards e o mesmo
+      const lastTwoIds = finalOrder.slice(-2).map(c => c.id)
+      if (lastTwoIds.includes(item.card.id)) {
+        continue // Pula, ja apareceu recentemente
+      }
+      finalOrder.push(item.card)
+      used.add(item.card.id)
+    }
+
+    // Adiciona os que sobraram no final (se houver)
+    for (const item of sorted) {
+      if (!used.has(item.card.id)) {
+        finalOrder.push(item.card)
+      }
+    }
+
+    return finalOrder
   }
 
-  const handleCorrect = async () => {
+  // Embaralha opcoes quando muda de card
+  useEffect(() => {
+    if (flashcards.length > 0 && currentIndex < flashcards.length) {
+      const card = flashcards[currentIndex]
+      const options = [
+        { text: card.verso, isCorrect: true },
+        { text: card.alternativa_tendenciosa || card.verso + " (alternativa)", isCorrect: false },
+      ]
+      // Embaralha
+      setShuffledOptions(options.sort(() => Math.random() - 0.5))
+      setSelectedAnswer(null)
+      setShowFeedback(false)
+    }
+  }, [currentIndex, flashcards])
+
+  const handleAnswerSelect = async (isCorrect: boolean) => {
+    setSelectedAnswer(isCorrect ? "correct" : "wrong")
+    setShowFeedback(true)
+    setInteractionCount(prev => prev + 1)
+
     const currentCard = flashcards[currentIndex]
-    const previousAnswer = answersMap.get(currentIndex)
-    
-    // Se já tinha uma resposta anterior para este card, reverte ela primeiro
-    if (previousAnswer) {
-      if (previousAnswer.correct) {
-        // Já estava como acerto, não faz nada (evita duplicação)
+    const currentState = learningStates.get(currentCard.id)
+
+    if (isCorrect) {
+      setCorrect(prev => prev + 1)
+
+      // Logica de status: acerto apos erro = consolidado
+      let newStatus: LearningStatus = "consolidado"
+      if (!currentState || currentState.status === "novo") {
+        newStatus = "consolidado"
+      } else if (currentState.status === "errou_1" || currentState.status === "errou_2") {
+        newStatus = "consolidado" // Acertou apos erro
+      }
+
+      // Atualiza estado
+      setLearningStates(prev => {
+        const newMap = new Map(prev)
+        newMap.set(currentCard.id, {
+          flashcardId: currentCard.id,
+          status: newStatus,
+          wrongCount: currentState?.wrongCount || 0,
+          lastAnswered: interactionCount,
+        })
+        return newMap
+      })
+
+      // Salva no banco
+      if (userId && currentCard?.id) {
+        try {
+          await saveFlashcardAnswer(userId, currentCard.id, true, currentCard.materia, currentCard.tema)
+          await updateLearningStatus(userId, currentCard.id, true, interactionCount)
+          if (onFlashcardAnswered) onFlashcardAnswered()
+        } catch (error) {
+          console.error("Error saving correct answer:", error)
+        }
+      }
+
+      // Se acertou, avanca automaticamente apos 1 segundo
+      setTimeout(() => {
         moveToNext()
-        return
-      } else {
-        // Era erro, agora é acerto: reverte o erro
-        setWrong(prev => Math.max(0, prev - 1))
-        setWrongCards(prev => prev.filter(c => c.id !== currentCard.id))
-        // Remove a resposta anterior do banco
-        if (userId && currentCard?.id) {
-          try {
-            await deleteFlashcardAnswer(userId, currentCard.id, previousAnswer.answeredAt)
-          } catch (error) {
-            console.error("Error deleting previous answer:", error)
-          }
+      }, 1000)
+    } else {
+      setWrong(prev => prev + 1)
+
+      // Logica de status: erro 1 = errou_1, erro 2+ = errou_2
+      const newWrongCount = (currentState?.wrongCount || 0) + 1
+      let newStatus: LearningStatus = newWrongCount === 1 ? "errou_1" : "errou_2"
+
+      // Atualiza estado
+      setLearningStates(prev => {
+        const newMap = new Map(prev)
+        newMap.set(currentCard.id, {
+          flashcardId: currentCard.id,
+          status: newStatus,
+          wrongCount: newWrongCount,
+          lastAnswered: interactionCount,
+        })
+        return newMap
+      })
+
+      // Salva no banco
+      if (userId && currentCard?.id) {
+        try {
+          await saveFlashcardAnswer(userId, currentCard.id, false, currentCard.materia, currentCard.tema)
+          await updateLearningStatus(userId, currentCard.id, false, interactionCount)
+          if (onFlashcardAnswered) onFlashcardAnswered()
+        } catch (error) {
+          console.error("Error saving wrong answer:", error)
         }
       }
-    }
-    
-    setCorrect(prev => prev + 1)
-    
-    // Registra a nova resposta
-    const answeredAt = new Date().toISOString()
-    setAnswersMap(prev => new Map(prev).set(currentIndex, {
-      flashcardId: currentCard.id,
-      correct: true,
-      answeredAt
-    }))
 
-    if (userId && currentCard?.id) {
-      try {
-        await saveFlashcardAnswer(
-          userId,
-          currentCard.id,
-          true,
-          currentCard.materia,
-          currentCard.tema,
-        )
-        if (onFlashcardAnswered) {
-          onFlashcardAnswered()
-        }
-      } catch (error) {
-        console.error("Error saving correct answer:", error)
-      }
+      // Se errou, usuario precisa ler o comentario antes de avancar
+      // Nao avanca automaticamente
     }
-
-    moveToNext()
-  }
-
-  const handleWrong = async () => {
-    const currentCard = flashcards[currentIndex]
-    const previousAnswer = answersMap.get(currentIndex)
-    
-    // Se já tinha uma resposta anterior para este card, reverte ela primeiro
-    if (previousAnswer) {
-      if (!previousAnswer.correct) {
-        // Já estava como erro, não faz nada (evita duplicação)
-        moveToNext()
-        return
-      } else {
-        // Era acerto, agora é erro: reverte o acerto
-        setCorrect(prev => Math.max(0, prev - 1))
-        // Remove a resposta anterior do banco
-        if (userId && currentCard?.id) {
-          try {
-            await deleteFlashcardAnswer(userId, currentCard.id, previousAnswer.answeredAt)
-          } catch (error) {
-            console.error("Error deleting previous answer:", error)
-          }
-        }
-      }
-    }
-    
-    setWrong(prev => prev + 1)
-    // Só adiciona ao wrongCards se não estiver lá ainda
-    if (!wrongCards.find(c => c.id === currentCard.id)) {
-      setWrongCards(prev => [...prev, currentCard])
-    }
-    
-    // Registra a nova resposta
-    const answeredAt = new Date().toISOString()
-    setAnswersMap(prev => new Map(prev).set(currentIndex, {
-      flashcardId: currentCard.id,
-      correct: false,
-      answeredAt
-    }))
-
-    if (userId && currentCard?.id) {
-      try {
-        await saveFlashcardAnswer(
-          userId,
-          currentCard.id,
-          false,
-          currentCard.materia,
-          currentCard.tema,
-        )
-        if (onFlashcardAnswered) {
-          onFlashcardAnswered()
-        }
-      } catch (error) {
-        console.error("Error saving wrong answer:", error)
-      }
-    }
-
-    moveToNext()
   }
 
   const moveToNext = () => {
+    setSelectedAnswer(null)
+    setShowFeedback(false)
     setShowAnswer(false)
     if (currentIndex + 1 < flashcards.length) {
       setCurrentIndex(currentIndex + 1)
@@ -202,36 +295,73 @@ function FlashcardStudyMode({
     }
   }
 
-  const handleReviewWrong = () => {
-    setFlashcards(wrongCards)
-    setCurrentIndex(0)
-    setCorrect(0)
-    setWrong(0)
-    setWrongCards([])
-    setIsFinished(false)
-    setShowAnswer(false)
-    setAnswersMap(new Map()) // Reseta o mapa de respostas
-  }
-
-  const handleRestart = () => {
-    setCurrentIndex(0)
-    setCorrect(0)
-    setWrong(0)
-    setWrongCards([])
-    setIsFinished(false)
-    setShowAnswer(false)
-    setAnswersMap(new Map()) // Reseta o mapa de respostas
-  }
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      const previousIndex = currentIndex - 1
-      const previousAnswer = answersMap.get(previousIndex)
+  const handleRevealMore = async () => {
+    setIsLoadingMore(true)
+    
+    // Adiciona mais 10 flashcards ou o restante disponivel
+    const currentLength = flashcards.length
+    const additionalCards = allFlashcards.slice(currentLength, currentLength + 10)
+    
+    if (additionalCards.length > 0) {
+      setFlashcards([...flashcards, ...additionalCards])
+      setCanLoadMore(currentLength + additionalCards.length < allFlashcards.length)
       
-      setCurrentIndex(previousIndex)
-      // Mostra a resposta se o card já foi respondido
-      setShowAnswer(previousAnswer !== undefined)
+      console.log(`[v0] Revelados +${additionalCards.length} flashcards (total: ${currentLength + additionalCards.length}/${allFlashcards.length})`)
     }
+    
+    setIsLoadingMore(false)
+  }
+
+  const handleRestart = async () => {
+    setCurrentIndex(0)
+    setCorrect(0)
+    setWrong(0)
+    setIsFinished(false)
+    setSelectedAnswer(null)
+    setShowFeedback(false)
+    setLearningStates(new Map())
+    setInteractionCount(0)
+    
+    // Recarrega flashcards
+    try {
+      setIsLoading(true)
+      const cards = await fetchFlashcards()
+      const orderedCards = await orderWithSmartRepetition(cards)
+      const cardsWithSmartContent = await Promise.all(
+        orderedCards.map(async (card) => {
+          const smartContent = await generateSmartContent(card as SmartFlashcard)
+          if (!smartContent || !smartContent.alternativa_tendenciosa) {
+            return null
+          }
+          return {
+            ...card,
+            alternativa_tendenciosa: smartContent.alternativa_tendenciosa,
+            comentario_explicativo: smartContent.comentario_explicativo,
+          }
+        })
+      )
+      const validCards = cardsWithSmartContent.filter((card): card is SmartFlashcardExtended => card !== null)
+      
+      console.log(`[v0] Restart: ${validCards.length} flashcards recarregados`)
+      
+      setAllFlashcards(validCards)
+      setFlashcards(validCards.slice(0, selectedQuantity))
+      setCanLoadMore(validCards.length > selectedQuantity)
+      setIsLoading(false)
+    } catch (error) {
+      console.error("Error reloading flashcards:", error)
+      setIsLoading(false)
+    }
+  }
+
+
+
+  const handleCorrect = async () => {
+    await handleAnswerSelect(true)
+  }
+
+  const handleWrong = async () => {
+    await handleAnswerSelect(false)
   }
 
   const formatAnswerInTopics = (text: string) => {
@@ -264,6 +394,16 @@ function FlashcardStudyMode({
         ))}
       </ul>
     )
+  }
+
+  const handleReviewWrong = () => {
+    // Implement logic to review wrong cards
+  }
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex(currentIndex - 1)
+    }
   }
 
   if (isLoading) {
@@ -359,16 +499,32 @@ function FlashcardStudyMode({
           <p className="text-5xl font-bold text-primary">{accuracy}%</p>
         </div>
 
+        {/* Botao de revelar mais flashcards */}
+        {canLoadMore && (
+          <div className="bg-gradient-to-r from-violet-500/10 to-purple-500/10 border border-violet-500/20 rounded-lg p-6 mb-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-foreground mb-1">Continuar revisando?</h3>
+                <p className="text-sm text-muted-foreground">
+                  Ainda existem {allFlashcards.length - flashcards.length} flashcards disponíveis para estudo
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsFinished(false)
+                  handleRevealMore()
+                }}
+                disabled={isLoadingMore}
+                className="px-6 py-3 bg-gradient-to-r from-violet-600 to-purple-600 text-white rounded-lg hover:from-violet-700 hover:to-purple-700 transition-colors font-semibold flex items-center gap-2 disabled:opacity-50"
+              >
+                <Zap className="w-5 h-5" />
+                {isLoadingMore ? "Carregando..." : "Revelar mais"}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          {wrongCards.length > 0 && (
-            <button
-              onClick={handleReviewWrong}
-              className="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-semibold flex items-center justify-center gap-2"
-            >
-              <RotateCcw className="w-5 h-5" />
-              Rever apenas os que errei ({wrongCards.length})
-            </button>
-          )}
           <button
             onClick={handleRestart}
             className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-semibold flex items-center justify-center gap-2"
@@ -419,61 +575,94 @@ function FlashcardStudyMode({
       </div>
 
       <div className="bg-card border-2 border-border rounded-xl shadow-lg">
-        {/* Botão voltar no topo quando há card anterior */}
-        {currentIndex > 0 && (
-          <div className="p-4 border-b border-border">
-            <button
-              onClick={handlePrevious}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              <span className="text-sm font-medium">Voltar</span>
-            </button>
+        {/* Badge de modo inteligente */}
+        <div className="p-4 border-b border-border bg-gradient-to-r from-violet-500/10 to-purple-500/10">
+          <div className="flex items-center gap-2">
+            <Zap className="w-5 h-5 text-violet-500" />
+            <span className="text-sm font-semibold text-violet-600 dark:text-violet-400">
+              Flashcards Inteligentes - Escolha a alternativa correta
+            </span>
+          </div>
+        </div>
+
+        {/* Pergunta */}
+        <div className="p-8 md:p-12 border-b border-border">
+          <div className="inline-block px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold mb-6">
+            Pergunta
+          </div>
+          <div className="text-xl md:text-2xl font-bold text-foreground leading-relaxed text-balance">
+            {currentCard.frente}
+          </div>
+        </div>
+
+        {/* Alternativas */}
+        {!showFeedback && (
+          <div className="p-8 md:p-12 space-y-4">
+            <p className="text-sm text-muted-foreground mb-4">Selecione a alternativa correta:</p>
+            {shuffledOptions.map((option, index) => (
+              <button
+                key={index}
+                onClick={() => handleAnswerSelect(option.isCorrect)}
+                className="w-full p-6 text-left bg-muted/50 hover:bg-muted border-2 border-border hover:border-primary/50 rounded-xl transition-all text-base md:text-lg leading-relaxed"
+              >
+                <div className="flex items-start gap-4">
+                  <span className="flex-shrink-0 w-8 h-8 bg-primary/20 text-primary rounded-full flex items-center justify-center text-sm font-bold">
+                    {String.fromCharCode(65 + index)}
+                  </span>
+                  <span className="flex-1">{option.text}</span>
+                </div>
+              </button>
+            ))}
           </div>
         )}
 
-        {/* Conteúdo do card - Layout mais limpo */}
-        <div className="p-8 md:p-12 min-h-[400px] flex flex-col justify-center">
-          <div className="mb-6">
-            <div className="inline-block px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold mb-6">
-              {showAnswer ? "Resposta" : "Pergunta"}
-            </div>
-            <div className="text-2xl md:text-3xl font-bold text-foreground leading-relaxed text-balance">
-              {!showAnswer ? currentCard.frente : formatAnswerInTopics(currentCard.verso)}
-            </div>
-          </div>
-        </div>
+        {/* Feedback apos resposta */}
+        {showFeedback && (
+          <div className="p-8 md:p-12">
+            {selectedAnswer === "correct" ? (
+              <div className="bg-green-500/10 border-2 border-green-500/20 rounded-xl p-6 mb-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
+                  <h3 className="text-lg font-bold text-green-600 dark:text-green-400">Correto!</h3>
+                </div>
+                <p className="text-sm text-green-700 dark:text-green-300">
+                  Avancando automaticamente...
+                </p>
+              </div>
+            ) : (
+              <div>
+                <div className="bg-red-500/10 border-2 border-red-500/20 rounded-xl p-6 mb-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
+                    <h3 className="text-lg font-bold text-red-600 dark:text-red-400">Incorreto</h3>
+                  </div>
+                </div>
 
-        {/* Botões de ação */}
-        <div className="p-6 border-t border-border bg-muted/30">
-          {!showAnswer ? (
-            <button
-              onClick={handleShowAnswer}
-              className="w-full px-8 py-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-bold text-lg"
-            >
-              Mostrar resposta
-            </button>
-          ) : (
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={handleWrong}
-                className="px-8 py-4 bg-red-500/10 border-2 border-red-500/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
-              >
-                <XCircle className="w-6 h-6" />
-                Errei
-              </button>
-              <button
-                onClick={handleCorrect}
-                className="px-8 py-4 bg-green-500/10 border-2 border-green-500/20 text-green-600 dark:text-green-400 rounded-lg hover:bg-green-500/20 transition-colors font-bold text-lg flex items-center justify-center gap-2"
-              >
-                <CheckCircle className="w-6 h-6" />
-                Acertei
-              </button>
-            </div>
-          )}
-        </div>
+                {/* Comentario explicativo */}
+                {currentCard.comentario_explicativo && (
+                  <div className="bg-amber-500/10 border-2 border-amber-500/20 rounded-xl p-6 mb-6">
+                    <h4 className="font-bold text-amber-900 dark:text-amber-100 mb-3">
+                      Por que errei?
+                    </h4>
+                    <p className="text-sm text-amber-800 dark:text-amber-200 leading-relaxed">
+                      {currentCard.comentario_explicativo}
+                    </p>
+                  </div>
+                )}
+
+                {/* Botao para avancar */}
+                <button
+                  onClick={moveToNext}
+                  className="w-full px-8 py-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-bold text-lg"
+                >
+                  Próximo flashcard
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
-  </div>
+    </div>
   )
 }
 

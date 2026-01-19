@@ -24,6 +24,14 @@ export interface FlashcardSession {
   reviewedIds: Set<string>
 }
 
+// Alias para compatibilidade - prioriza flashcards que o usuario errou
+export async function getFlashcardsWithPriority(
+  userId: string,
+  flashcards: Flashcard[],
+): Promise<Flashcard[]> {
+  return orderFlashcardsWithSpacedRepetition(userId, flashcards)
+}
+
 export async function orderFlashcardsWithSpacedRepetition(
   userId: string | null,
   flashcards: Flashcard[],

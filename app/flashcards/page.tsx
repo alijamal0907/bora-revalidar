@@ -6,11 +6,11 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { MATERIAS, MATERIA_ICONS, MATERIA_DESCRIPTIONS, TEMAS_POR_MATERIA, type Materia } from "@/lib/flashcards-config"
-import { BookOpen, ArrowLeft, Brain } from "lucide-react"
+import { BookOpen, ArrowLeft, Brain, Zap } from "lucide-react"
 import { FlashcardStudyMode } from "@/components/flashcard-study-mode"
 import type { UserPlan } from "@/lib/plan-utils"
 
-type Step = "materia" | "tema" | "study"
+type Step = "materia" | "tema" | "config" | "study"
 
 export default function FlashcardsPage() {
   const router = useRouter()
@@ -20,6 +20,7 @@ export default function FlashcardsPage() {
   const [step, setStep] = useState<Step>("materia")
   const [selectedMateria, setSelectedMateria] = useState<Materia | "todas" | null>(null)
   const [selectedTema, setSelectedTema] = useState<string | null>(null)
+  const [selectedQuantity, setSelectedQuantity] = useState<number>(10)
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
   const [flashcardsStudiedToday, setFlashcardsStudiedToday] = useState<number>(0)
   const DAILY_FREE_LIMIT = 20
@@ -97,6 +98,10 @@ export default function FlashcardsPage() {
 
   const handleTemaSelect = (tema: string) => {
     setSelectedTema(tema)
+    setStep("config")
+  }
+
+  const handleConfigConfirm = () => {
     setStep("study")
   }
 
@@ -106,10 +111,12 @@ export default function FlashcardsPage() {
     } else if (step === "tema") {
       setStep("materia")
       setSelectedMateria(null)
-    } else if (step === "study") {
-      reloadFlashcardsCount()
+    } else if (step === "config") {
       setStep("tema")
       setSelectedTema(null)
+    } else if (step === "study") {
+      reloadFlashcardsCount()
+      setStep("config")
     }
   }
 
@@ -281,7 +288,93 @@ export default function FlashcardsPage() {
           </div>
         )}
 
-        {/* ETAPA 3: Modo de Estudo */}
+        {/* ETAPA 3: Configuração de Quantidade */}
+        {step === "config" && selectedMateria && selectedTema && (
+          <div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-foreground mb-2">Configure sua sessão de estudo</h2>
+              <p className="text-muted-foreground">
+                Escolha quantos flashcards deseja revisar nesta sessão
+              </p>
+            </div>
+
+            <div className="max-w-2xl mx-auto space-y-6">
+              {/* Card de configuração */}
+              <div className="bg-card border-2 border-border rounded-xl p-8">
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-foreground mb-3">
+                    Quantidade de flashcards:
+                  </label>
+                  <div className="flex items-center gap-4">
+                    <input
+                      type="range"
+                      min="5"
+                      max="50"
+                      step="5"
+                      value={selectedQuantity}
+                      onChange={(e) => setSelectedQuantity(Number(e.target.value))}
+                      className="flex-1 h-2 bg-muted rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="w-20 text-center">
+                      <span className="text-3xl font-bold text-primary">{selectedQuantity}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground mt-2">
+                    <span>5</span>
+                    <span>50</span>
+                  </div>
+                </div>
+
+                {/* Opções rápidas */}
+                <div className="mb-6">
+                  <p className="text-sm font-medium text-muted-foreground mb-3">Opções rápidas:</p>
+                  <div className="grid grid-cols-5 gap-2">
+                    {[5, 10, 15, 20, 30].map((qty) => (
+                      <button
+                        key={qty}
+                        onClick={() => setSelectedQuantity(qty)}
+                        className={`py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                          selectedQuantity === qty
+                            ? "bg-primary text-primary-foreground shadow-md"
+                            : "bg-muted text-muted-foreground hover:bg-muted/80"
+                        }`}
+                      >
+                        {qty}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Info sobre embaralhamento */}
+                <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+                  <div className="flex items-start gap-3">
+                    <Brain className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1">
+                        Priorização inteligente
+                      </h4>
+                      <p className="text-xs text-blue-700 dark:text-blue-300">
+                        Os flashcards serão embaralhados e priorizaremos aqueles que você errou anteriormente para
+                        otimizar seu aprendizado.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Botão iniciar */}
+                <button
+                  onClick={handleConfigConfirm}
+                  className="w-full px-8 py-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-bold text-lg flex items-center justify-center gap-2"
+                >
+                  <Zap className="w-5 h-5" />
+                  Iniciar sessão com {selectedQuantity} flashcards
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ETAPA 4: Modo de Estudo */}
         {step === "study" && selectedMateria && selectedTema && (
           <FlashcardStudyMode
             materia={selectedMateria}
@@ -289,10 +382,14 @@ export default function FlashcardsPage() {
             onBack={handleBack}
             userPlan={userPlan}
             onFlashcardAnswered={reloadFlashcardsCount}
+            selectedQuantity={selectedQuantity}
             fetchFlashcards={async () => {
-              const { getFlashcardsByMateriaAndTema, getAllFlashcardsByMateria, getAllFlashcards } = await import(
-                "@/lib/flashcards-storage"
-              )
+              const { 
+                getFlashcardsByMateriaAndTema, 
+                getAllFlashcardsByMateria, 
+                getAllFlashcards,
+                getFlashcardsWithPriority 
+              } = await import("@/lib/flashcards-storage")
 
               let flashcards = []
 
@@ -304,11 +401,20 @@ export default function FlashcardsPage() {
                 flashcards = await getFlashcardsByMateriaAndTema(selectedMateria, selectedTema)
               }
 
-              if (userPlan === "free") {
-                return flashcards.slice(0, 5)
+              // Prioriza flashcards que o usuario errou anteriormente
+              if (user?.id) {
+                flashcards = await getFlashcardsWithPriority(user.id, flashcards)
+              } else {
+                // Embaralha aleatoriamente se nao tiver usuario
+                flashcards = flashcards.sort(() => Math.random() - 0.5)
               }
 
-              return flashcards
+              // Aplica limite do plano free ou quantidade selecionada
+              if (userPlan === "free") {
+                return flashcards.slice(0, Math.min(5, selectedQuantity))
+              }
+
+              return flashcards.slice(0, selectedQuantity)
             }}
           />
         )}
