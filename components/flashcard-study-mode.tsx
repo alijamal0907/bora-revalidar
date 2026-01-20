@@ -121,6 +121,46 @@ function FlashcardStudyMode({
     loadFlashcards()
   }, [])
 
+  // ATALHOS DE TECLADO: Melhora usabilidade e rapidez na revisão
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!flashcards.length) return
+
+      const currentCard = flashcards[currentIndex]
+
+      // Modo inteligente: A/B/C/D para selecionar alternativas
+      if (!showFeedback && !currentCard.modo_classico) {
+        if (e.key.toUpperCase() === "A") handleAnswerSelect(shuffledOptions[0]?.isCorrect || false)
+        else if (e.key.toUpperCase() === "B") handleAnswerSelect(shuffledOptions[1]?.isCorrect || false)
+        else if (e.key.toUpperCase() === "C") handleAnswerSelect(shuffledOptions[2]?.isCorrect || false)
+        else if (e.key.toUpperCase() === "D") handleAnswerSelect(shuffledOptions[3]?.isCorrect || false)
+      }
+
+      // Em qualquer momento: Enter para avanço ou mostrar resposta
+      if (e.key === "Enter") {
+        if (showFeedback && selectedAnswer !== "correct") {
+          moveToNext()
+        }
+      }
+
+      // ? para mostrar ajuda de atalhos
+      if (e.shiftKey && e.key === "?") {
+        alert(
+          "⌨️ ATALHOS DE TECLADO:\n\n" +
+          "📝 Modo Inteligente:\n" +
+          "  • A/B/C/D = Selecionar alternativa\n" +
+          "  • Enter = Próximo (após resposta errada)\n\n" +
+          "🎯 Modo Clássico:\n" +
+          "  • Enter = Próximo flashcard\n\n" +
+          "ℹ️ Shift + ? = Ver este menu"
+        )
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [showFeedback, selectedAnswer, shuffledOptions, flashcards, currentIndex])
+
   const handleAnswerSelect = async (isCorrect: boolean) => {
     const currentCard = flashcards[currentIndex]
     const answeredAt = new Date().toISOString()
@@ -129,9 +169,11 @@ function FlashcardStudyMode({
 
     if (isCorrect) {
       setCorrect(correct + 1)
+      console.log(`[v0] ✓ Resposta CORRETA (Acertos: ${correct + 1} | Erros: ${wrong})`)
     } else {
       setWrong(wrong + 1)
       setWrongCards((prevWrongCards) => [...prevWrongCards, currentCard])
+      console.log(`[v0] ✗ Resposta ERRADA (Acertos: ${correct} | Erros: ${wrong + 1})`)
     }
 
     setInteractionCount(interactionCount + 1)
@@ -143,14 +185,23 @@ function FlashcardStudyMode({
     const newWrongCount = isCorrect ? 0 : currentLearningState.wrongCount + 1
 
     setLearningStates((prevStates) => prevStates.set(currentCard.id, { ...currentLearningState, status: newStatus, wrongCount: newWrongCount, lastAnswered: currentIndex }))
+    
+    // AVANÇO AUTOMÁTICO: Avança automaticamente SEMPRE após mostrar feedback
+    const delayMs = isCorrect ? 2000 : 3000 // Erradas têm delay maior para ler feedback
+    console.log(`[v0] ⏱️ Avanço automático em ${delayMs / 1000} segundos...`)
+    setTimeout(() => {
+      moveToNext()
+    }, delayMs)
   }
 
   const handleCorrect = async () => {
     await handleAnswerSelect(true)
+    // Avanço automático em 2s
   }
 
   const handleWrong = async () => {
     await handleAnswerSelect(false)
+    // Avanço automático em 3s (mais tempo para ler feedback)
   }
 
   const formatAnswerInTopics = (text: string) => {
@@ -440,7 +491,7 @@ function FlashcardStudyMode({
           </div>
         )}
 
-        {/* MODO INTELIGENTE: Alternativas */}
+        {/* MODO INTELIGENTE: Alternativas com opção de mostrar resposta */}
         {!currentCard.modo_classico && !showFeedback && (
           <div className="p-8 md:p-12 space-y-4">
             <p className="text-sm text-muted-foreground mb-4">Selecione a alternativa correta:</p>
@@ -458,6 +509,28 @@ function FlashcardStudyMode({
                 </div>
               </button>
             ))}
+            
+            {/* Divisor visual */}
+            <div className="relative py-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border/50"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="px-2 bg-card text-muted-foreground">ou</span>
+              </div>
+            </div>
+            
+            {/* Botão auxiliar: mostrar resposta */}
+            <button
+              onClick={() => {
+                setShowFeedback(true)
+                setSelectedAnswer("reveal-help")
+              }}
+              className="w-full px-6 py-3 bg-muted text-foreground border-2 border-border hover:border-primary/30 rounded-lg transition-all font-semibold text-sm flex items-center justify-center gap-2"
+            >
+              <Eye className="w-4 h-4" />
+              Mostrar resposta correta
+            </button>
           </div>
         )}
 
@@ -498,27 +571,65 @@ function FlashcardStudyMode({
                 </div>
               </div>
             )}
+            
+            {/* MODO INTELIGENTE: Clicou em "Mostrar resposta correta" */}
+            {!currentCard.modo_classico && selectedAnswer === "reveal-help" && (
+              <div>
+                <div className="bg-amber-500/10 border-2 border-amber-500/20 rounded-xl p-6 mb-6">
+                  <div className="inline-block px-4 py-2 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-full text-sm font-semibold mb-4">
+                    Resposta Correta
+                  </div>
+                  <div className="text-lg md:text-xl text-foreground leading-relaxed">
+                    {formatAnswerInTopics(currentCard.verso)}
+                  </div>
+                </div>
 
-            {/* MODO INTELIGENTE: Feedback normal */}
+                <p className="text-sm text-muted-foreground mb-6 text-center">
+                  Você acertou ou não conseguiu responder?
+                </p>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={handleCorrect}
+                    className="px-6 py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-bold text-lg flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle className="w-5 h-5" />
+                    Acertei
+                  </button>
+                  <button
+                    onClick={handleWrong}
+                    className="px-6 py-4 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors font-bold text-lg flex items-center justify-center gap-2"
+                  >
+                    <Eye className="w-5 h-5" />
+                    Não sabia
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* MODO INTELIGENTE: Selecionou alternativa */}
             {!currentCard.modo_classico && selectedAnswer === "correct" && (
-              <div className="bg-green-500/10 border-2 border-green-500/20 rounded-xl p-6 mb-6">
+              <div className="bg-green-500/10 border-2 border-green-500/20 rounded-xl p-6 mb-6 animate-pulse">
                 <div className="flex items-center gap-3 mb-2">
                   <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
                   <h3 className="text-lg font-bold text-green-600 dark:text-green-400">Correto!</h3>
                 </div>
                 <p className="text-sm text-green-700 dark:text-green-300">
-                  Avancando automaticamente...
+                  ✓ Avançando para o próximo flashcard em 2 segundos...
                 </p>
               </div>
             )}
 
-            {!currentCard.modo_classico && selectedAnswer !== "correct" && selectedAnswer !== "reveal" && (
+            {!currentCard.modo_classico && selectedAnswer !== "correct" && selectedAnswer !== "reveal-help" && (
               <div>
-                <div className="bg-red-500/10 border-2 border-red-500/20 rounded-xl p-6 mb-6">
+                <div className="bg-red-500/10 border-2 border-red-500/20 rounded-xl p-6 mb-6 animate-pulse">
                   <div className="flex items-center gap-3 mb-2">
                     <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
                     <h3 className="text-lg font-bold text-red-600 dark:text-red-400">Incorreto</h3>
                   </div>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    ⏳ Avançando em 3 segundos...
+                  </p>
                 </div>
 
                 {/* Comentario explicativo */}
@@ -532,19 +643,38 @@ function FlashcardStudyMode({
                     </p>
                   </div>
                 )}
-
-                {/* Botao para avancar */}
-                <button
-                  onClick={moveToNext}
-                  className="w-full px-8 py-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors font-bold text-lg"
-                >
-                  Próximo flashcard
-                </button>
               </div>
             )}
           </div>
         )}
       </div>
+      
+      {/* Botão flutuante auxiliar: sempre disponível para mostrar resposta */}
+      {!showFeedback && (
+        <div className="fixed bottom-6 right-6 z-40 flex flex-col gap-3">
+          {/* Indicador de atalhos */}
+          <div className="bg-foreground/10 text-foreground text-xs font-semibold px-3 py-2 rounded-lg backdrop-blur-sm opacity-60 hover:opacity-100 transition-opacity">
+            <div>⌨️ Shift+? = Atalhos</div>
+          </div>
+
+          {/* Botão de mostrar resposta */}
+          <button
+            onClick={() => {
+              setShowFeedback(true)
+              setSelectedAnswer(currentCard.modo_classico ? "reveal" : "reveal-help")
+            }}
+            title="Mostrar resposta (Atalho disponível em qualquer momento)"
+            className="group relative w-14 h-14 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl transition-all hover:scale-110 flex items-center justify-center font-bold text-lg hover:from-emerald-600 hover:to-teal-600"
+          >
+            <Eye className="w-6 h-6" />
+            
+            {/* Tooltip ao passar mouse */}
+            <div className="absolute bottom-full right-0 mb-3 px-3 py-2 bg-foreground text-background rounded-lg text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+              Ver resposta
+            </div>
+          </button>
+        </div>
+      )}
     </div>
   )
 }
