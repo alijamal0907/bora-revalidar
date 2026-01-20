@@ -1,5 +1,7 @@
 "use client"
 
+import React from "react"
+
 import { useState, useEffect } from "react"
 import { ChevronLeft, CheckCircle, XCircle, RotateCcw, Trophy, Zap, Eye } from "lucide-react"
 import type { Flashcard } from "@/lib/flashcards-storage"
@@ -65,6 +67,9 @@ function FlashcardStudyMode({
 
   const [previousAnswer, setPreviousAnswer] = useState<{ flashcardId: string; correct: boolean; answeredAt: string } | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
+  const [isAnswered, setIsAnswered] = useState(false) // Declare the isAnswered variable
+  
+  const advanceTimeoutRef = React.useRef<NodeJS.Timeout | null>(null) // Rastreia timeout de avanço automático
 
   useEffect(() => {
     const loadUser = async () => {
@@ -121,6 +126,16 @@ function FlashcardStudyMode({
     loadFlashcards()
   }, [])
 
+  // LIMPEZA: Cancela timeout quando muda de flashcard
+  useEffect(() => {
+    return () => {
+      if (advanceTimeoutRef.current) {
+        clearTimeout(advanceTimeoutRef.current)
+        advanceTimeoutRef.current = null
+      }
+    }
+  }, [currentIndex])
+
   // ATALHOS DE TECLADO: Melhora usabilidade e rapidez na revisão
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -162,8 +177,22 @@ function FlashcardStudyMode({
   }, [showFeedback, selectedAnswer, shuffledOptions, flashcards, currentIndex])
 
   const handleAnswerSelect = async (isCorrect: boolean) => {
+    // BLOQUEIO: Previne múltiplas submissões verificando answersMap
+    if (answersMap.has(currentIndex)) {
+      console.log(`[v0] 🛡️ Bloqueado: Flashcard ${currentIndex + 1} já foi respondido nesta sessão`)
+      return
+    }
+
+    // Limpa timeout anterior se existir
+    if (advanceTimeoutRef.current) {
+      clearTimeout(advanceTimeoutRef.current)
+      advanceTimeoutRef.current = null
+    }
+
     const currentCard = flashcards[currentIndex]
     const answeredAt = new Date().toISOString()
+
+    console.log(`[v0] 📝 Registrando resposta para flashcard ${currentIndex + 1}/${flashcards.length}`)
 
     setAnswersMap((prevMap) => prevMap.set(currentIndex, { flashcardId: currentCard.id, correct: isCorrect, answeredAt }))
 
@@ -178,6 +207,7 @@ function FlashcardStudyMode({
 
     setInteractionCount(interactionCount + 1)
     setShowFeedback(true)
+    setIsAnswered(true) // Set isAnswered to true when an answer is selected
 
     // Update learning status
     const currentLearningState = learningStates.get(currentCard.id) || { flashcardId: currentCard.id, status: "novo", wrongCount: 0, lastAnswered: currentIndex }
@@ -189,8 +219,10 @@ function FlashcardStudyMode({
     // AVANÇO AUTOMÁTICO: Avança automaticamente SEMPRE após mostrar feedback
     const delayMs = isCorrect ? 2000 : 3000 // Erradas têm delay maior para ler feedback
     console.log(`[v0] ⏱️ Avanço automático em ${delayMs / 1000} segundos...`)
-    setTimeout(() => {
+    
+    advanceTimeoutRef.current = setTimeout(() => {
       moveToNext()
+      advanceTimeoutRef.current = null
     }, delayMs)
   }
 
@@ -264,12 +296,21 @@ function FlashcardStudyMode({
     setWrongCards([])
     setAnswersMap(new Map())
     setLearningStates(new Map())
+    setIsAnswered(false) // Reset isAnswered when restarting
   }
 
   const moveToNext = () => {
+    // Limpa timeout pendente
+    if (advanceTimeoutRef.current) {
+      clearTimeout(advanceTimeoutRef.current)
+      advanceTimeoutRef.current = null
+    }
+
     if (currentIndex < flashcards.length - 1) {
       setCurrentIndex(currentIndex + 1)
       setShowFeedback(false)
+      setSelectedAnswer(null)
+      setShuffledOptions([])
     } else {
       setIsFinished(true)
     }
@@ -483,7 +524,10 @@ function FlashcardStudyMode({
                 setShowFeedback(true)
                 setSelectedAnswer("reveal")
               }}
-              className="w-full px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-colors font-bold text-lg flex items-center justify-center gap-2"
+              disabled={answersMap.has(currentIndex)}
+              className={`w-full px-8 py-4 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-colors font-bold text-lg flex items-center justify-center gap-2 ${
+                answersMap.has(currentIndex) ? "opacity-50 cursor-not-allowed" : ""
+              }`}
             >
               <Eye className="w-5 h-5" />
               Mostrar resposta
@@ -499,7 +543,10 @@ function FlashcardStudyMode({
               <button
                 key={index}
                 onClick={() => handleAnswerSelect(option.isCorrect)}
-                className="w-full p-6 text-left bg-muted/50 hover:bg-muted border-2 border-border hover:border-primary/50 rounded-xl transition-all text-base md:text-lg leading-relaxed"
+              disabled={answersMap.has(currentIndex)}
+              className={`w-full p-6 text-left bg-muted/50 hover:bg-muted border-2 border-border hover:border-primary/50 rounded-xl transition-all text-base md:text-lg leading-relaxed ${
+                answersMap.has(currentIndex) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+              }`}
               >
                 <div className="flex items-start gap-4">
                   <span className="flex-shrink-0 w-8 h-8 bg-primary/20 text-primary rounded-full flex items-center justify-center text-sm font-bold">
@@ -526,7 +573,10 @@ function FlashcardStudyMode({
                 setShowFeedback(true)
                 setSelectedAnswer("reveal-help")
               }}
-              className="w-full px-6 py-3 bg-muted text-foreground border-2 border-border hover:border-primary/30 rounded-lg transition-all font-semibold text-sm flex items-center justify-center gap-2"
+              disabled={answersMap.has(currentIndex)}
+              className={`w-full px-6 py-3 bg-muted text-foreground border-2 border-border hover:border-primary/30 rounded-lg transition-all font-semibold text-sm flex items-center justify-center gap-2 ${
+                answersMap.has(currentIndex) ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+              }`}
             >
               <Eye className="w-4 h-4" />
               Mostrar resposta correta
@@ -663,8 +713,11 @@ function FlashcardStudyMode({
               setShowFeedback(true)
               setSelectedAnswer(currentCard.modo_classico ? "reveal" : "reveal-help")
             }}
+            disabled={answersMap.has(currentIndex)}
             title="Mostrar resposta (Atalho disponível em qualquer momento)"
-            className="group relative w-14 h-14 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl transition-all hover:scale-110 flex items-center justify-center font-bold text-lg hover:from-emerald-600 hover:to-teal-600"
+            className={`group relative w-14 h-14 rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg hover:shadow-xl transition-all hover:scale-110 flex items-center justify-center font-bold text-lg hover:from-emerald-600 hover:to-teal-600 ${
+              answersMap.has(currentIndex) ? "opacity-50 cursor-not-allowed" : ""
+            }`}
           >
             <Eye className="w-6 h-6" />
             
