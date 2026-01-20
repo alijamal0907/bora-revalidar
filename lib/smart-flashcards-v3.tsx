@@ -11,6 +11,7 @@ export interface SmartFlashcard {
 export interface SmartFlashcardContent {
   alternativa_tendenciosa: string
   comentario_explicativo: string
+  modo_classico: boolean // true = mostrar apenas botão "Mostrar resposta"
 }
 
 function getSupabaseClient() {
@@ -675,7 +676,11 @@ function aplicarFallbackClinico(verso: string): string {
 // ================================================
 // MOTOR PRINCIPAL DE GERAÇÃO
 // ================================================
-export function generateLocalFallbackAlternative(verso: string): { alternativa: string; tipo: string } {
+export function generateLocalFallbackAlternative(verso: string): { 
+  alternativa: string; 
+  tipo: string; 
+  modoClassico: boolean;
+} {
   // CAMADA 1: Identifica tipo
   const tipoVerso = identificarTipoVerso(verso)
   console.log(`[v0] Tipo identificado: ${tipoVerso}`)
@@ -726,47 +731,91 @@ export function generateLocalFallbackAlternative(verso: string): { alternativa: 
     console.log(`[v0] ✓ COMPLEMENTAR: ${resultadoNumerico.count} modificações numéricas aplicadas:`)
     resultadoNumerico.modificacoes.forEach(mod => console.log(`[v0]   - ${mod}`))
     
-    return {
-      alternativa: resultadoNumerico.texto,
-      tipo: `${tipoModificacao} + ${resultadoNumerico.count} numéricas`
-    }
+    alternativaFinal = resultadoNumerico.texto
+    tipoModificacao = `${tipoModificacao} + ${resultadoNumerico.count} numéricas`
   } else if (resultadoNumerico.count === 1) {
     console.log(`[v0] ⚠️ COMPLEMENTAR: apenas 1 modificação numérica (mínimo 2)`)
     console.log(`[v0]   - ${resultadoNumerico.modificacoes[0]}`)
   }
   
-  // Se aplicou alguma modificação clínica, retorna
-  if (tipoModificacao !== "" && alternativaFinal !== verso) {
+  // ================================================
+  // VALIDAÇÃO ANTI-DUPLICAÇÃO (CRÍTICO)
+  // ================================================
+  // Verifica se a alternativa é REALMENTE diferente do verso
+  const alternativaNormalizada = alternativaFinal.toLowerCase().trim().replace(/[.,;!?]/g, '')
+  const versoNormalizado = verso.toLowerCase().trim().replace(/[.,;!?]/g, '')
+  
+  const isDuplicada = alternativaNormalizada === versoNormalizado
+  const isMuitoSimilar = alternativaNormalizada.length > 10 && 
+    (alternativaNormalizada.includes(versoNormalizado) || versoNormalizado.includes(alternativaNormalizada))
+  
+  if (isDuplicada || isMuitoSimilar) {
+    console.warn(`[v0] 🛡️ VALIDAÇÃO: Alternativa duplicada/similar detectada`)
+    console.warn(`[v0]    Verso: "${verso.substring(0, 60)}..."`)
+    console.warn(`[v0]    Alt: "${alternativaFinal.substring(0, 60)}..."`)
+    console.warn(`[v0]    ✓ Ativando MODO CLÁSSICO (fallback de UX)`)
+    
     return {
-      alternativa: alternativaFinal,
-      tipo: tipoModificacao
+      alternativa: verso, // Mantém verso original
+      tipo: "modo-classico-ativado",
+      modoClassico: true // Flag para UI usar modo clássico
     }
   }
   
-  // Se NADA funcionou, retorna verso original (será pulado no componente)
+  // Se aplicou alguma modificação clínica válida e diferente
+  if (tipoModificacao !== "" && alternativaFinal !== verso) {
+    console.log(`[v0] ✓ Alternativa VÁLIDA gerada (modo inteligente)`)
+    return {
+      alternativa: alternativaFinal,
+      tipo: tipoModificacao,
+      modoClassico: false
+    }
+  }
+  
+  // Se NADA funcionou, ativa modo clássico (NUNCA pula flashcard)
+  console.warn(`[v0] 🛡️ Nenhuma modificação válida possível`)
+  console.warn(`[v0]    ✓ Ativando MODO CLÁSSICO (fallback de UX)`)
+  
   return {
     alternativa: verso,
-    tipo: "sem-modificacao"
+    tipo: "modo-classico-ativado",
+    modoClassico: true
   }
 }
 
 // ================================================
 // GERAÇÃO DE CONTEÚDO INTELIGENTE
 // ================================================
-export async function generateSmartContent(flashcard: SmartFlashcard): Promise<SmartFlashcardContent | null> {
+export async function generateSmartContent(flashcard: SmartFlashcard): Promise<SmartFlashcardContent> {
   try {
-    const { alternativa, tipo } = generateLocalFallbackAlternative(flashcard.verso)
+    const { alternativa, tipo, modoClassico } = generateLocalFallbackAlternative(flashcard.verso)
     
-    // Gera comentário explicativo DETALHADO mostrando a diferença e o correto
-    let comentario = gerarComentarioDetalhado(flashcard.verso, alternativa, tipo)
+    // Se modo clássico ativado, retorna com flag
+    if (modoClassico) {
+      console.log(`[v0] ✓ Flashcard em MODO CLÁSSICO (sem alternativa)`)
+      return {
+        alternativa_tendenciosa: flashcard.verso,
+        comentario_explicativo: "",
+        modo_classico: true
+      }
+    }
+    
+    // Modo inteligente: gera comentário explicativo detalhado
+    const comentario = gerarComentarioDetalhado(flashcard.verso, alternativa, tipo)
     
     return {
       alternativa_tendenciosa: alternativa,
       comentario_explicativo: comentario,
+      modo_classico: false
     }
   } catch (error) {
     console.error("[v0] Erro ao gerar conteúdo:", error)
-    return null
+    // Em caso de erro, usa modo clássico (nunca retorna null)
+    return {
+      alternativa_tendenciosa: flashcard.verso,
+      comentario_explicativo: "",
+      modo_classico: true
+    }
   }
 }
 
@@ -781,8 +830,8 @@ function gerarComentarioDetalhado(verso: string, alternativa: string, tipo: stri
   // EXPLICA DIFERENÇA BASEADA NO TIPO DE MODIFICAÇÃO
   if (tipo.includes("TEMPO/FASE")) {
     // Identifica qual tempo foi trocado
-    if (tipo.includes("aguda → crônica")) {
-      return `❌ ERRO: A alternativa menciona "crônica", mas o correto é "aguda". Lembre-se: agudo = início súbito e curta duração; crônico = longa duração (geralmente >3-6 meses).`
+    if (tipo.includes("agudo → crônica")) {
+      return `❌ ERRO: A alternativa menciona "crônica", mas o correto é "agudo". Lembre-se: agudo = início súbito e curta duração; crônico = longa duração (geralmente >3-6 meses).`
     }
     if (tipo.includes("crônica → aguda")) {
       return `❌ ERRO: A alternativa menciona "aguda", mas o correto é "crônica". Lembre-se: crônico = longa duração (geralmente >3-6 meses); agudo = início súbito e curta duração.`
