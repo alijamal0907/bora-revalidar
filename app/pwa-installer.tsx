@@ -16,6 +16,23 @@ export function PWAInstaller() {
   const [isStandalone, setIsStandalone] = useState(false)
 
   useEffect(() => {
+    // Registrar Service Worker
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/sw.js")
+        .then((registration) => {
+          console.log("[PWA] Service Worker registrado com sucesso:", registration.scope)
+          
+          // Verificar atualizações a cada hora
+          setInterval(() => {
+            registration.update()
+          }, 60 * 60 * 1000)
+        })
+        .catch((error) => {
+          console.error("[PWA] Erro ao registrar Service Worker:", error)
+        })
+    }
+
     const userAgent = window.navigator.userAgent.toLowerCase()
     const ios = /iphone|ipad|ipod/.test(userAgent)
     const standalone =

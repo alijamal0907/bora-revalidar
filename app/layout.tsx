@@ -17,6 +17,10 @@ export default function RootLayout({
 
         {/* Android Tags */}
         <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="format-detection" content="telephone=no" />
+        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
 
         {/* iOS Tags */}
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
