@@ -1,33 +1,33 @@
-import { createClient } from "@/lib/supabase/server"
-import { NextResponse, type NextRequest } from "next/server"
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
-export default async function proxy(request: NextRequest) {
-  const supabaseResponse = NextResponse.next({
-    request,
-  })
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl
 
-  const supabase = await createClient()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  const isPublicRoute =
-    request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/api") ||
-    request.nextUrl.pathname === "/"
-
-  if (!user && !isPublicRoute) {
-    const url = request.nextUrl.clone()
-    url.pathname = "/login"
-    return NextResponse.redirect(url)
+  // Servir Service Worker com MIME type correto
+  if (pathname === '/sw.js') {
+    return NextResponse.rewrite(new URL('/sw.js', request.url), {
+      headers: {
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Service-Worker-Allowed': '/',
+      },
+    })
   }
 
-  return supabaseResponse
+  // Servir manifest.json com MIME type correto
+  if (pathname === '/manifest.json') {
+    return NextResponse.rewrite(new URL('/manifest.json', request.url), {
+      headers: {
+        'Content-Type': 'application/manifest+json; charset=utf-8',
+        'Cache-Control': 'public, max-age=3600',
+      },
+    })
+  }
+
+  return NextResponse.next()
 }
 
-export { proxy }
-
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: ['/sw.js', '/manifest.json'],
 }

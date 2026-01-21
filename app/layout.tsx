@@ -1,6 +1,41 @@
 import type React from "react"
+import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { PWAInstaller } from "./pwa-installer"
+
+export const metadata: Metadata = {
+  title: "Bora Revalidar",
+  description: "App de estudos para o REVALIDA, com questões, progresso e revisão.",
+  applicationName: "Bora Revalidar",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Bora Revalidar",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
+  },
+    generator: 'v0.app'
+}
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: "cover",
+  themeColor: "#f97316",
+}
 
 export default function RootLayout({
   children,
@@ -10,36 +45,8 @@ export default function RootLayout({
   return (
     <html lang="pt-BR">
       <head>
-        {/* PWA Primary Tags */}
-        <meta name="application-name" content="Bora Revalidar" />
-        <meta name="theme-color" content="#f97316" />
-        <link rel="manifest" href="/manifest.json" />
-
-        {/* Android Tags */}
+        {/* Meta tags adicionais para Android */}
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="format-detection" content="telephone=no" />
-        <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
-        <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png" />
-
-        {/* iOS Tags */}
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="152x152" href="/icons/apple-touch-icon.png" />
-        <link rel="apple-touch-icon" sizes="120x120" href="/icons/apple-touch-icon.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-mobile-web-app-title" content="Bora Revalidar" />
-
-        {/* Viewport */}
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, user-scalable=yes"
-        />
-
-        {/* SEO */}
-        <title>Bora Revalidar</title>
-        <meta name="description" content="App de estudos para o REVALIDA, com questões, progresso e revisão." />
       </head>
       <body>
         <PWAInstaller />
@@ -48,7 +55,3 @@ export default function RootLayout({
     </html>
   )
 }
-
-export const metadata = {
-      generator: 'v0.app'
-    };
