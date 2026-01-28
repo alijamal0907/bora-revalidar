@@ -8,6 +8,7 @@ import { signOutSupabase } from "@/lib/auth-supabase"
 import { PlanBadge } from "./plan-badge"
 import { getUserPlan } from "@/lib/storage-supabase"
 import type { UserPlan } from "@/lib/plan-utils"
+import { ThemeToggleButton } from "./theme-toggle-button"
 
 const ADMIN_EMAIL = "ali_jamal2002@hotmail.com"
 
@@ -64,6 +65,7 @@ export function Navbar({ user }: NavbarProps) {
               <div className="hidden md:flex items-center gap-3">
                 <PlanBadge plan={userPlan} />
                 <span className="text-xs text-muted-foreground truncate max-w-[150px]">{user.email}</span>
+                <ThemeToggleButton />
                 {isAdmin && (
                   <Link
                     href="/admin"
@@ -107,6 +109,10 @@ export function Navbar({ user }: NavbarProps) {
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground truncate">{user.email}</span>
               <PlanBadge plan={userPlan} />
+            </div>
+            <div className="flex items-center justify-between px-3 py-2">
+              <span className="text-sm font-medium text-foreground">Tema</span>
+              <ThemeToggleButton />
             </div>
             {isAdmin && (
               <Link

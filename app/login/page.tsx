@@ -9,6 +9,7 @@ import { getDeviceInfo, storeDeviceId } from "@/lib/device-utils"
 import Image from "next/image"
 import { ArrowRight, Mail, Key, X, Eye, EyeOff } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ThemeToggleButton } from "@/components/theme-toggle-button"
 
 export const dynamic = "force-dynamic"
 
@@ -204,7 +205,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center p-4 relative">
+      {/* Botão de alternância de tema no canto superior direito */}
+      <div className="absolute top-4 right-4">
+        <ThemeToggleButton />
+      </div>
+
       <div className="w-full max-w-md">
         <div className="bg-card rounded-lg shadow-lg border border-border p-8">
           {/* Header */}
