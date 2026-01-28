@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Navbar } from "@/components/navbar"
-import { ArrowLeft, Lock, Loader2 } from "lucide-react"
+import { ThemeToggle } from "@/components/theme-toggle"
+import { ArrowLeft, Lock, Loader2, Palette } from "lucide-react"
 import Link from "next/link"
 
 export default function SettingsPage() {
@@ -176,6 +177,19 @@ export default function SettingsPage() {
                 )}
               </Button>
             </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Palette className="w-5 h-5" />
+              Aparência
+            </CardTitle>
+            <CardDescription>Personalize o tema do aplicativo</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ThemeToggle />
           </CardContent>
         </Card>
 

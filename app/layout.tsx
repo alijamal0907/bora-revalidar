@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import "./globals.css"
 import { PWAInstaller } from "./pwa-installer"
+import { ThemeProvider } from "@/components/theme-provider"
 
 export const metadata: Metadata = {
   title: "Bora Revalidar",
@@ -43,14 +44,21 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         {/* Meta tags adicionais para Android */}
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body>
-        <PWAInstaller />
-        {children}
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange={false}
+        >
+          <PWAInstaller />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   )
