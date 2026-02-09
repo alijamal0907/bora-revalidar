@@ -383,6 +383,89 @@ export async function getStudyQuestions(materia: string | null, temas: string[] 
   }
 }
 
+/**
+ * Busca os subtemas disponíveis para uma grande área (tema) específica
+ * Feature: Sistema de seleção por Grande Área e Subtemas v1.0
+ * @param tema - O tema/grande área selecionado (ex: "Clínica Médica")
+ * @returns Array de objetos com subtema e subtema_slug
+ */
+export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: string; subtema_slug: string }>> {
+  try {
+    const variations = MATERIA_VARIATIONS[tema] || [tema]
+    
+    const { data, error } = await getSupabaseClient()
+      .from("questoes")
+      .select("subtema, subtema_slug")
+      .in("tema", variations)
+      .not("subtema", "is", null)
+      .not("subtema_slug", "is", null)
+      .limit(2000)
+
+    if (error) {
+      console.error("Error fetching subtemas:", error)
+      return []
+    }
+
+    if (!data || data.length === 0) return []
+
+    // Remover duplicatas usando subtema_slug como chave única
+    const uniqueSubtemas = new Map<string, { subtema: string; subtema_slug: string }>()
+    
+    data.forEach((item: any) => {
+      if (item.subtema && item.subtema_slug) {
+        uniqueSubtemas.set(item.subtema_slug, {
+          subtema: item.subtema.trim(),
+          subtema_slug: item.subtema_slug.trim()
+        })
+      }
+    })
+
+    // Converter para array e ordenar por subtema
+    return Array.from(uniqueSubtemas.values()).sort((a, b) => 
+      a.subtema.localeCompare(b.subtema)
+    )
+  } catch (error) {
+    console.error("Error in getSubtemasByTema:", error)
+    return []
+  }
+}
+
+/**
+ * Busca questões filtradas por tema e subtemas (usando subtema_slug)
+ * @param tema - Grande área selecionada
+ * @param subtemaSlugs - Array de subtema_slugs selecionados (vazio = todos os subtemas)
+ * @returns Array de questões
+ */
+export async function getQuestionsByTemaAndSubtemas(
+  tema: string,
+  subtemaSlugs: string[] = []
+): Promise<any[]> {
+  try {
+    const variations = MATERIA_VARIATIONS[tema] || [tema]
+    let query = getSupabaseClient()
+      .from("questoes")
+      .select("*")
+      .in("tema", variations)
+
+    // Se subtemas foram selecionados, filtrar por eles
+    if (subtemaSlugs && subtemaSlugs.length > 0) {
+      query = query.in("subtema_slug", subtemaSlugs)
+    }
+
+    const { data: questoes, error } = await query.limit(2000)
+
+    if (error) {
+      console.error("Error fetching questions by tema and subtemas:", error)
+      return []
+    }
+
+    return questoes || []
+  } catch (error) {
+    console.error("Error in getQuestionsByTemaAndSubtemas:", error)
+    return []
+  }
+}
+
 export async function getQuestoesWithAlternatives(usuarioId: string, temas?: string[], limit = 2000): Promise<any[]> {
   try {
     const { data: allQuestoes, error: fetchError } = await getSupabaseClient().from("questoes").select("*").limit(limit)

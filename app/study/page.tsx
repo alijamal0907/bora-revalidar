@@ -13,6 +13,8 @@ import {
   getStudyQuestions,
   getWrongQuestionIds,
   getCorrectlyAnsweredQuestions,
+  getSubtemasByTema,
+  getQuestionsByTemaAndSubtemas,
 } from "@/lib/storage-supabase"
 import { ArrowLeft, Lock, Clock } from "lucide-react"
 import { UpgradeModal } from "@/components/upgrade-modal"
@@ -62,6 +64,11 @@ export default function StudyPage() {
   const [answered, setAnswered] = useState(false)
   const [sessionStats, setSessionStats] = useState<SessionStats>({ reviewed: 0, correct: 0, incorrect: 0 })
   const [temas, setTemas] = useState<string[]>([])
+  const [selectionMode, setSelectionMode] = useState<"materia" | "tema_subtema">("materia") // Modo de seleção
+  const [selectedGrandeArea, setSelectedGrandeArea] = useState<string | null>(null) // Grande área (tema)
+  const [availableSubtemas, setAvailableSubtemas] = useState<Array<{ subtema: string; subtema_slug: string }>>([])
+  const [selectedSubtemas, setSelectedSubtemas] = useState<string[]>([]) // Array de subtema_slugs
+  const [loadingSubtemas, setLoadingSubtemas] = useState(false)
 
   useEffect(() => {
     const checkDailyLimit = async () => {
@@ -111,6 +118,29 @@ export default function StudyPage() {
     checkDailyLimit()
   }, [router])
 
+  // Carregar subtemas quando uma grande área é selecionada
+  useEffect(() => {
+    const loadSubtemas = async () => {
+      if (selectionMode === "tema_subtema" && selectedGrandeArea) {
+        setLoadingSubtemas(true)
+        try {
+          const subtemas = await getSubtemasByTema(selectedGrandeArea)
+          setAvailableSubtemas(subtemas)
+          setSelectedSubtemas([]) // Limpar seleção anterior
+        } catch (error) {
+          console.error("[v0] Erro ao carregar subtemas:", error)
+          setAvailableSubtemas([])
+        }
+        setLoadingSubtemas(false)
+      } else {
+        setAvailableSubtemas([])
+        setSelectedSubtemas([])
+      }
+    }
+
+    loadSubtemas()
+  }, [selectedGrandeArea, selectionMode])
+
   const loadStudyCards = async () => {
     console.log("[v0] 📚 Iniciando loadStudyCards com espaçamento repetido")
     console.log("[v0] Estado atual - materia:", selectedMateria, "temas:", selectedTemas)
@@ -145,7 +175,17 @@ export default function StudyPage() {
       console.log("[v0] ✅ Questões já acertadas:", correctQuestionIds.length)
 
       console.log("[v0] 📥 Buscando questões do banco...")
-      const allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
+      
+      // Usar a nova lógica de busca por tema/subtema se o modo estiver ativo
+      let allQuestions: any[]
+      if (selectionMode === "tema_subtema" && selectedGrandeArea) {
+        console.log("[v0] 🎯 Modo tema/subtema ativo - Grande área:", selectedGrandeArea)
+        console.log("[v0] 🎯 Subtemas selecionados:", selectedSubtemas)
+        allQuestions = await getQuestionsByTemaAndSubtemas(selectedGrandeArea, selectedSubtemas)
+      } else {
+        allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
+      }
+      
       console.log("[v0] 📊 Questões recebidas do banco:", allQuestions.length)
 
       // 1. Separar questões em três grupos
@@ -372,32 +412,148 @@ export default function StudyPage() {
             <h1 className="text-2xl sm:text-3xl font-bold mb-2">Configurar Estudo</h1>
             <p className="text-muted-foreground mb-8">Selecione as matérias e configure seu estudo personalizado</p>
 
-            {/* Seleção de Matéria */}
+            {/* Modo de Seleção */}
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-3">Matéria</label>
+              <label className="block text-sm font-medium mb-3">Modo de Seleção</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  "Clínica Médica",
-                  "Clínica Cirúrgica",
-                  "Medicina Preventiva",
-                  "Pediatria",
-                  "Ginecologia e Obstetrícia",
-                  "Todas",
-                ].map((materia) => (
-                  <button
-                    key={materia}
-                    onClick={() => setSelectedMateria(materia === "Todas" ? null : materia)}
-                    className={`p-4 rounded-lg border-2 transition-all text-left ${
-                      (materia === "Todas" && selectedMateria === null) || selectedMateria === materia
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                  >
-                    <div className="font-medium">{materia}</div>
-                  </button>
-                ))}
+                <button
+                  onClick={() => {
+                    setSelectionMode("materia")
+                    setSelectedGrandeArea(null)
+                    setSelectedSubtemas([])
+                  }}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    selectionMode === "materia"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="font-medium">Por Matéria</div>
+                  <p className="text-xs text-muted-foreground mt-1">Seleção tradicional por matéria</p>
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectionMode("tema_subtema")
+                    setSelectedMateria(null)
+                  }}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    selectionMode === "tema_subtema"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <div className="font-medium">Por Grande Área e Subtemas</div>
+                  <p className="text-xs text-muted-foreground mt-1">Seleção avançada por tópicos específicos</p>
+                </button>
               </div>
             </div>
+
+            {/* Seleção por Matéria (modo antigo) */}
+            {selectionMode === "materia" && (
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-3">Matéria</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    "Clínica Médica",
+                    "Clínica Cirúrgica",
+                    "Medicina Preventiva",
+                    "Pediatria",
+                    "Ginecologia e Obstetrícia",
+                    "Todas",
+                  ].map((materia) => (
+                    <button
+                      key={materia}
+                      onClick={() => setSelectedMateria(materia === "Todas" ? null : materia)}
+                      className={`p-4 rounded-lg border-2 transition-all text-left ${
+                        (materia === "Todas" && selectedMateria === null) || selectedMateria === materia
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <div className="font-medium">{materia}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Seleção por Grande Área e Subtemas (modo novo) */}
+            {selectionMode === "tema_subtema" && (
+              <>
+                <div className="mb-6">
+                  <label className="block text-sm font-medium mb-3">Grande Área</label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      "Clínica Médica",
+                      "Clínica Cirúrgica",
+                      "Medicina Preventiva",
+                      "Pediatria",
+                      "Ginecologia e Obstetrícia",
+                    ].map((area) => (
+                      <button
+                        key={area}
+                        onClick={() => setSelectedGrandeArea(area)}
+                        className={`p-4 rounded-lg border-2 transition-all text-left ${
+                          selectedGrandeArea === area
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        <div className="font-medium">{area}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Subtemas (aparecem após selecionar grande área) */}
+                {selectedGrandeArea && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium mb-3">
+                      Subtemas de {selectedGrandeArea}
+                      {selectedSubtemas.length === 0 && (
+                        <span className="text-muted-foreground font-normal ml-2">(Nenhum selecionado = Todos)</span>
+                      )}
+                    </label>
+                    
+                    {loadingSubtemas ? (
+                      <div className="text-center py-8">
+                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                        <p className="text-sm text-muted-foreground">Carregando subtemas...</p>
+                      </div>
+                    ) : availableSubtemas.length > 0 ? (
+                      <div className="bg-muted/50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                        <div className="space-y-2">
+                          {availableSubtemas.map((item) => (
+                            <label
+                              key={item.subtema_slug}
+                              className="flex items-start gap-3 p-3 rounded-md hover:bg-background cursor-pointer transition-colors"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selectedSubtemas.includes(item.subtema_slug)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedSubtemas([...selectedSubtemas, item.subtema_slug])
+                                  } else {
+                                    setSelectedSubtemas(selectedSubtemas.filter((s) => s !== item.subtema_slug))
+                                  }
+                                }}
+                                className="mt-1 w-4 h-4 text-primary border-border rounded focus:ring-primary"
+                              />
+                              <span className="text-sm flex-1">{item.subtema}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 bg-muted/50 rounded-lg">
+                        <p className="text-sm text-muted-foreground">Nenhum subtema disponível para esta área</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Quantidade de Questões */}
             <div className="mb-8">
@@ -426,11 +582,20 @@ export default function StudyPage() {
             {/* Botão Iniciar */}
             <button
               onClick={handleStartStudy}
-              disabled={isLoading}
+              disabled={
+                isLoading ||
+                (selectionMode === "tema_subtema" && !selectedGrandeArea)
+              }
               className="w-full bg-primary text-primary-foreground py-4 rounded-lg font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               {isLoading ? "Carregando questões..." : "Iniciar Estudo"}
             </button>
+            
+            {selectionMode === "tema_subtema" && !selectedGrandeArea && (
+              <p className="text-sm text-muted-foreground text-center mt-3">
+                Selecione uma Grande Área para continuar
+              </p>
+            )}
           </div>
         </main>
       </div>

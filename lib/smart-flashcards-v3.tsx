@@ -76,7 +76,7 @@ function aplicarModificacaoPrincipal(verso: string, tipo: TipoVerso): Modificaca
   // A) TEMPO / FASE
   const modificacoesTempo: [RegExp, string, string][] = [
     [/\bagudo\b/gi, "crônico", "agudo → crônico"],
-    [/\baguda\b/gi, "crônica", "aguda → crônica"],
+    [/\baguda\b/gi, "crônica", "aguda ��� crônica"],
     [/\bcrônico\b/gi, "agudo", "crônico → agudo"],
     [/\bcrônica\b/gi, "aguda", "crônica → aguda"],
     [/\bimediato\b/gi, "após estabilização", "imediato → após estabilização"],

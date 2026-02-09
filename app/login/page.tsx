@@ -205,28 +205,74 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center p-4 relative">
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-accent/5 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background decoration */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-accent/5 rounded-full blur-3xl"></div>
+      </div>
+      
       {/* Botão de alternância de tema no canto superior direito */}
-      <div className="absolute top-4 right-4">
+      <div className="absolute top-6 right-6 z-50">
         <ThemeToggleButton />
       </div>
 
-      <div className="w-full max-w-md">
-        <div className="bg-card rounded-lg shadow-lg border border-border p-8">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <div className="mb-4">
+      <div className="w-full max-w-6xl flex gap-8 items-center relative z-10">
+        {/* Left side - Branding */}
+        <div className="hidden lg:flex flex-1 flex-col justify-center space-y-6">
+          <div className="space-y-4">
+            <Image
+              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-01-18%20at%2013.42.00-eEUvEhPtKWySrpAANLMfN0oqvBqxpr.jpeg"
+              alt="Bora Revalidar"
+              width={400}
+              height={160}
+              className="leading-5 border-0"
+              priority
+            />
+            <h1 className="text-4xl font-bold text-foreground text-balance">
+              Domine o aprendizado com repetição espaçada
+            </h1>
+            <p className="text-lg text-muted-foreground text-balance leading-relaxed">
+              Prepare-se para a revalidação com questões inteligentes e um sistema que se adapta ao seu ritmo de aprendizado.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mt-8">
+            <div className="p-4 bg-card/50 backdrop-blur border border-border rounded-lg">
+              <div className="text-2xl font-bold text-primary mb-1">5000+</div>
+              <div className="text-sm text-muted-foreground">Questões disponíveis</div>
+            </div>
+            <div className="p-4 bg-card/50 backdrop-blur border border-border rounded-lg">
+              <div className="text-2xl font-bold text-accent mb-1">IA</div>
+              <div className="text-sm text-muted-foreground">Seleção inteligente</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right side - Form */}
+        <div className="flex-1 w-full lg:max-w-md">
+          <div className="bg-card/80 backdrop-blur-xl rounded-2xl shadow-2xl border border-border p-8 lg:p-10">
+            {/* Mobile logo */}
+            <div className="lg:hidden text-center mb-6">
               <Image
                 src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/WhatsApp%20Image%202026-01-18%20at%2013.42.00-eEUvEhPtKWySrpAANLMfN0oqvBqxpr.jpeg"
                 alt="Bora Revalidar"
-                width={300}
-                height={120}
+                width={280}
+                height={112}
                 className="leading-5 border-0 mx-auto"
                 priority
               />
             </div>
-            <p className="text-muted-foreground text-sm mt-1">Domine o aprendizado com repetição espaçada</p>
-          </div>
+
+            {/* Header */}
+            <div className="mb-8">
+              <h2 className="text-2xl font-bold text-foreground mb-2">
+                {isSignUp ? "Criar Conta" : "Bem-vindo de volta"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {isSignUp ? "Comece sua jornada de aprendizado" : "Entre para continuar seus estudos"}
+              </p>
+            </div>
 
           {/* Form */}
           <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="space-y-4">
@@ -309,54 +355,69 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Toggle Sign Up / Sign In */}
-          <div className="mt-6 text-center text-sm text-muted-foreground border-t border-border pt-6">
-            {isSignUp ? (
-              <>
-                Já tem uma conta?{" "}
-                <button
-                  onClick={() => {
-                    setIsSignUp(false)
-                    setError("")
-                    setSuccessMessage("")
-                    setName("")
-                  }}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Entrar
-                </button>
-              </>
-            ) : (
-              <>
-                Não tem uma conta?{" "}
-                <button
-                  onClick={() => {
-                    setIsSignUp(true)
-                    setError("")
-                    setSuccessMessage("")
-                  }}
-                  className="text-primary hover:underline font-medium"
-                >
-                  Criar Conta
-                </button>
-              </>
-            )}
-          </div>
+            {/* Toggle Sign Up / Sign In */}
+            <div className="mt-8">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border"></div>
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">ou</span>
+                </div>
+              </div>
+              
+              <div className="mt-6 text-center">
+                {isSignUp ? (
+                  <p className="text-sm text-muted-foreground">
+                    Já tem uma conta?{" "}
+                    <button
+                      onClick={() => {
+                        setIsSignUp(false)
+                        setError("")
+                        setSuccessMessage("")
+                        setName("")
+                      }}
+                      className="text-primary hover:underline font-semibold transition-colors"
+                    >
+                      Faça login aqui
+                    </button>
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Não tem uma conta?{" "}
+                    <button
+                      onClick={() => {
+                        setIsSignUp(true)
+                        setError("")
+                        setSuccessMessage("")
+                      }}
+                      className="text-primary hover:underline font-semibold transition-colors"
+                    >
+                      Cadastre-se grátis
+                    </button>
+                  </p>
+                )}
+              </div>
 
-          {!isSignUp && (
-            <div className="mt-4 text-center">
-              <button onClick={() => setShowForgotPassword(true)} className="text-sm text-primary hover:underline">
-                Esqueceu sua senha?
-              </button>
+              {!isSignUp && (
+                <div className="mt-4 text-center">
+                  <button 
+                    onClick={() => setShowForgotPassword(true)} 
+                    className="text-sm text-accent hover:underline font-medium transition-colors"
+                  >
+                    Esqueceu sua senha?
+                  </button>
+                </div>
+              )}
             </div>
-          )}
 
-          {/* Info message */}
-          <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-            <p className="text-xs text-muted-foreground">
-              <strong>Importante:</strong> Apenas usuários que realizaram o pagamento na plataforma Cakto podem se
-              cadastrar. Seu e-mail será validado automaticamente.
-            </p>
+            {/* Info message */}
+            <div className="mt-6 p-4 bg-primary/5 border border-primary/20 rounded-xl">
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                <strong className="text-foreground">Importante:</strong> Apenas usuários que realizaram o pagamento na plataforma Cakto podem se
+                cadastrar. Seu e-mail será validado automaticamente.
+              </p>
+            </div>
           </div>
         </div>
       </div>
