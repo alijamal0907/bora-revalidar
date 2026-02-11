@@ -13,7 +13,7 @@ interface PlanStatusCardProps {
 }
 
 const PREMIUM_PLAN_URL = "https://pay.cakto.com.br/upkbydv_655583"
-const PREMIUM_INSTALLMENT_URL = "https://mpago.li/1ztGbRx"
+const PREMIUM_INSTALLMENT_URL = "https://mpago.li/33Sj8Eq"
 
 export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
   const [showPlansModal, setShowPlansModal] = useState(false)

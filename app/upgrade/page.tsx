@@ -15,7 +15,7 @@ const PREMIUM_PLAN = {
   name: "Acesso Vitalício Premium",
   price: "R$ 297,00",
   paymentUrl: "https://pay.cakto.com.br/upkbydv_655583",
-  installmentUrl: "https://mpago.li/1ztGbRx",
+  installmentUrl: "https://mpago.li/33Sj8Eq",
   benefits: [
     "Acesso ilimitado VITALÍCIO ao Bora Revalidar",
     "Questões ilimitadas por dia",

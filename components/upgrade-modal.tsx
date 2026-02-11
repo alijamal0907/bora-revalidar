@@ -12,7 +12,7 @@ const PREMIUM_PLAN = {
   name: "Acesso Vitalício Premium",
   price: "R$ 297,00",
   link: "https://pay.cakto.com.br/upkbydv_655583",
-  installmentLink: "https://mpago.li/1ztGbRx",
+  installmentLink: "https://mpago.li/33Sj8Eq",
   benefits: [
     "Acesso ilimitado VITALÍCIO",
     "Questões ilimitadas por dia",
