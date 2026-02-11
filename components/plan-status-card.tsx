@@ -13,7 +13,7 @@ interface PlanStatusCardProps {
 }
 
 const PREMIUM_PLAN_URL = "https://pay.cakto.com.br/upkbydv_655583"
-const PREMIUM_INSTALLMENT_URL = "https://mpago.li/1ztGbRx"
+const PREMIUM_INSTALLMENT_URL = "https://mpago.li/33Sj8Eq"
 
 export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
   const [showPlansModal, setShowPlansModal] = useState(false)
@@ -87,7 +87,7 @@ export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
           <div className="mt-6">
             <div className="bg-slate-900/50 border-2 border-cyan-500 rounded-lg p-8">
               <div className="text-center mb-8">
-                <div className="text-5xl font-bold text-white mb-2">R$ 247,00</div>
+                <div className="text-5xl font-bold text-white mb-2">R$ 297,00</div>
                 <div className="text-cyan-400 font-medium">Pagamento único • Acesso vitalício</div>
               </div>
 
