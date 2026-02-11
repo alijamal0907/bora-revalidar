@@ -87,7 +87,7 @@ export function PlanStatusCard({ plan, questionsToday }: PlanStatusCardProps) {
           <div className="mt-6">
             <div className="bg-slate-900/50 border-2 border-cyan-500 rounded-lg p-8">
               <div className="text-center mb-8">
-                <div className="text-5xl font-bold text-white mb-2">R$ 247,00</div>
+                <div className="text-5xl font-bold text-white mb-2">R$ 297,00</div>
                 <div className="text-cyan-400 font-medium">Pagamento único • Acesso vitalício</div>
               </div>
 

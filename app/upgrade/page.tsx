@@ -13,7 +13,7 @@ import type { UserPlan } from "@/lib/plan-utils"
 
 const PREMIUM_PLAN = {
   name: "Acesso Vitalício Premium",
-  price: "R$ 247,00",
+  price: "R$ 297,00",
   paymentUrl: "https://pay.cakto.com.br/upkbydv_655583",
   installmentUrl: "https://mpago.li/1ztGbRx",
   benefits: [
