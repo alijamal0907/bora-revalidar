@@ -407,14 +407,11 @@ export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: 
 
     if (!data || data.length === 0) return []
 
-    // Deduplicar por subtema_slug quando disponível, senão por subtema normalizado
+    // Deduplicar SEMPRE pelo texto normalizado do subtema (evita duplicatas por slug diferente mas texto igual)
     const uniqueSubtemas = new Map<string, { subtema: string; subtema_slug: string }>()
-    
-    data.forEach((item: any) => {
-      if (!item.subtema) return
-      const subtemaText = item.subtema.trim()
-      // Gerar slug no cliente caso não exista no banco
-      const slug = item.subtema_slug?.trim() || subtemaText
+
+    const toSlug = (text: string) =>
+      text
         .toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9\s-]/g, "")
@@ -422,15 +419,21 @@ export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: 
         .replace(/\s+/g, "-")
         .replace(/-+/g, "-")
 
-      if (!uniqueSubtemas.has(slug)) {
-        uniqueSubtemas.set(slug, {
+    data.forEach((item: any) => {
+      if (!item.subtema) return
+      const subtemaText = item.subtema.trim()
+      // Chave de deduplicação = sempre o slug gerado do texto (ignora variações de slug no banco)
+      const dedupeKey = toSlug(subtemaText)
+      if (!uniqueSubtemas.has(dedupeKey)) {
+        uniqueSubtemas.set(dedupeKey, {
           subtema: subtemaText,
-          subtema_slug: slug,
+          // Preferir o slug do banco se existir, senão gerar
+          subtema_slug: item.subtema_slug?.trim() || dedupeKey,
         })
       }
     })
 
-    return Array.from(uniqueSubtemas.values()).sort((a, b) => 
+    return Array.from(uniqueSubtemas.values()).sort((a, b) =>
       a.subtema.localeCompare(b.subtema, "pt-BR")
     )
   } catch (error) {
