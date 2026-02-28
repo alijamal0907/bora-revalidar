@@ -523,9 +523,9 @@ export default function StudyPage() {
                     ) : availableSubtemas.length > 0 ? (
                       <div className="bg-muted/50 rounded-lg p-4 max-h-96 overflow-y-auto">
                         <div className="space-y-2">
-                          {availableSubtemas.map((item) => (
+                          {availableSubtemas.map((item, idx) => (
                             <label
-                              key={item.subtema_slug}
+                              key={`${item.subtema_slug}-${idx}`}
                               className="flex items-start gap-3 p-3 rounded-md hover:bg-background cursor-pointer transition-colors"
                             >
                               <input

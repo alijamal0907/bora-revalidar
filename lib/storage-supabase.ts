@@ -427,8 +427,8 @@ export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: 
       if (!uniqueSubtemas.has(dedupeKey)) {
         uniqueSubtemas.set(dedupeKey, {
           subtema: subtemaText,
-          // Preferir o slug do banco se existir, senão gerar
-          subtema_slug: item.subtema_slug?.trim() || dedupeKey,
+          // Usar sempre o dedupeKey como slug para garantir unicidade
+          subtema_slug: dedupeKey,
         })
       }
     })
