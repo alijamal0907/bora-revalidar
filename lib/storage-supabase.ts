@@ -398,7 +398,6 @@ export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: 
       .select("subtema, subtema_slug")
       .in("tema", variations)
       .not("subtema", "is", null)
-      .not("subtema_slug", "is", null)
       .limit(2000)
 
     if (error) {
@@ -408,21 +407,31 @@ export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: 
 
     if (!data || data.length === 0) return []
 
-    // Remover duplicatas usando subtema_slug como chave única
+    // Deduplicar por subtema_slug quando disponível, senão por subtema normalizado
     const uniqueSubtemas = new Map<string, { subtema: string; subtema_slug: string }>()
     
     data.forEach((item: any) => {
-      if (item.subtema && item.subtema_slug) {
-        uniqueSubtemas.set(item.subtema_slug, {
-          subtema: item.subtema.trim(),
-          subtema_slug: item.subtema_slug.trim()
+      if (!item.subtema) return
+      const subtemaText = item.subtema.trim()
+      // Gerar slug no cliente caso não exista no banco
+      const slug = item.subtema_slug?.trim() || subtemaText
+        .toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9\s-]/g, "")
+        .trim()
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+
+      if (!uniqueSubtemas.has(slug)) {
+        uniqueSubtemas.set(slug, {
+          subtema: subtemaText,
+          subtema_slug: slug,
         })
       }
     })
 
-    // Converter para array e ordenar por subtema
     return Array.from(uniqueSubtemas.values()).sort((a, b) => 
-      a.subtema.localeCompare(b.subtema)
+      a.subtema.localeCompare(b.subtema, "pt-BR")
     )
   } catch (error) {
     console.error("Error in getSubtemasByTema:", error)
