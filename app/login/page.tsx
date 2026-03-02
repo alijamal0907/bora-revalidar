@@ -226,7 +226,8 @@ export default function LoginPage() {
               alt="Bora Revalidar"
               width={400}
               height={160}
-              className="leading-5 border-0"
+              className="border-0"
+              style={{ width: 400, height: "auto" }}
               priority
             />
             <h1 className="text-4xl font-bold text-foreground text-balance">
@@ -259,7 +260,8 @@ export default function LoginPage() {
                 alt="Bora Revalidar"
                 width={280}
                 height={112}
-                className="leading-5 border-0 mx-auto"
+                className="border-0 mx-auto"
+                style={{ width: 280, height: "auto" }}
                 priority
               />
             </div>
