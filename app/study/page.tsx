@@ -67,7 +67,7 @@ export default function StudyPage() {
   const [selectionMode, setSelectionMode] = useState<"materia" | "tema_subtema">("materia") // Modo de seleção
   const [selectedGrandeArea, setSelectedGrandeArea] = useState<string | null>(null) // Grande área (tema)
   const [availableSubtemas, setAvailableSubtemas] = useState<Array<{ subtema: string; subtema_slug: string }>>([])
-  const [selectedSubtemas, setSelectedSubtemas] = useState<string[]>([]) // Array de subtema_slugs
+  const [selectedSubtemas, setSelectedSubtemas] = useState<string[]>([]) // Array de subtema texts
   const [loadingSubtemas, setLoadingSubtemas] = useState(false)
 
   useEffect(() => {
@@ -530,12 +530,12 @@ export default function StudyPage() {
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedSubtemas.includes(item.subtema_slug)}
+                                checked={selectedSubtemas.includes(item.subtema)}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSelectedSubtemas([...selectedSubtemas, item.subtema_slug])
+                                    setSelectedSubtemas([...selectedSubtemas, item.subtema])
                                   } else {
-                                    setSelectedSubtemas(selectedSubtemas.filter((s) => s !== item.subtema_slug))
+                                    setSelectedSubtemas(selectedSubtemas.filter((s) => s !== item.subtema))
                                   }
                                 }}
                                 className="mt-1 w-4 h-4 text-primary border-border rounded focus:ring-primary"

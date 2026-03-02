@@ -443,14 +443,14 @@ export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: 
 }
 
 /**
- * Busca questões filtradas por tema e subtemas (usando subtema_slug)
+ * Busca questões filtradas por tema e subtemas (usando o texto do subtema)
  * @param tema - Grande área selecionada
- * @param subtemaSlugs - Array de subtema_slugs selecionados (vazio = todos os subtemas)
+ * @param subtemaTexts - Array de textos de subtemas selecionados (vazio = todos os subtemas)
  * @returns Array de questões
  */
 export async function getQuestionsByTemaAndSubtemas(
   tema: string,
-  subtemaSlugs: string[] = []
+  subtemaTexts: string[] = []
 ): Promise<any[]> {
   try {
     const variations = MATERIA_VARIATIONS[tema] || [tema]
@@ -459,9 +459,9 @@ export async function getQuestionsByTemaAndSubtemas(
       .select("*")
       .in("tema", variations)
 
-    // Se subtemas foram selecionados, filtrar por eles
-    if (subtemaSlugs && subtemaSlugs.length > 0) {
-      query = query.in("subtema_slug", subtemaSlugs)
+    // Se subtemas foram selecionados, filtrar pelo texto do subtema
+    if (subtemaTexts && subtemaTexts.length > 0) {
+      query = query.in("subtema", subtemaTexts)
     }
 
     const { data: questoes, error } = await query.limit(2000)
