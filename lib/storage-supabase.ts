@@ -451,21 +451,10 @@ export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: 
 }
 
 /**
- * Gera slug normalizado de um texto (mesma lógica usada em getSubtemasByTema)
- */
-function toSubtemaSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-}
-
-/**
- * Busca questões filtradas por tema e subtemas.
- * Usa slugs normalizados para comparar, evitando falhas por espaços ou capitalização diferentes no banco.
+ * Busca questões filtradas por tema e subtemas diretamente no banco.
+ * O filtro de subtema é feito no banco usando ilike (case-insensitive + trim),
+ * garantindo que todas as questões do subtema sejam retornadas independente de
+ * variações de capitalização ou espaços nos dados.
  * @param tema - Grande área selecionada
  * @param subtemaTexts - Array de textos de subtemas selecionados (vazio = todos os subtemas)
  * @returns Array de questões
@@ -477,41 +466,57 @@ export async function getQuestionsByTemaAndSubtemas(
   try {
     const variations = MATERIA_VARIATIONS[tema] || [tema]
 
-    // Buscar todas as questões do tema (sem filtrar subtema no banco para evitar problema de normalização)
-    const { data: questoes, error } = await getSupabaseClient()
-      .from("questoes")
-      .select("*")
-      .in("tema", variations)
-      .limit(2000)
+    let allResults: any[] = []
 
-    if (error) {
-      console.error("Error fetching questions by tema and subtemas:", error)
-      return []
+    if (subtemaTexts && subtemaTexts.length > 0) {
+      // Para cada subtema selecionado, fazer uma query ilike no banco
+      // Isso garante que TODAS as questões do subtema sejam retornadas,
+      // mesmo com variações de capitalização ou espaços no banco
+      const promises = subtemaTexts.map((subtemaText) =>
+        getSupabaseClient()
+          .from("questoes")
+          .select("*")
+          .in("tema", variations)
+          .ilike("subtema", subtemaText.trim())
+          .limit(2000)
+      )
+
+      const results = await Promise.all(promises)
+
+      for (const { data, error } of results) {
+        if (error) {
+          console.error("Error fetching questions by subtema:", error)
+          continue
+        }
+        if (data) allResults.push(...data)
+      }
+    } else {
+      // Sem filtro de subtema — retornar todas as questões do tema
+      const { data, error } = await getSupabaseClient()
+        .from("questoes")
+        .select("*")
+        .in("tema", variations)
+        .limit(2000)
+
+      if (error) {
+        console.error("Error fetching all questions for tema:", error)
+        return []
+      }
+      allResults = data || []
     }
-
-    const allQuestoes = questoes || []
 
     // Deduplicar por id
     const seen = new Set<string>()
-    const unique = allQuestoes.filter((q: any) => {
+    return allResults.filter((q: any) => {
       if (seen.has(q.id)) return false
       seen.add(q.id)
       return true
     })
-
-    // Se subtemas foram selecionados, filtrar pelo slug normalizado do subtema
-    // para tolerar variações de espaço/capitalização no banco
-    if (subtemaTexts && subtemaTexts.length > 0) {
-      const selectedSlugs = new Set(subtemaTexts.map(toSubtemaSlug))
-      return unique.filter((q: any) => {
-        if (!q.subtema) return false
-        const qSlug = toSubtemaSlug(q.subtema)
-        return selectedSlugs.has(qSlug)
-      })
-    }
-
-    return unique
   } catch (error) {
+    console.error("Error in getQuestionsByTemaAndSubtemas:", error)
+    return []
+  }
+}
     console.error("Error in getQuestionsByTemaAndSubtemas:", error)
     return []
   }

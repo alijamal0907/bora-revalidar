@@ -164,34 +164,19 @@ export default function StudyPage() {
         setIsBlocked(false)
       }
 
-      console.log("[v0] 🔄 Buscando histórico de respostas para espaçamento repetido...")
       const userId = currentUser.id || currentUser.usuario_id
       const [wrongQuestionIds, correctQuestionIds] = await Promise.all([
         getWrongQuestionIds(userId),
         getCorrectlyAnsweredQuestions(userId),
       ])
 
-      console.log("[v0] ❌ Questões erradas anteriormente:", wrongQuestionIds.length)
-      console.log("[v0] ✅ Questões já acertadas:", correctQuestionIds.length)
-
-      console.log("[v0] 📥 Buscando questões do banco...")
-      
       // Usar a nova lógica de busca por tema/subtema se o modo estiver ativo
       let allQuestions: any[]
       if (selectionMode === "tema_subtema" && selectedGrandeArea) {
-        console.log("[v0] Modo tema/subtema ativo - Grande área:", selectedGrandeArea)
-        console.log("[v0] Subtemas selecionados (textos):", selectedSubtemas)
         allQuestions = await getQuestionsByTemaAndSubtemas(selectedGrandeArea, selectedSubtemas)
-        console.log("[v0] Total de questões retornadas pelo filtro de subtema:", allQuestions.length)
-        if (allQuestions.length > 0) {
-          const subtemasEncontrados = [...new Set(allQuestions.map((q: any) => q.subtema))]
-          console.log("[v0] Subtemas presentes nas questões retornadas:", subtemasEncontrados)
-        }
       } else {
         allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
       }
-      
-      console.log("[v0] 📊 Questões recebidas do banco:", allQuestions.length)
 
       // 1. Separar questões em três grupos mutuamente exclusivos
       // wrongQuestions tem prioridade: se foi errada alguma vez, vai para esse grupo
@@ -205,11 +190,6 @@ export default function StudyPage() {
         (q) => !wrongQuestionIds.includes(q.id) && !correctQuestionIds.includes(q.id),
       )
 
-      console.log("[v0] 🎯 Categorização de questões:")
-      console.log("[v0]    📌 Questões erradas (prioridade ALTA):", wrongQuestions.length)
-      console.log("[v0]    🆕 Questões novas (prioridade MÉDIA):", newQuestions.length)
-      console.log("[v0]    ✓ Questões já acertadas (prioridade BAIXA):", correctQuestions.length)
-
       // 2. Embaralhar cada grupo separadamente
       const shuffledWrong = [...wrongQuestions].sort(() => Math.random() - 0.5)
       const shuffledNew = [...newQuestions].sort(() => Math.random() - 0.5)
@@ -217,20 +197,16 @@ export default function StudyPage() {
 
       // 3. Montar lista final com prioridade: erradas > novas > já acertadas
       const prioritizedQuestions = [
-        ...shuffledWrong, // Prioridade 1: Questões erradas devem aparecer até acertar
-        ...shuffledNew, // Prioridade 2: Questões nunca respondidas
-        ...shuffledCorrect, // Prioridade 3: Questões já acertadas (revisão)
+        ...shuffledWrong,
+        ...shuffledNew,
+        ...shuffledCorrect,
       ]
-
-      console.log("[v0] 🔀 Lista priorizada montada:", prioritizedQuestions.length, "questões")
 
       let questionsToStudy = prioritizedQuestions
       if (plan === "free") {
         questionsToStudy = prioritizedQuestions.slice(0, 15)
-        console.log("[v0] 🎯 Modo FREE: limitando a 15 questões (com prioridade para erradas)")
       } else {
         questionsToStudy = prioritizedQuestions.slice(0, numQuestions)
-        console.log("[v0] 🌟 Modo PREMIUM: usando", numQuestions, "questões (com prioridade para erradas)")
       }
 
       console.log("[v0] 📋 Composição final do estudo:")
