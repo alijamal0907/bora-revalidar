@@ -179,9 +179,14 @@ export default function StudyPage() {
       // Usar a nova lógica de busca por tema/subtema se o modo estiver ativo
       let allQuestions: any[]
       if (selectionMode === "tema_subtema" && selectedGrandeArea) {
-        console.log("[v0] 🎯 Modo tema/subtema ativo - Grande área:", selectedGrandeArea)
-        console.log("[v0] 🎯 Subtemas selecionados:", selectedSubtemas)
+        console.log("[v0] Modo tema/subtema ativo - Grande área:", selectedGrandeArea)
+        console.log("[v0] Subtemas selecionados (textos):", selectedSubtemas)
         allQuestions = await getQuestionsByTemaAndSubtemas(selectedGrandeArea, selectedSubtemas)
+        console.log("[v0] Total de questões retornadas pelo filtro de subtema:", allQuestions.length)
+        if (allQuestions.length > 0) {
+          const subtemasEncontrados = [...new Set(allQuestions.map((q: any) => q.subtema))]
+          console.log("[v0] Subtemas presentes nas questões retornadas:", subtemasEncontrados)
+        }
       } else {
         allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
       }

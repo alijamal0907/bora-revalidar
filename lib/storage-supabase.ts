@@ -451,7 +451,21 @@ export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: 
 }
 
 /**
- * Busca questões filtradas por tema e subtemas (usando o texto do subtema)
+ * Gera slug normalizado de um texto (mesma lógica usada em getSubtemasByTema)
+ */
+function toSubtemaSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+}
+
+/**
+ * Busca questões filtradas por tema e subtemas.
+ * Usa slugs normalizados para comparar, evitando falhas por espaços ou capitalização diferentes no banco.
  * @param tema - Grande área selecionada
  * @param subtemaTexts - Array de textos de subtemas selecionados (vazio = todos os subtemas)
  * @returns Array de questões
@@ -462,30 +476,39 @@ export async function getQuestionsByTemaAndSubtemas(
 ): Promise<any[]> {
   try {
     const variations = MATERIA_VARIATIONS[tema] || [tema]
-    let query = getSupabaseClient()
+
+    // Buscar todas as questões do tema (sem filtrar subtema no banco para evitar problema de normalização)
+    const { data: questoes, error } = await getSupabaseClient()
       .from("questoes")
       .select("*")
       .in("tema", variations)
-
-    // Se subtemas foram selecionados, filtrar pelo texto do subtema
-    if (subtemaTexts && subtemaTexts.length > 0) {
-      query = query.in("subtema", subtemaTexts)
-    }
-
-    const { data: questoes, error } = await query.limit(2000)
+      .limit(2000)
 
     if (error) {
       console.error("Error fetching questions by tema and subtemas:", error)
       return []
     }
 
-    // Deduplicar por id para evitar questões repetidas caso haja variações de tema no banco
+    const allQuestoes = questoes || []
+
+    // Deduplicar por id
     const seen = new Set<string>()
-    const unique = (questoes || []).filter((q: any) => {
+    const unique = allQuestoes.filter((q: any) => {
       if (seen.has(q.id)) return false
       seen.add(q.id)
       return true
     })
+
+    // Se subtemas foram selecionados, filtrar pelo slug normalizado do subtema
+    // para tolerar variações de espaço/capitalização no banco
+    if (subtemaTexts && subtemaTexts.length > 0) {
+      const selectedSlugs = new Set(subtemaTexts.map(toSubtemaSlug))
+      return unique.filter((q: any) => {
+        if (!q.subtema) return false
+        const qSlug = toSubtemaSlug(q.subtema)
+        return selectedSlugs.has(qSlug)
+      })
+    }
 
     return unique
   } catch (error) {
