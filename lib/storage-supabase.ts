@@ -469,26 +469,40 @@ export async function getQuestionsByTemaAndSubtemas(
     let allResults: any[] = []
 
     if (subtemaTexts && subtemaTexts.length > 0) {
-      // Para cada subtema selecionado, fazer uma query ilike no banco
-      // Isso garante que TODAS as questões do subtema sejam retornadas,
-      // mesmo com variações de capitalização ou espaços no banco
-      const promises = subtemaTexts.map((subtemaText) =>
-        getSupabaseClient()
-          .from("questoes")
-          .select("*")
-          .in("tema", variations)
-          .ilike("subtema", subtemaText.trim())
-          .limit(2000)
-      )
+      // Filtrar diretamente no banco usando .in() com os textos exatos dos subtemas.
+      // A getSubtemasByTema já normaliza os textos com .trim(), então os valores
+      // em selectedSubtemas correspondem exatamente ao subtema.trim() do banco.
+      // Usamos também as variantes com espaços para tolerância.
+      const normalizedTexts = subtemaTexts.map((t) => t.trim())
 
-      const results = await Promise.all(promises)
+      const { data, error } = await getSupabaseClient()
+        .from("questoes")
+        .select("*")
+        .in("tema", variations)
+        .in("subtema", normalizedTexts)
+        .limit(5000)
 
-      for (const { data, error } of results) {
-        if (error) {
-          console.error("Error fetching questions by subtema:", error)
-          continue
+      if (error) {
+        console.error("Error fetching questions by subtema:", error)
+        return []
+      }
+
+      allResults = data || []
+
+      // Se retornou zero, tentar com ilike para tolerar espaços extras no banco
+      if (allResults.length === 0) {
+        const ilikePromises = normalizedTexts.map((subtemaText) =>
+          getSupabaseClient()
+            .from("questoes")
+            .select("*")
+            .in("tema", variations)
+            .ilike("subtema", subtemaText)
+            .limit(5000)
+        )
+        const results = await Promise.all(ilikePromises)
+        for (const { data: d, error: e } of results) {
+          if (!e && d) allResults.push(...d)
         }
-        if (data) allResults.push(...data)
       }
     } else {
       // Sem filtro de subtema — retornar todas as questões do tema
