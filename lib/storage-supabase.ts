@@ -531,10 +531,6 @@ export async function getQuestionsByTemaAndSubtemas(
     return []
   }
 }
-    console.error("Error in getQuestionsByTemaAndSubtemas:", error)
-    return []
-  }
-}
 
 export async function getQuestoesWithAlternatives(usuarioId: string, temas?: string[], limit = 2000): Promise<any[]> {
   try {
