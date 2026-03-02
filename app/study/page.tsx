@@ -188,9 +188,14 @@ export default function StudyPage() {
       
       console.log("[v0] 📊 Questões recebidas do banco:", allQuestions.length)
 
-      // 1. Separar questões em três grupos
+      // 1. Separar questões em três grupos mutuamente exclusivos
+      // wrongQuestions tem prioridade: se foi errada alguma vez, vai para esse grupo
       const wrongQuestions = allQuestions.filter((q) => wrongQuestionIds.includes(q.id))
-      const correctQuestions = allQuestions.filter((q) => correctQuestionIds.includes(q.id))
+      const wrongIds = new Set(wrongQuestionIds)
+      // correctQuestions exclui as que também estão em wrongQuestions (evita duplicação)
+      const correctQuestions = allQuestions.filter(
+        (q) => correctQuestionIds.includes(q.id) && !wrongIds.has(q.id),
+      )
       const newQuestions = allQuestions.filter(
         (q) => !wrongQuestionIds.includes(q.id) && !correctQuestionIds.includes(q.id),
       )

@@ -376,7 +376,15 @@ export async function getStudyQuestions(materia: string | null, temas: string[] 
       return []
     }
 
-    return questoes || []
+    // Deduplicar por id para evitar questões repetidas caso haja variações de tema no banco
+    const seen = new Set<string>()
+    const unique = (questoes || []).filter((q: any) => {
+      if (seen.has(q.id)) return false
+      seen.add(q.id)
+      return true
+    })
+
+    return unique
   } catch (error) {
     console.error("Error in getStudyQuestions:", error)
     return []
@@ -471,7 +479,15 @@ export async function getQuestionsByTemaAndSubtemas(
       return []
     }
 
-    return questoes || []
+    // Deduplicar por id para evitar questões repetidas caso haja variações de tema no banco
+    const seen = new Set<string>()
+    const unique = (questoes || []).filter((q: any) => {
+      if (seen.has(q.id)) return false
+      seen.add(q.id)
+      return true
+    })
+
+    return unique
   } catch (error) {
     console.error("Error in getQuestionsByTemaAndSubtemas:", error)
     return []
