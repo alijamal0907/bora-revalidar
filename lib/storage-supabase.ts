@@ -376,7 +376,15 @@ export async function getStudyQuestions(materia: string | null, temas: string[] 
       return []
     }
 
-    return questoes || []
+    // Deduplicar por id para evitar questões repetidas caso haja variações de tema no banco
+    const seen = new Set<string>()
+    const unique = (questoes || []).filter((q: any) => {
+      if (seen.has(q.id)) return false
+      seen.add(q.id)
+      return true
+    })
+
+    return unique
   } catch (error) {
     console.error("Error in getStudyQuestions:", error)
     return []
@@ -443,36 +451,72 @@ export async function getSubtemasByTema(tema: string): Promise<Array<{ subtema: 
 }
 
 /**
- * Busca questões filtradas por tema e subtemas (usando subtema_slug)
+ * Busca questões filtradas por tema e subtemas diretamente no banco.
+ * O filtro de subtema é feito no banco usando ilike (case-insensitive + trim),
+ * garantindo que todas as questões do subtema sejam retornadas independente de
+ * variações de capitalização ou espaços nos dados.
  * @param tema - Grande área selecionada
- * @param subtemaSlugs - Array de subtema_slugs selecionados (vazio = todos os subtemas)
+ * @param subtemaTexts - Array de textos de subtemas selecionados (vazio = todos os subtemas)
  * @returns Array de questões
  */
 export async function getQuestionsByTemaAndSubtemas(
   tema: string,
-  subtemaSlugs: string[] = []
+  subtemaTexts: string[] = []
 ): Promise<any[]> {
   try {
     const variations = MATERIA_VARIATIONS[tema] || [tema]
-    let query = getSupabaseClient()
-      .from("questoes")
-      .select("*")
-      .in("tema", variations)
 
-    // Se subtemas foram selecionados, filtrar por eles
-    if (subtemaSlugs && subtemaSlugs.length > 0) {
-      query = query.in("subtema_slug", subtemaSlugs)
+    let allResults: any[] = []
+
+    if (subtemaTexts && subtemaTexts.length > 0) {
+      // Para cada subtema selecionado, fazer uma query ilike no banco
+      // Isso garante que TODAS as questões do subtema sejam retornadas,
+      // mesmo com variações de capitalização ou espaços no banco
+      const promises = subtemaTexts.map((subtemaText) =>
+        getSupabaseClient()
+          .from("questoes")
+          .select("*")
+          .in("tema", variations)
+          .ilike("subtema", subtemaText.trim())
+          .limit(2000)
+      )
+
+      const results = await Promise.all(promises)
+
+      for (const { data, error } of results) {
+        if (error) {
+          console.error("Error fetching questions by subtema:", error)
+          continue
+        }
+        if (data) allResults.push(...data)
+      }
+    } else {
+      // Sem filtro de subtema — retornar todas as questões do tema
+      const { data, error } = await getSupabaseClient()
+        .from("questoes")
+        .select("*")
+        .in("tema", variations)
+        .limit(2000)
+
+      if (error) {
+        console.error("Error fetching all questions for tema:", error)
+        return []
+      }
+      allResults = data || []
     }
 
-    const { data: questoes, error } = await query.limit(2000)
-
-    if (error) {
-      console.error("Error fetching questions by tema and subtemas:", error)
-      return []
-    }
-
-    return questoes || []
+    // Deduplicar por id
+    const seen = new Set<string>()
+    return allResults.filter((q: any) => {
+      if (seen.has(q.id)) return false
+      seen.add(q.id)
+      return true
+    })
   } catch (error) {
+    console.error("Error in getQuestionsByTemaAndSubtemas:", error)
+    return []
+  }
+}
     console.error("Error in getQuestionsByTemaAndSubtemas:", error)
     return []
   }

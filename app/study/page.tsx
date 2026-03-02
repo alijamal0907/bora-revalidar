@@ -67,7 +67,7 @@ export default function StudyPage() {
   const [selectionMode, setSelectionMode] = useState<"materia" | "tema_subtema">("materia") // Modo de seleção
   const [selectedGrandeArea, setSelectedGrandeArea] = useState<string | null>(null) // Grande área (tema)
   const [availableSubtemas, setAvailableSubtemas] = useState<Array<{ subtema: string; subtema_slug: string }>>([])
-  const [selectedSubtemas, setSelectedSubtemas] = useState<string[]>([]) // Array de subtema_slugs
+  const [selectedSubtemas, setSelectedSubtemas] = useState<string[]>([]) // Array de subtema texts
   const [loadingSubtemas, setLoadingSubtemas] = useState(false)
 
   useEffect(() => {
@@ -164,41 +164,31 @@ export default function StudyPage() {
         setIsBlocked(false)
       }
 
-      console.log("[v0] 🔄 Buscando histórico de respostas para espaçamento repetido...")
       const userId = currentUser.id || currentUser.usuario_id
       const [wrongQuestionIds, correctQuestionIds] = await Promise.all([
         getWrongQuestionIds(userId),
         getCorrectlyAnsweredQuestions(userId),
       ])
 
-      console.log("[v0] ❌ Questões erradas anteriormente:", wrongQuestionIds.length)
-      console.log("[v0] ✅ Questões já acertadas:", correctQuestionIds.length)
-
-      console.log("[v0] 📥 Buscando questões do banco...")
-      
       // Usar a nova lógica de busca por tema/subtema se o modo estiver ativo
       let allQuestions: any[]
       if (selectionMode === "tema_subtema" && selectedGrandeArea) {
-        console.log("[v0] 🎯 Modo tema/subtema ativo - Grande área:", selectedGrandeArea)
-        console.log("[v0] 🎯 Subtemas selecionados:", selectedSubtemas)
         allQuestions = await getQuestionsByTemaAndSubtemas(selectedGrandeArea, selectedSubtemas)
       } else {
         allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
       }
-      
-      console.log("[v0] 📊 Questões recebidas do banco:", allQuestions.length)
 
-      // 1. Separar questões em três grupos
+      // 1. Separar questões em três grupos mutuamente exclusivos
+      // wrongQuestions tem prioridade: se foi errada alguma vez, vai para esse grupo
       const wrongQuestions = allQuestions.filter((q) => wrongQuestionIds.includes(q.id))
-      const correctQuestions = allQuestions.filter((q) => correctQuestionIds.includes(q.id))
+      const wrongIds = new Set(wrongQuestionIds)
+      // correctQuestions exclui as que também estão em wrongQuestions (evita duplicação)
+      const correctQuestions = allQuestions.filter(
+        (q) => correctQuestionIds.includes(q.id) && !wrongIds.has(q.id),
+      )
       const newQuestions = allQuestions.filter(
         (q) => !wrongQuestionIds.includes(q.id) && !correctQuestionIds.includes(q.id),
       )
-
-      console.log("[v0] 🎯 Categorização de questões:")
-      console.log("[v0]    📌 Questões erradas (prioridade ALTA):", wrongQuestions.length)
-      console.log("[v0]    🆕 Questões novas (prioridade MÉDIA):", newQuestions.length)
-      console.log("[v0]    ✓ Questões já acertadas (prioridade BAIXA):", correctQuestions.length)
 
       // 2. Embaralhar cada grupo separadamente
       const shuffledWrong = [...wrongQuestions].sort(() => Math.random() - 0.5)
@@ -207,20 +197,16 @@ export default function StudyPage() {
 
       // 3. Montar lista final com prioridade: erradas > novas > já acertadas
       const prioritizedQuestions = [
-        ...shuffledWrong, // Prioridade 1: Questões erradas devem aparecer até acertar
-        ...shuffledNew, // Prioridade 2: Questões nunca respondidas
-        ...shuffledCorrect, // Prioridade 3: Questões já acertadas (revisão)
+        ...shuffledWrong,
+        ...shuffledNew,
+        ...shuffledCorrect,
       ]
-
-      console.log("[v0] 🔀 Lista priorizada montada:", prioritizedQuestions.length, "questões")
 
       let questionsToStudy = prioritizedQuestions
       if (plan === "free") {
         questionsToStudy = prioritizedQuestions.slice(0, 15)
-        console.log("[v0] 🎯 Modo FREE: limitando a 15 questões (com prioridade para erradas)")
       } else {
         questionsToStudy = prioritizedQuestions.slice(0, numQuestions)
-        console.log("[v0] 🌟 Modo PREMIUM: usando", numQuestions, "questões (com prioridade para erradas)")
       }
 
       console.log("[v0] 📋 Composição final do estudo:")
@@ -530,12 +516,12 @@ export default function StudyPage() {
                             >
                               <input
                                 type="checkbox"
-                                checked={selectedSubtemas.includes(item.subtema_slug)}
+                                checked={selectedSubtemas.includes(item.subtema)}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSelectedSubtemas([...selectedSubtemas, item.subtema_slug])
+                                    setSelectedSubtemas([...selectedSubtemas, item.subtema])
                                   } else {
-                                    setSelectedSubtemas(selectedSubtemas.filter((s) => s !== item.subtema_slug))
+                                    setSelectedSubtemas(selectedSubtemas.filter((s) => s !== item.subtema))
                                   }
                                 }}
                                 className="mt-1 w-4 h-4 text-primary border-border rounded focus:ring-primary"
