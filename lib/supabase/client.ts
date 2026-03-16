@@ -14,7 +14,7 @@ export function createClient() {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing Supabase environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY")
+    throw new Error("Missing Supabase environment variables")
   }
 
   if (!globalThis.__supabase_client) {
@@ -23,7 +23,7 @@ export function createClient() {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storageKey: "sb-auth-token",
+        storageKey: "sb-fmhzwcbjjdkcylohqfyy-auth-token",
       },
     })
   }

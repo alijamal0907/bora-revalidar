@@ -355,17 +355,13 @@ export default function DashboardPage() {
           <PlanStatusCard plan={userPlan} questionsToday={questionsToday} />
         </div>
 
-        {user && (
-          <div className="mb-6 sm:mb-8 lg:mb-12">
-            <DailyGoalsSection userId={user.id} isPremium={isPremium} />
-          </div>
-        )}
+        <div className="mb-6 sm:mb-8 lg:mb-12">
+          <DailyGoalsSection userId={user.id} isPremium={isPremium} />
+        </div>
 
-        {user && (
-          <div className="mb-6 sm:mb-8 lg:mb-12">
-            <SmartReviewSection userId={user.id} />
-          </div>
-        )}
+        <div className="mb-6 sm:mb-8 lg:mb-12">
+          <SmartReviewSection userId={user.id} />
+        </div>
 
         <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8 lg:mb-12">
           <Link

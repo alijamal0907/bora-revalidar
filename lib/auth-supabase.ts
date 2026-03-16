@@ -16,15 +16,6 @@ export async function getSupabaseUser(): Promise<User | null> {
       return null
     }
 
-    // Verificar se está em modo preview
-    const isPreviewMode = localStorage.getItem("preview_mode") === "true"
-    if (isPreviewMode) {
-      const previewUser = localStorage.getItem("preview_user")
-      if (previewUser) {
-        return JSON.parse(previewUser)
-      }
-    }
-
     const supabase = getSupabaseClient()
     const {
       data: { session },
@@ -50,11 +41,6 @@ export async function getSupabaseUser(): Promise<User | null> {
 export async function signUpSupabase(email: string, password: string): Promise<User | null> {
   try {
     const supabase = getSupabaseClient()
-    
-    if (!supabase) {
-      throw new Error("Erro de conexão. Por favor, tente novamente.")
-    }
-    
     const response = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -64,52 +50,32 @@ export async function signUpSupabase(email: string, password: string): Promise<U
     const data = await response.json()
 
     if (!response.ok) {
-      // Traduzir mensagens de erro comuns
-      if (data.error?.includes("already registered")) {
-        throw new Error("Este e-mail já está cadastrado")
-      }
-      throw new Error(data.error || "Erro ao criar conta")
+      throw new Error(data.error || "Signup failed")
     }
 
     if (!data.user) {
-      throw new Error("Não foi possível criar a conta. Tente novamente.")
+      throw new Error("No user returned from signup")
     }
 
-    // Auto login after signup usando API route
-    try {
-      const loginResponse = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
+    // Auto login after signup
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.signInWithPassword({ email, password })
 
-      const loginData = await loginResponse.json()
-
-      if (loginResponse.ok && loginData.user && loginData.session) {
-        // Atualizar sessao no cliente
-        const supabase = getSupabaseClient()
-        if (supabase) {
-          await supabase.auth.setSession({
-            access_token: loginData.session.access_token,
-            refresh_token: loginData.session.refresh_token,
-          })
-        }
-
-        return {
-          id: loginData.user.id,
-          email: loginData.user.email || "",
-          usuario_id: loginData.user.id,
-        }
+    if (error || !user) {
+      // Return user even if auto-login fails
+      return {
+        id: data.user.id,
+        email: data.user.email || "",
+        usuario_id: data.user.id,
       }
-    } catch {
-      // Se auto-login falhar, retorna usuario sem sessao
     }
 
-    // Return user even if auto-login fails
     return {
-      id: data.user.id,
-      email: data.user.email || "",
-      usuario_id: data.user.id,
+      id: user.id,
+      email: user.email || "",
+      usuario_id: user.id,
     }
   } catch (error: any) {
     console.error("Signup error:", error)
@@ -119,46 +85,26 @@ export async function signUpSupabase(email: string, password: string): Promise<U
 
 export async function signInSupabase(email: string, password: string): Promise<User | null> {
   try {
-    // Usar API route para evitar problemas de CORS/rede no ambiente de preview
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    })
-
-    const data = await response.json()
-
-    if (!response.ok) {
-      // Detectar erro de rede do ambiente de preview
-      if (data.error?.includes("fetch failed") || data.error?.includes("ENOTFOUND")) {
-        throw new Error("Ambiente de preview com acesso limitado. O login funcionará após o deploy para produção.")
-      }
-      throw new Error(data.error || "Erro ao fazer login")
-    }
-
-    if (!data.user) {
-      throw new Error("Não foi possível fazer login. Tente novamente.")
-    }
-
-    // Atualizar sessao no cliente
     const supabase = getSupabaseClient()
-    if (supabase && data.session) {
-      await supabase.auth.setSession({
-        access_token: data.session.access_token,
-        refresh_token: data.session.refresh_token,
-      })
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.signInWithPassword({ email, password })
+
+    if (error) {
+      throw error
+    }
+
+    if (!user) {
+      throw new Error("No user returned from login")
     }
 
     return {
-      id: data.user.id,
-      email: data.user.email || "",
-      usuario_id: data.user.id,
+      id: user.id,
+      email: user.email || "",
+      usuario_id: user.id,
     }
-  } catch (error: any) {
-    // Detectar erro de rede do ambiente de preview
-    if (error?.message?.includes("fetch failed") || error?.message?.includes("ENOTFOUND")) {
-      throw new Error("Ambiente de preview com acesso limitado. O login funcionará após o deploy para produção.")
-    }
+  } catch (error) {
     console.error("Login error:", error)
     throw error
   }
@@ -166,12 +112,6 @@ export async function signInSupabase(email: string, password: string): Promise<U
 
 export async function signOutSupabase(): Promise<void> {
   try {
-    // Limpar modo preview se existir
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("preview_mode")
-      localStorage.removeItem("preview_user")
-    }
-    
     const supabase = getSupabaseClient()
     await supabase.auth.signOut()
   } catch (error) {
