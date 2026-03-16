@@ -81,45 +81,35 @@ function StudyInner() {
 
   useEffect(() => {
     const checkDailyLimit = async () => {
-      console.log("[v0] 🔍 Iniciando checkDailyLimit")
       try {
         const currentUser = await getSupabaseUser()
-        console.log("[v0] 👤 Current user:", currentUser?.email)
-
         if (!currentUser) {
-          console.log("[v0] ❌ Sem usuário, redirecionando para login")
           router.push("/login")
           return
         }
         setUser(currentUser)
 
         const plan = await getUserPlan(currentUser.email)
-        console.log("[v0] 📋 Plano do usuário:", plan)
         setUserPlan(plan)
 
         if (plan === "free") {
           const todayCount = await getDailyQuestionCount(currentUser.id)
-          console.log("[v0] 📊 Questões de hoje:", todayCount)
           setDailyQuestionsCount(todayCount)
 
           if (hasReachedDailyLimit(todayCount, plan)) {
-            console.log("[v0] 🚫 Limite diário atingido")
             setIsBlocked(true)
             setIsLoading(false)
             return
           }
 
           const remaining = getRemainingQuestions(todayCount, plan)
-          console.log("[v0] ⏳ Questões restantes:", remaining)
           if (remaining !== "unlimited" && remaining < 15) {
             setNumQuestions(remaining)
           }
         }
 
-        console.log("[v0] ✅ CheckDailyLimit concluído")
         setIsLoading(false)
       } catch (error) {
-        console.error("[v0] ❌ Error checking daily limit:", error)
         setIsLoading(false)
       }
     }
@@ -133,9 +123,11 @@ function StudyInner() {
     const subtemaParam = searchParams.get('subtema')
     if (areaParam && !isLoading) {
       setSelectedMateria(areaParam)
-      if (subtemaParam) setSelectedSubtemas([subtemaParam])
-      setSelectionMode(subtemaParam ? 'tema_subtema' : 'materia')
-      setSelectedGrandeArea(areaParam)
+      setSelectedGrandeArea(areaParam)        // dispara carregamento de subtemas via outro useEffect
+      setSelectionMode('tema_subtema')
+      if (subtemaParam) {
+        setSelectedSubtemas([subtemaParam])   // pré-seleciona o subtema do plano
+      }
       setStudyMode('settings')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,46 +141,31 @@ function StudyInner() {
         try {
           const subtemas = await getSubtemasByTema(selectedGrandeArea)
           setAvailableSubtemas(subtemas)
-          // Só limpar seleção se não veio da URL (URL já definiu selectedSubtemas)
-          if (!searchParams.get('subtema')) {
+          // Só limpa selectedSubtemas se não veio seleção prévia da URL
+          const urlSubtema = new URLSearchParams(window.location.search).get('subtema')
+          if (!urlSubtema) {
             setSelectedSubtemas([])
           }
         } catch (error) {
-          console.error("[v0] Erro ao carregar subtemas:", error)
           setAvailableSubtemas([])
         }
         setLoadingSubtemas(false)
       } else {
         setAvailableSubtemas([])
-        setSelectedSubtemas([])
+        if (!searchParams.get('area')) setSelectedSubtemas([])
       }
     }
-
     loadSubtemas()
   }, [selectedGrandeArea, selectionMode])
 
   const loadStudyCards = async (overrideParams?: { mode: "tema_subtema" | "materia"; area: string; subtemas: string[] }) => {
-    console.log("[v0] 📚 Iniciando loadStudyCards com espaçamento repetido")
-    console.log("[v0] Estado atual - materia:", selectedMateria, "temas:", selectedTemas)
-
     try {
       const currentUser = await getSupabaseUser()
-      console.log("[v0] 👤 Current user:", currentUser?.email)
-
-      if (!currentUser) {
-        console.log("[v0] ❌ Sem usuário, redirecionando")
-        router.push("/login")
-        return
-      }
+      if (!currentUser) { router.push("/login"); return }
 
       const plan = await getUserPlan(currentUser.email)
-      console.log("[v0] 📋 Plano verificado para limites:", plan)
       setUserPlan(plan)
-
-      if (plan === "premium") {
-        console.log("[v0] ✨ Usuário PREMIUM - questões ILIMITADAS, nunca bloquear")
-        setIsBlocked(false)
-      }
+      if (plan === "premium") setIsBlocked(false)
 
       const userId = currentUser.id || currentUser.usuario_id
       const [wrongQuestionIds, correctQuestionIds] = await Promise.all([
@@ -196,7 +173,6 @@ function StudyInner() {
         getCorrectlyAnsweredQuestions(userId),
       ])
 
-      // Usar os parâmetros override vindos da URL (evita problema de closure com estado React)
       let allQuestions: any[]
       const effectiveMode = overrideParams?.mode ?? selectionMode
       const effectiveArea = overrideParams?.area ?? selectedGrandeArea
@@ -204,7 +180,6 @@ function StudyInner() {
 
       if (effectiveMode === "tema_subtema" && effectiveArea) {
         allQuestions = await getQuestionsByTemaAndSubtemas(effectiveArea, effectiveSubtemas)
-        // Fallback: se subtema não encontrou questões, busca todas da área
         if (allQuestions.length === 0) {
           allQuestions = await getStudyQuestions(effectiveArea, [])
         }
@@ -214,54 +189,23 @@ function StudyInner() {
         allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
       }
 
-      // 1. Separar questões em três grupos mutuamente exclusivos
-      // wrongQuestions tem prioridade: se foi errada alguma vez, vai para esse grupo
-      const wrongQuestions = allQuestions.filter((q) => wrongQuestionIds.includes(q.id))
       const wrongIds = new Set(wrongQuestionIds)
-      // correctQuestions exclui as que também estão em wrongQuestions (evita duplicação)
-      const correctQuestions = allQuestions.filter(
-        (q) => correctQuestionIds.includes(q.id) && !wrongIds.has(q.id),
-      )
-      const newQuestions = allQuestions.filter(
-        (q) => !wrongQuestionIds.includes(q.id) && !correctQuestionIds.includes(q.id),
-      )
+      const wrongQuestions = allQuestions.filter((q) => wrongIds.has(q.id))
+      const correctQuestions = allQuestions.filter((q) => correctQuestionIds.includes(q.id) && !wrongIds.has(q.id))
+      const newQuestions = allQuestions.filter((q) => !wrongIds.has(q.id) && !correctQuestionIds.includes(q.id))
 
-      // 2. Embaralhar cada grupo separadamente
-      const shuffledWrong = [...wrongQuestions].sort(() => Math.random() - 0.5)
-      const shuffledNew = [...newQuestions].sort(() => Math.random() - 0.5)
-      const shuffledCorrect = [...correctQuestions].sort(() => Math.random() - 0.5)
-
-      // 3. Montar lista final com prioridade: erradas > novas > já acertadas
       const prioritizedQuestions = [
-        ...shuffledWrong,
-        ...shuffledNew,
-        ...shuffledCorrect,
+        ...wrongQuestions.sort(() => Math.random() - 0.5),
+        ...newQuestions.sort(() => Math.random() - 0.5),
+        ...correctQuestions.sort(() => Math.random() - 0.5),
       ]
 
-      let questionsToStudy = prioritizedQuestions
-      if (plan === "free") {
-        questionsToStudy = prioritizedQuestions.slice(0, 15)
-      } else {
-        questionsToStudy = prioritizedQuestions.slice(0, numQuestions)
-      }
-
-      console.log("[v0] 📋 Composição final do estudo:")
-      const finalWrong = questionsToStudy.filter((q) => wrongQuestionIds.includes(q.id)).length
-      const finalNew = questionsToStudy.filter(
-        (q) => !wrongQuestionIds.includes(q.id) && !correctQuestionIds.includes(q.id),
-      ).length
-      const finalCorrect = questionsToStudy.filter((q) => correctQuestionIds.includes(q.id)).length
-      console.log("[v0]    ❌ Erradas:", finalWrong)
-      console.log("[v0]    🆕 Novas:", finalNew)
-      console.log("[v0]    ✓ Revisão:", finalCorrect)
-
-      setQuestions(questionsToStudy)
+      const limit = plan === "free" ? 15 : numQuestions
+      setQuestions(prioritizedQuestions.slice(0, limit))
       setCurrentIndex(0)
       setStudyMode("questions")
-      console.log("[v0] ✅ Questões carregadas com espaçamento repetido, mudando para modo 'questions'")
       setIsLoading(false)
     } catch (error) {
-      console.error("[v0] ❌ Error loading study cards:", error)
       setIsLoading(false)
     }
   }
@@ -339,19 +283,7 @@ function StudyInner() {
 
   const isCorrect = selectedAnswer === correctLetter
 
-  console.log(
-    "[v0] 🎨 Renderizando - isLoading:",
-    isLoading,
-    "isBlocked:",
-    isBlocked,
-    "studyMode:",
-    studyMode,
-    "questions.length:",
-    questions.length,
-  )
-
   if (isLoading) {
-    console.log("[v0] ⏳ Renderizando loading...")
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
@@ -363,7 +295,6 @@ function StudyInner() {
   }
 
   if (isBlocked) {
-    console.log("[v0] 🚫 Renderizando tela de bloqueio")
     const hoursUntilReset = 24 - new Date().getHours()
 
     return (
@@ -424,45 +355,78 @@ function StudyInner() {
     const fromPlan = searchParams.get('area')
     const fromPlanSubtema = searchParams.get('subtema')
 
-    // Tela simplificada quando vem do Plano de Estudos
+    // Tela do Plano de Estudos: selecionar subtema + quantidade
     if (fromPlan && selectedMateria) {
       return (
         <div className="min-h-screen bg-background">
           <Navbar user={user} />
-          <main className="max-w-2xl mx-auto px-4 py-12">
+          <main className="max-w-2xl mx-auto px-4 py-10">
             <button
               onClick={() => router.push("/estudo-gamificado")}
-              className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors text-sm"
             >
               <ArrowLeft className="w-4 h-4" />
               Voltar ao Plano de Estudos
             </button>
 
-            <div className="bg-card border border-border rounded-xl p-6 sm:p-8">
-              <div className="mb-6">
-                <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">Plano de Estudos</p>
-                <h1 className="text-2xl sm:text-3xl font-bold mb-1">{selectedMateria}</h1>
-                {fromPlanSubtema && (
-                  <p className="text-sm text-muted-foreground mt-1 bg-muted/40 rounded-lg px-3 py-2 inline-block">
-                    Subtema: <strong>{fromPlanSubtema}</strong>
-                  </p>
-                )}
-                <p className="text-muted-foreground text-sm mt-2">Selecione a quantidade de questões para iniciar</p>
+            <div className="bg-card border border-border rounded-xl p-6 sm:p-8 space-y-7">
+              {/* Cabeçalho */}
+              <div>
+                <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-1">Plano de Estudos</p>
+                <h1 className="text-2xl font-bold">{selectedMateria}</h1>
+                <p className="text-sm text-muted-foreground mt-1">Escolha o subtema e a quantidade de questões</p>
+              </div>
+
+              {/* Seleção de subtema */}
+              <div>
+                <label className="block text-sm font-medium mb-3">
+                  Subtema
+                  {loadingSubtemas && <span className="ml-2 text-xs text-muted-foreground">Carregando...</span>}
+                </label>
+                {!loadingSubtemas && availableSubtemas.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Opção "Todos os subtemas" */}
+                    <button
+                      onClick={() => setSelectedSubtemas([])}
+                      className={`px-4 py-3 rounded-lg border-2 text-left text-sm font-medium transition-all ${
+                        selectedSubtemas.length === 0
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border hover:border-primary/40"
+                      }`}
+                    >
+                      Todos os subtemas
+                    </button>
+                    {availableSubtemas.map(({ subtema }) => (
+                      <button
+                        key={subtema}
+                        onClick={() => setSelectedSubtemas([subtema])}
+                        className={`px-4 py-3 rounded-lg border-2 text-left text-sm transition-all ${
+                          selectedSubtemas.includes(subtema)
+                            ? "border-primary bg-primary/10 text-primary font-medium"
+                            : "border-border hover:border-primary/40"
+                        }`}
+                      >
+                        {subtema}
+                      </button>
+                    ))}
+                  </div>
+                ) : !loadingSubtemas ? (
+                  <p className="text-sm text-muted-foreground">Nenhum subtema encontrado para esta área.</p>
+                ) : null}
               </div>
 
               {/* Seleção de quantidade */}
-              <div className="mb-8">
-                <label className="block text-sm font-medium mb-3">Quantas questões?</label>
-                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-3">Quantidade de questões</label>
+                <div className="flex flex-wrap gap-3">
                   {[5, 10, 15, 20, 30].map((n) => {
-                    const limit = userPlan === "free" ? Math.min(n, numQuestions) : n
                     const disabled = userPlan === "free" && n > numQuestions
                     return (
                       <button
                         key={n}
                         disabled={disabled}
                         onClick={() => setNumQuestions(n)}
-                        className={`py-3 rounded-lg border-2 font-bold text-lg transition-all ${
+                        className={`w-14 py-3 rounded-lg border-2 font-bold text-base transition-all ${
                           numQuestions === n
                             ? "border-primary bg-primary/10 text-primary"
                             : disabled
@@ -477,16 +441,23 @@ function StudyInner() {
                 </div>
                 {userPlan === "free" && (
                   <p className="text-xs text-muted-foreground mt-2">
-                    Plano FREE: máximo {numQuestions} questões restantes hoje
+                    Plano FREE: {numQuestions} questões restantes hoje
                   </p>
                 )}
               </div>
 
               <button
-                onClick={() => handleStartStudy(fromPlan, fromPlanSubtema || undefined)}
-                className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl text-lg hover:bg-primary/90 transition-colors"
+                onClick={() =>
+                  handleStartStudy(
+                    fromPlan,
+                    selectedSubtemas.length === 1 ? selectedSubtemas[0] : undefined
+                  )
+                }
+                className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl text-base hover:bg-primary/90 transition-colors"
               >
-                Iniciar Estudo
+                {selectedSubtemas.length === 1
+                  ? `Iniciar — ${selectedSubtemas[0]}`
+                  : "Iniciar — Todos os subtemas"}
               </button>
             </div>
           </main>
