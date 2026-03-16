@@ -160,13 +160,13 @@ function StudyInner() {
   }, [selectedGrandeArea, selectionMode])
 
   const loadStudyCards = async (overrideParams?: { mode: "tema_subtema" | "materia"; area: string; subtemas: string[] }) => {
+    setIsLoading(true)
     try {
       const currentUser = await getSupabaseUser()
       if (!currentUser) { router.push("/login"); return }
 
       const plan = await getUserPlan(currentUser.email)
       setUserPlan(plan)
-      if (plan === "premium") setIsBlocked(false)
 
       const userId = currentUser.id || currentUser.usuario_id
       const [wrongQuestionIds, correctQuestionIds] = await Promise.all([
@@ -174,27 +174,26 @@ function StudyInner() {
         getCorrectlyAnsweredQuestions(userId),
       ])
 
-      const effectiveMode    = overrideParams?.mode     ?? selectionMode
       const effectiveArea    = overrideParams?.area     ?? selectedGrandeArea
       const effectiveSubtemas = overrideParams?.subtemas ?? selectedSubtemas
 
       let allQuestions: any[] = []
 
-      // Vindo do plano: usar a API server-side (evita race condition de estado)
-      if (effectiveArea && (effectiveMode === "tema_subtema" || effectiveMode === "materia")) {
-        const subtema = effectiveSubtemas.length === 1 ? effectiveSubtemas[0] : ""
-        const url = `/api/questoes-subtema?area=${encodeURIComponent(effectiveArea)}${subtema ? `&subtema=${encodeURIComponent(subtema)}` : ""}`
-        const res = await fetch(url)
-        const json = await res.json()
-        allQuestions = json.questoes || []
+      if (effectiveArea) {
+        // Usa a mesma função do fluxo normal: getQuestionsByTemaAndSubtemas
+        allQuestions = await getQuestionsByTemaAndSubtemas(effectiveArea, effectiveSubtemas)
+        // Fallback: se não achou nada com subtema, pega todos da área
+        if (allQuestions.length === 0) {
+          allQuestions = await getStudyQuestions(effectiveArea, [])
+        }
       } else {
         allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
       }
 
       const wrongIds = new Set(wrongQuestionIds)
-      const wrongQuestions  = allQuestions.filter(q => wrongIds.has(q.id))
+      const wrongQuestions   = allQuestions.filter(q => wrongIds.has(q.id))
       const correctQuestions = allQuestions.filter(q => correctQuestionIds.includes(q.id) && !wrongIds.has(q.id))
-      const newQuestions    = allQuestions.filter(q => !wrongIds.has(q.id) && !correctQuestionIds.includes(q.id))
+      const newQuestions     = allQuestions.filter(q => !wrongIds.has(q.id) && !correctQuestionIds.includes(q.id))
 
       const prioritized = [
         ...wrongQuestions.sort(() => Math.random() - 0.5),
@@ -207,8 +206,7 @@ function StudyInner() {
       setCurrentIndex(0)
       setStudyMode("questions")
       setIsLoading(false)
-    } catch (err) {
-      console.error("[v0] Erro em loadStudyCards:", err)
+    } catch {
       setIsLoading(false)
     }
   }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { Navbar } from "@/components/navbar"
 import { ArrowLeft, BookOpen, Loader2 } from "lucide-react"
+import { getSubtemasByTema } from "@/lib/storage-supabase"
 
 const AREA_LABEL: Record<string, string> = {
   "Cirurgia": "Clínica Cirúrgica",
@@ -39,16 +40,8 @@ export function PlanStudySettings({
       setLoading(true)
       setError(null)
       try {
-        const res = await fetch(
-          `/api/questoes-subtema?area=${encodeURIComponent(area)}&only_subtemas=1`
-        )
-        const json = await res.json()
-        if (json.error) {
-          setError(json.error)
-          setSubtemas([])
-        } else {
-          setSubtemas(json.subtemas || [])
-        }
+        const result = await getSubtemasByTema(area)
+        setSubtemas(result.map(r => r.subtema))
       } catch {
         setError("Falha ao carregar subtemas.")
         setSubtemas([])
