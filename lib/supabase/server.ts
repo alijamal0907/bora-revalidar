@@ -11,8 +11,6 @@ export async function createClient() {
     throw new Error("Missing Supabase environment variables. Please check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY")
   }
 
-  console.log("[v0] Server Supabase URL:", supabaseUrl.substring(0, 30) + "...")
-
   return createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {

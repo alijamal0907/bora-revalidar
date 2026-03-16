@@ -120,6 +120,10 @@ export async function signInSupabase(email: string, password: string): Promise<U
     const data = await response.json()
 
     if (!response.ok) {
+      // Detectar erro de rede do ambiente de preview
+      if (data.error?.includes("fetch failed") || data.error?.includes("ENOTFOUND")) {
+        throw new Error("Ambiente de preview com acesso limitado. O login funcionará após o deploy para produção.")
+      }
       throw new Error(data.error || "Erro ao fazer login")
     }
 
@@ -142,6 +146,10 @@ export async function signInSupabase(email: string, password: string): Promise<U
       usuario_id: data.user.id,
     }
   } catch (error: any) {
+    // Detectar erro de rede do ambiente de preview
+    if (error?.message?.includes("fetch failed") || error?.message?.includes("ENOTFOUND")) {
+      throw new Error("Ambiente de preview com acesso limitado. O login funcionará após o deploy para produção.")
+    }
     console.error("Login error:", error)
     throw error
   }
