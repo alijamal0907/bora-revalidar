@@ -60,22 +60,33 @@ export async function POST(req: Request) {
       if (!userId || !records?.length)
         return NextResponse.json({ error: 'userId e records obrigatórios' }, { status: 400 })
 
-      // Verificar se já existe com as áreas corretas
+      // Verificar se já existe progresso com subtemas corretos (novos)
       const { data: existing } = await supabase
         .from('user_progress')
-        .select('id, area_name')
+        .select('id, area_name, subtopic_name')
         .eq('user_id', userId)
         .limit(20)
 
       if (existing && existing.length > 0) {
-        // Verificar se o progresso existente usa as áreas novas (com "Ginecologia e Obstetrícia")
-        const hasNewAreas = existing.some(
-          (r: any) => r.area_name === 'Ginecologia e Obstetrícia'
+        // Verificar se os subtemas são os novos (reais do banco)
+        // Um subtema novo nunca contém parênteses — ex: 'Cardiologia', não 'Doenças (IAM, ICC)'
+        const hasOldSubtemas = existing.some(
+          (r: any) =>
+            !r.subtopic_name ||
+            r.subtopic_name.includes('(') ||
+            r.subtopic_name === r.area_name ||
+            r.area_name === 'Ginecologia' ||
+            r.area_name === 'Obstetrícia' ||
+            r.subtopic_name.includes('Revisão geral') ||
+            r.subtopic_name.includes('Simulados')
         )
-        if (hasNewAreas) {
+
+        if (!hasOldSubtemas) {
+          // Subtemas já estão corretos
           return NextResponse.json({ success: true, skipped: true })
         }
-        // Progresso antigo detectado — deletar e recriar com os subtemas corretos
+
+        // Deletar progresso antigo e recriar com subtemas corretos
         await supabase.from('user_progress').delete().eq('user_id', userId)
       }
 
