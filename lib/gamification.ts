@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { initializeUserStudyPlan as initializePlan, STUDY_PLAN_STRUCTURE, getQuestionsForModule, getFlashcardsForModule } from '@/lib/study-plan-complete'
 
 // Tipos
 export interface UserProgress {
@@ -267,48 +268,8 @@ function generateMockProgress(userId: string): UserProgress[] {
  */
 export async function initializeStudyPlan(userId: string) {
   try {
-    const supabase = await createClient()
-
-    // Verificar se tabela existe
-    if (!(await tableExists(supabase, 'user_progress'))) {
-      console.log('[gamification] Tabela user_progress não existe ainda')
-      return
-    }
-
-    // Verificar se já existe progresso
-    const { data: existing } = await supabase
-      .from('user_progress')
-      .select('id')
-      .eq('user_id', userId)
-      .limit(1)
-
-    if (existing && existing.length > 0) {
-      return
-    }
-
-    // Criar 100 registros (20 semanas × 5 áreas)
-    const records: Partial<UserProgress>[] = []
-
-    for (let week = 1; week <= 20; week++) {
-      for (const area of AREAS_MEDICAS) {
-        const subtopicName = WEEKS_CONTENT[week]?.[area] || `${area} - Semana ${week}`
-
-        records.push({
-          user_id: userId,
-          week_number: week,
-          area_name: area,
-          subtopic_name: subtopicName,
-          status_completed: false,
-          completed_at: null,
-        })
-      }
-    }
-
-    const { error } = await supabase.from('user_progress').insert(records)
-
-    if (error) {
-      console.error('[gamification] Erro ao inicializar plano:', error)
-    }
+    // Usar a nova função de inicialização
+    return await initializePlan(userId)
   } catch (error) {
     console.error('[gamification] Erro em initializeStudyPlan:', error)
   }

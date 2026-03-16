@@ -472,6 +472,17 @@ export default function DashboardPage() {
           </Link>
 
           <Link
+            href="/initialize-data"
+            className="bg-gradient-to-br from-slate-600 to-slate-700 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Setup Demo</h3>
+              <Zap className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-white/90 text-xs sm:text-sm">Criar dados de teste para demonstração</p>
+          </Link>
+
+          <Link
             href="/grupo"
             className="bg-gradient-to-br from-pink-500 to-purple-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group relative"
           >
