@@ -361,13 +361,11 @@ function StudyInner() {
       return (
         <PlanStudySettings
           area={selectedMateria}
-          preselectedSubtema={searchParams.get('subtema') || undefined}
+          preselectedSubtema={searchParams.get("subtema") || undefined}
           userPlan={userPlan}
           numQuestions={numQuestions}
           onNumQuestionsChange={setNumQuestions}
-          onStart={(subtema) =>
-            handleStartStudy(fromPlan, subtema)
-          }
+          onStart={(subtema) => handleStartStudy(fromPlan, subtema || undefined)}
           onBack={() => router.push("/estudo-gamificado")}
         />
       )
