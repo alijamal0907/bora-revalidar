@@ -2,8 +2,8 @@
 
 export const dynamic = "force-dynamic"
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { MATERIAS, MATERIA_ICONS, MATERIA_DESCRIPTIONS, TEMAS_POR_MATERIA, type Materia } from "@/lib/flashcards-config"
 import { BookOpen, ArrowLeft, Brain, Zap } from "lucide-react"
@@ -12,8 +12,9 @@ import type { UserPlan } from "@/lib/plan-utils"
 
 type Step = "materia" | "tema" | "config" | "study"
 
-export default function FlashcardsPage() {
+function FlashcardsInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isMounted, setIsMounted] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -79,6 +80,20 @@ export default function FlashcardsPage() {
 
     checkAuth()
   }, [router, isMounted])
+
+  // Detectar parâmetros de URL vindos do Plano de Estudos e ir direto para estudo
+  useEffect(() => {
+    const areaParam = searchParams.get('area')
+    const subtemaParam = searchParams.get('subtema')
+
+    if (areaParam && !isLoading && isMounted) {
+      setSelectedMateria(areaParam as Materia)
+      // Se vier subtema da URL, usa; senão usa a área como fallback para o tema
+      setSelectedTema(subtemaParam || areaParam)
+      setSelectedQuantity(15)
+      setStep('study')
+    }
+  }, [searchParams, isLoading, isMounted])
 
   if (!isMounted) {
     return (
@@ -375,10 +390,10 @@ export default function FlashcardsPage() {
         )}
 
         {/* ETAPA 4: Modo de Estudo */}
-        {step === "study" && selectedMateria && selectedTema && (
+        {step === "study" && selectedMateria && (
           <FlashcardStudyMode
             materia={selectedMateria}
-            tema={selectedTema}
+            tema={selectedTema || "Todos os temas"}
             onBack={handleBack}
             userPlan={userPlan}
             onFlashcardAnswered={reloadFlashcardsCount}
@@ -391,21 +406,24 @@ export default function FlashcardsPage() {
                 getFlashcardsWithPriority 
               } = await import("@/lib/flashcards-storage")
 
-              let flashcards = []
+              let flashcards: any[] = []
 
               if (selectedMateria === "todas") {
                 flashcards = await getAllFlashcards()
-              } else if (selectedTema === "Todos os temas") {
+              } else if (!selectedTema || selectedTema === "Todos os temas") {
                 flashcards = await getAllFlashcardsByMateria(selectedMateria)
               } else {
+                // Tenta buscar por tema específico; se vazio, busca todos da matéria
                 flashcards = await getFlashcardsByMateriaAndTema(selectedMateria, selectedTema)
+                if (flashcards.length === 0) {
+                  flashcards = await getAllFlashcardsByMateria(selectedMateria)
+                }
               }
 
               // Prioriza flashcards que o usuario errou anteriormente
               if (user?.id) {
                 flashcards = await getFlashcardsWithPriority(user.id, flashcards)
               } else {
-                // Embaralha aleatoriamente se nao tiver usuario
                 flashcards = flashcards.sort(() => Math.random() - 0.5)
               }
 
@@ -420,5 +438,13 @@ export default function FlashcardsPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function FlashcardsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <FlashcardsInner />
+    </Suspense>
   )
 }

@@ -18,7 +18,7 @@ import {
 } from "@/lib/storage-supabase"
 import { useDeviceSession } from "@/hooks/use-device-session"
 import Link from "next/link"
-import { Zap, TrendingUp, Target, Calendar, Brain, Trophy, Crown, Users } from "lucide-react"
+import { Zap, TrendingUp, Target, Calendar, Brain, Trophy, Crown, Users, BookMarked, AlertTriangle } from "lucide-react"
 import { GoalSettingsButton } from "@/components/goal-settings-button"
 import { getDeviceInfo, storeDeviceId } from "@/lib/device-utils"
 import { registerDeviceSession } from "@/lib/storage-supabase"
@@ -27,6 +27,7 @@ import { getUserPlan, getDailyQuestionCount } from "@/lib/storage-supabase"
 import type { UserPlan } from "@/lib/plan-utils"
 import { getFlashcardProgressByMateria } from "@/lib/flashcards-storage"
 import { DailyGoalsSection } from "@/components/daily-goals-section"
+import { SmartReviewSection } from "@/components/smart-review-section"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -354,11 +355,30 @@ export default function DashboardPage() {
           <PlanStatusCard plan={userPlan} questionsToday={questionsToday} />
         </div>
 
-        <div className="mb-6 sm:mb-8 lg:mb-12">
-          <DailyGoalsSection userId={user.id} isPremium={isPremium} />
-        </div>
+        {user && (
+          <div className="mb-6 sm:mb-8 lg:mb-12">
+            <DailyGoalsSection userId={user.id} isPremium={isPremium} />
+          </div>
+        )}
+
+        {user && (
+          <div className="mb-6 sm:mb-8 lg:mb-12">
+            <SmartReviewSection userId={user.id} />
+          </div>
+        )}
 
         <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8 lg:mb-12">
+          <Link
+            href="/estudo-gamificado"
+            className="bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Plano de Estudos</h3>
+              <BookMarked className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-white/90 text-xs sm:text-sm">Trilha de 20 semanas estruturada para Revalida</p>
+          </Link>
+
           <Link
             href="/study"
             className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group border border-primary/20"
@@ -428,6 +448,29 @@ export default function DashboardPage() {
             </div>
             <p className="text-white/90 text-xs sm:text-sm">Veja suas conquistas e progresso de badges</p>
           </Link>
+
+          <Link
+            href="/ranking-semanal"
+            className="bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Ranking</h3>
+              <Trophy className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-white/90 text-xs sm:text-sm">Compete com outros estudantes do Revalida</p>
+          </Link>
+
+          <Link
+            href="/pontos-fracos"
+            className="bg-gradient-to-br from-red-500 to-rose-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Pontos Fracos</h3>
+              <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-white/90 text-xs sm:text-sm">Identifique temas com mais dificuldade</p>
+          </Link>
+
 
           <Link
             href="/grupo"

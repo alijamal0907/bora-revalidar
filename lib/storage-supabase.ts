@@ -343,15 +343,37 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
 
 const MATERIA_VARIATIONS: { [key: string]: string[] } = {
   "Clínica Médica": ["Clínica Médica", "clinica medica", "Clinica Medica"],
-  "Clínica Cirúrgica": ["Clínica Cirúrgica", "clinica cirurgica", "Cirurgia"],
-  Pediatria: ["Pediatria", "pediatria"],
+  "Clínica Cirúrgica": ["Clínica Cirúrgica", "clinica cirurgica", "Cirurgia", "Clínica Cirurgica"],
+  "Cirurgia": ["Cirurgia", "Clínica Cirúrgica", "clinica cirurgica", "Clínica Cirurgica"],
+  "Pediatria": ["Pediatria", "pediatria"],
   "Ginecologia e Obstetrícia": [
     "Ginecologia e Obstetrícia",
     "Ginecologia e obstetrícia",
     "ginecologia e obstetricia",
     "Ginecologia",
+    "Obstetrícia",
+    "obstetricia",
   ],
-  "Medicina Preventiva": ["Medicina Preventiva", "medicina preventiva"],
+  "Ginecologia": [
+    "Ginecologia",
+    "Ginecologia e Obstetrícia",
+    "Ginecologia e obstetrícia",
+    "ginecologia e obstetricia",
+  ],
+  "Obstetrícia": [
+    "Obstetrícia",
+    "Ginecologia e Obstetrícia",
+    "Ginecologia e obstetrícia",
+    "ginecologia e obstetricia",
+    "obstetricia",
+  ],
+  "Medicina Preventiva": [
+    "Medicina Preventiva",
+    "medicina preventiva",
+    "Saúde Coletiva",
+    "saude coletiva",
+    "Medicina de Família",
+  ],
 }
 
 export async function getStudyQuestions(materia: string | null, temas: string[] = []): Promise<any[]> {
@@ -465,14 +487,9 @@ export async function getQuestionsByTemaAndSubtemas(
 ): Promise<any[]> {
   try {
     const variations = MATERIA_VARIATIONS[tema] || [tema]
-
     let allResults: any[] = []
 
     if (subtemaTexts && subtemaTexts.length > 0) {
-      // Filtrar diretamente no banco usando .in() com os textos exatos dos subtemas.
-      // A getSubtemasByTema já normaliza os textos com .trim(), então os valores
-      // em selectedSubtemas correspondem exatamente ao subtema.trim() do banco.
-      // Usamos também as variantes com espaços para tolerância.
       const normalizedTexts = subtemaTexts.map((t) => t.trim())
 
       const { data, error } = await getSupabaseClient()
@@ -482,10 +499,7 @@ export async function getQuestionsByTemaAndSubtemas(
         .in("subtema", normalizedTexts)
         .limit(5000)
 
-      if (error) {
-        console.error("Error fetching questions by subtema:", error)
-        return []
-      }
+      if (error) return []
 
       allResults = data || []
 
@@ -496,7 +510,7 @@ export async function getQuestionsByTemaAndSubtemas(
             .from("questoes")
             .select("*")
             .in("tema", variations)
-            .ilike("subtema", subtemaText)
+            .ilike("subtema", `%${subtemaText}%`)
             .limit(5000)
         )
         const results = await Promise.all(ilikePromises)
@@ -512,10 +526,7 @@ export async function getQuestionsByTemaAndSubtemas(
         .in("tema", variations)
         .limit(2000)
 
-      if (error) {
-        console.error("Error fetching all questions for tema:", error)
-        return []
-      }
+      if (error) return []
       allResults = data || []
     }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signInSupabase, signUpSupabase, sendPasswordResetOTP, verifyOTPAndResetPassword } from "@/lib/auth-supabase"
 import { registerDeviceSession } from "@/lib/storage-supabase"
@@ -14,6 +14,14 @@ import { ThemeToggleButton } from "@/components/theme-toggle-button"
 export const dynamic = "force-dynamic"
 
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <LoginInner />
+    </Suspense>
+  )
+}
+
+function LoginInner() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [name, setName] = useState("")
