@@ -1,12 +1,7 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { differenceInDays, addDays } from 'date-fns'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-const supabase = createClient(supabaseUrl, supabaseKey)
 
 export interface ReviewItem {
   id: string
@@ -23,31 +18,54 @@ export interface ReviewItem {
 }
 
 /**
- * Algoritmo de Espaçamento de Revisão (SM-2 melhorado)
+ * Algoritmo de Espacamento de Revisao (SM-2 melhorado)
  * Baseado em: https://en.wikipedia.org/wiki/Spaced_repetition#SM-2
  *
  * Regras:
- * - Erro 1ª vez: revisar em 1 dia
+ * - Erro 1a vez: revisar em 1 dia
  * - Erro novamente: revisar em 3 dias
  * - Depois: 7 dias
  * - Depois: 15 dias
  * - Depois: 30 dias
  */
 
-const REVIEW_INTERVALS = {
-  0: 1, // Primeira revisão em 1 dia
-  1: 3, // Segunda revisão em 3 dias
-  2: 7, // Terceira revisão em 7 dias
-  3: 15, // Quarta revisão em 15 dias
-  4: 30, // Quinta revisão em 30 dias
-  5: 60, // Sexta revisão em 60 dias
+const REVIEW_INTERVALS: Record<number, number> = {
+  0: 1, // Primeira revisao em 1 dia
+  1: 3, // Segunda revisao em 3 dias
+  2: 7, // Terceira revisao em 7 dias
+  3: 15, // Quarta revisao em 15 dias
+  4: 30, // Quinta revisao em 30 dias
+  5: 60, // Sexta revisao em 60 dias
+}
+
+// Helper para verificar se tabela existe
+async function tableExists(supabase: any, tableName: string): Promise<boolean> {
+  try {
+    const { error } = await supabase.from(tableName).select('id').limit(1)
+    if (error && (error.code === '42P01' || error.message?.includes('does not exist'))) {
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**
- * Obter itens vencidos para revisão
+ * Obter itens vencidos para revisao
  */
-export async function getDueReviewItems(userId: string, contentType?: 'questao' | 'flashcard'): Promise<ReviewItem[]> {
+export async function getDueReviewItems(
+  userId: string,
+  contentType?: 'questao' | 'flashcard'
+): Promise<ReviewItem[]> {
   try {
+    const supabase = await createClient()
+
+    // Verificar se tabela existe
+    if (!(await tableExists(supabase, 'review_schedule'))) {
+      return []
+    }
+
     let query = supabase
       .from('review_schedule')
       .select('*')
@@ -61,31 +79,41 @@ export async function getDueReviewItems(userId: string, contentType?: 'questao' 
 
     const { data, error } = await query.limit(20)
 
-    if (error) throw error
+    if (error) {
+      console.error('[spaced-repetition] Erro ao buscar itens de revisao:', error)
+      return []
+    }
+
     return (data as ReviewItem[]) || []
   } catch (error) {
-    console.error('[v0] Erro ao buscar itens de revisão:', error)
+    console.error('[spaced-repetition] Erro em getDueReviewItems:', error)
     return []
   }
 }
 
 /**
- * Registrar resultado de revisão e atualizar agendamento
- *
- * @param userId - ID do usuário
- * @param contentId - ID do conteúdo
- * @param contentType - Tipo de conteúdo
- * @param isCorrect - Se a resposta estava correta
- * @param quality - Qualidade da resposta (0-5): 0=completo erro, 5=perfeito
+ * Registrar resultado de revisao e atualizar agendamento
  */
 export async function recordReviewResult(
   userId: string,
   contentId: string,
   contentType: 'questao' | 'flashcard',
   isCorrect: boolean,
-  quality: number = isCorrect ? 4 : 1,
+  quality: number = isCorrect ? 4 : 1
 ) {
   try {
+    const supabase = await createClient()
+
+    // Verificar se tabela existe
+    if (!(await tableExists(supabase, 'review_schedule'))) {
+      console.log('[spaced-repetition] Tabela review_schedule nao existe')
+      return {
+        nextReviewDate: addDays(new Date(), isCorrect ? 7 : 1),
+        interval: isCorrect ? 7 : 1,
+        easeFactor: 2.5,
+      }
+    }
+
     // Validar qualidade
     const q = Math.max(0, Math.min(5, quality))
 
@@ -99,7 +127,7 @@ export async function recordReviewResult(
       .single()
 
     if (fetchError && fetchError.code !== 'PGRST116') {
-      throw fetchError
+      console.error('[spaced-repetition] Erro ao buscar review:', fetchError)
     }
 
     const currentReview = existingReview as ReviewItem | null
@@ -116,10 +144,7 @@ export async function recordReviewResult(
       reviewCount = 1
     } else {
       reviewCount = (currentReview.review_count || 0) + 1
-      newEaseFactor = Math.max(
-        1.3,
-        currentReview.ease_factor + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02),
-      )
+      newEaseFactor = Math.max(1.3, currentReview.ease_factor + 0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
 
       if (q < 3) {
         // Resposta incorreta - resetar para 1 dia
@@ -127,11 +152,11 @@ export async function recordReviewResult(
       } else {
         // Resposta correta - aplicar intervalo
         const intervalIndex = Math.min(reviewCount - 1, 5)
-        newInterval = REVIEW_INTERVALS[intervalIndex as keyof typeof REVIEW_INTERVALS] || 30
+        newInterval = REVIEW_INTERVALS[intervalIndex] || 30
       }
     }
 
-    // Calcular próxima data de revisão
+    // Calcular proxima data de revisao
     const nextReviewDate = addDays(new Date(), newInterval)
 
     // Upsert no banco
@@ -149,17 +174,12 @@ export async function recordReviewResult(
       },
       {
         onConflict: 'user_id,content_type,content_id',
-      },
+      }
     )
 
-    if (upsertError) throw upsertError
-
-    console.log('[v0] Resultado de revisão registrado:', {
-      contentId,
-      quality: q,
-      nextInterval: newInterval,
-      easeFactor: newEaseFactor,
-    })
+    if (upsertError) {
+      console.error('[spaced-repetition] Erro ao upsert review:', upsertError)
+    }
 
     return {
       nextReviewDate,
@@ -167,60 +187,81 @@ export async function recordReviewResult(
       easeFactor: newEaseFactor,
     }
   } catch (error) {
-    console.error('[v0] Erro ao registrar resultado de revisão:', error)
-    throw error
+    console.error('[spaced-repetition] Erro em recordReviewResult:', error)
+    return {
+      nextReviewDate: addDays(new Date(), isCorrect ? 7 : 1),
+      interval: isCorrect ? 7 : 1,
+      easeFactor: 2.5,
+    }
   }
 }
 
 /**
- * Obter estatísticas de revisão do usuário
+ * Obter estatisticas de revisao do usuario
  */
 export async function getReviewStats(userId: string) {
-  try {
-    const { data, error } = await supabase
-      .from('review_schedule')
-      .select('*')
-      .eq('user_id', userId)
+  const defaultStats = {
+    total: 0,
+    due: 0,
+    overdue: 0,
+    questoes: 0,
+    flashcards: 0,
+    averageEaseFactor: '0',
+  }
 
-    if (error) throw error
+  try {
+    const supabase = await createClient()
+
+    // Verificar se tabela existe
+    if (!(await tableExists(supabase, 'review_schedule'))) {
+      return defaultStats
+    }
+
+    const { data, error } = await supabase.from('review_schedule').select('*').eq('user_id', userId)
+
+    if (error) {
+      console.error('[spaced-repetition] Erro ao buscar stats:', error)
+      return defaultStats
+    }
 
     const items = (data as ReviewItem[]) || []
     const now = new Date()
 
-    const stats = {
+    return {
       total: items.length,
       due: items.filter((item) => new Date(item.next_review) <= now).length,
       overdue: items.filter(
-        (item) => new Date(item.next_review) <= now && differenceInDays(now, new Date(item.next_review)) > 0,
+        (item) => new Date(item.next_review) <= now && differenceInDays(now, new Date(item.next_review)) > 0
       ).length,
       questoes: items.filter((item) => item.content_type === 'questao').length,
       flashcards: items.filter((item) => item.content_type === 'flashcard').length,
-      averageEaseFactor: items.length > 0 ? (items.reduce((sum, item) => sum + item.ease_factor, 0) / items.length).toFixed(2) : '0',
+      averageEaseFactor:
+        items.length > 0
+          ? (items.reduce((sum, item) => sum + item.ease_factor, 0) / items.length).toFixed(2)
+          : '0',
     }
-
-    return stats
   } catch (error) {
-    console.error('[v0] Erro ao obter estatísticas de revisão:', error)
-    return {
-      total: 0,
-      due: 0,
-      overdue: 0,
-      questoes: 0,
-      flashcards: 0,
-      averageEaseFactor: '0',
-    }
+    console.error('[spaced-repetition] Erro em getReviewStats:', error)
+    return defaultStats
   }
 }
 
 /**
- * Obter próxima data de revisão de um item
+ * Obter proxima data de revisao de um item
  */
 export async function getNextReviewDate(
   userId: string,
   contentId: string,
-  contentType: 'questao' | 'flashcard',
+  contentType: 'questao' | 'flashcard'
 ): Promise<Date | null> {
   try {
+    const supabase = await createClient()
+
+    // Verificar se tabela existe
+    if (!(await tableExists(supabase, 'review_schedule'))) {
+      return null
+    }
+
     const { data, error } = await supabase
       .from('review_schedule')
       .select('next_review')
@@ -230,25 +271,33 @@ export async function getNextReviewDate(
       .single()
 
     if (error) {
-      if (error.code === 'PGRST116') return null // Não encontrado
-      throw error
+      if (error.code === 'PGRST116') return null
+      console.error('[spaced-repetition] Erro ao buscar next review:', error)
+      return null
     }
 
     return new Date((data as any).next_review)
   } catch (error) {
-    console.error('[v0] Erro ao obter próxima data de revisão:', error)
+    console.error('[spaced-repetition] Erro em getNextReviewDate:', error)
     return null
   }
 }
 
 /**
- * Resetar agendamento de revisão (para quando o usuário quer estudar desde o início)
+ * Resetar agendamento de revisao
  */
 export async function resetReviewSchedule(
   userId: string,
-  contentType?: 'questao' | 'flashcard',
+  contentType?: 'questao' | 'flashcard'
 ): Promise<number> {
   try {
+    const supabase = await createClient()
+
+    // Verificar se tabela existe
+    if (!(await tableExists(supabase, 'review_schedule'))) {
+      return 0
+    }
+
     let query = supabase.from('review_schedule').delete().eq('user_id', userId)
 
     if (contentType) {
@@ -257,23 +306,31 @@ export async function resetReviewSchedule(
 
     const { count, error } = await query
 
-    if (error) throw error
+    if (error) {
+      console.error('[spaced-repetition] Erro ao resetar:', error)
+      return 0
+    }
 
-    console.log('[v0] Agendamento de revisão resetado:', count)
     return count || 0
   } catch (error) {
-    console.error('[v0] Erro ao resetar agendamento:', error)
-    throw error
+    console.error('[spaced-repetition] Erro em resetReviewSchedule:', error)
+    return 0
   }
 }
 
 /**
- * Obter recomendações de revisão com base em pontos fracos
+ * Obter recomendacoes de revisao com base em pontos fracos
  */
 export async function getReviewRecommendations(userId: string, limit: number = 5) {
   try {
-    // Buscar temas fracos
-    const { data: weakTopics, error: weakError } = await supabase
+    const supabase = await createClient()
+
+    // Verificar se tabela existe
+    if (!(await tableExists(supabase, 'weak_topics'))) {
+      return []
+    }
+
+    const { data: weakTopics, error } = await supabase
       .from('weak_topics')
       .select('*')
       .eq('user_id', userId)
@@ -281,8 +338,9 @@ export async function getReviewRecommendations(userId: string, limit: number = 5
       .order('error_rate', { ascending: false })
       .limit(limit)
 
-    if (weakError && weakError.code !== 'PGRST116') {
-      throw weakError
+    if (error && error.code !== 'PGRST116') {
+      console.error('[spaced-repetition] Erro ao buscar weak topics:', error)
+      return []
     }
 
     return (weakTopics || []).map((topic: any) => ({
@@ -292,21 +350,28 @@ export async function getReviewRecommendations(userId: string, limit: number = 5
       priority: topic.error_rate > 0.6 ? 'high' : topic.error_rate > 0.4 ? 'medium' : 'low',
     }))
   } catch (error) {
-    console.error('[v0] Erro ao obter recomendações de revisão:', error)
+    console.error('[spaced-repetition] Erro em getReviewRecommendations:', error)
     return []
   }
 }
 
 /**
- * Atualizar ponto fraco automaticamente após resposta
+ * Atualizar ponto fraco automaticamente apos resposta
  */
 export async function updateWeakTopicAfterAnswer(
   userId: string,
   subtema: string,
   areaName: string,
-  isCorrect: boolean,
+  isCorrect: boolean
 ) {
   try {
+    const supabase = await createClient()
+
+    // Verificar se tabela existe
+    if (!(await tableExists(supabase, 'weak_topics'))) {
+      return
+    }
+
     // Buscar ponto fraco atual
     const { data: existing, error: fetchError } = await supabase
       .from('weak_topics')
@@ -316,14 +381,15 @@ export async function updateWeakTopicAfterAnswer(
       .single()
 
     if (fetchError && fetchError.code !== 'PGRST116') {
-      throw fetchError
+      console.error('[spaced-repetition] Erro ao buscar weak topic:', fetchError)
+      return
     }
 
     const current = existing as any
 
     if (!current) {
       // Criar novo
-      await supabase.from('weak_topics').insert({
+      const { error } = await supabase.from('weak_topics').insert({
         user_id: userId,
         subtema: subtema,
         area_name: areaName,
@@ -331,13 +397,15 @@ export async function updateWeakTopicAfterAnswer(
         total_attempts: 1,
         correct_attempts: isCorrect ? 1 : 0,
       })
+
+      if (error) console.error('[spaced-repetition] Erro ao inserir weak topic:', error)
     } else {
       // Atualizar existente
       const newTotal = current.total_attempts + 1
       const newCorrect = current.correct_attempts + (isCorrect ? 1 : 0)
       const newErrorRate = (newTotal - newCorrect) / newTotal
 
-      await supabase
+      const { error } = await supabase
         .from('weak_topics')
         .update({
           total_attempts: newTotal,
@@ -346,8 +414,10 @@ export async function updateWeakTopicAfterAnswer(
           last_updated: new Date().toISOString(),
         })
         .eq('id', current.id)
+
+      if (error) console.error('[spaced-repetition] Erro ao atualizar weak topic:', error)
     }
   } catch (error) {
-    console.error('[v0] Erro ao atualizar ponto fraco:', error)
+    console.error('[spaced-repetition] Erro em updateWeakTopicAfterAnswer:', error)
   }
 }
