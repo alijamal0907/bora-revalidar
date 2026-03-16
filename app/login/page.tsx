@@ -36,6 +36,12 @@ export default function LoginPage() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
+  
+  // Detectar se está no ambiente de preview do v0
+  const isPreviewEnvironment = typeof window !== "undefined" && 
+    (window.location.hostname.includes("vusercontent.net") || 
+     window.location.hostname.includes("vercel.app") ||
+     window.location.hostname === "localhost")
 
   useEffect(() => {
     const reason = searchParams.get("reason")
@@ -43,6 +49,18 @@ export default function LoginPage() {
       setError("Sua sessão foi encerrada porque você fez login em outro dispositivo.")
     }
   }, [searchParams])
+  
+  // Função para entrar em modo preview (sem autenticação real)
+  const handlePreviewMode = () => {
+    // Salvar flag de preview no localStorage
+    localStorage.setItem("preview_mode", "true")
+    localStorage.setItem("preview_user", JSON.stringify({
+      id: "preview-user-id",
+      email: "preview@example.com",
+      usuario_id: "preview-user-id"
+    }))
+    router.push("/dashboard")
+  }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -355,6 +373,18 @@ export default function LoginPage() {
                 </>
               )}
             </button>
+            
+            {/* Botão de modo preview - só aparece no ambiente de preview */}
+            {isPreviewEnvironment && (
+              <button
+                type="button"
+                onClick={handlePreviewMode}
+                className="w-full px-4 py-2 mt-3 bg-amber-500 text-white font-medium rounded-md hover:bg-amber-600 transition-colors flex items-center justify-center gap-2"
+              >
+                <Eye className="w-4 h-4" />
+                Modo Preview (Sem Login)
+              </button>
+            )}
           </form>
 
             {/* Toggle Sign Up / Sign In */}

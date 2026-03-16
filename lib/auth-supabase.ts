@@ -16,6 +16,15 @@ export async function getSupabaseUser(): Promise<User | null> {
       return null
     }
 
+    // Verificar se está em modo preview
+    const isPreviewMode = localStorage.getItem("preview_mode") === "true"
+    if (isPreviewMode) {
+      const previewUser = localStorage.getItem("preview_user")
+      if (previewUser) {
+        return JSON.parse(previewUser)
+      }
+    }
+
     const supabase = getSupabaseClient()
     const {
       data: { session },
@@ -157,6 +166,12 @@ export async function signInSupabase(email: string, password: string): Promise<U
 
 export async function signOutSupabase(): Promise<void> {
   try {
+    // Limpar modo preview se existir
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("preview_mode")
+      localStorage.removeItem("preview_user")
+    }
+    
     const supabase = getSupabaseClient()
     await supabase.auth.signOut()
   } catch (error) {
