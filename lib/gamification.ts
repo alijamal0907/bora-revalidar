@@ -1,5 +1,4 @@
 import { createClient } from '@/lib/supabase/client'
-import { initializeUserStudyPlan as initializePlan } from '@/lib/study-plan-complete'
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -256,7 +255,37 @@ function getCurrentWeekDates() {
 
 export async function initializeStudyPlan(userId: string) {
   try {
-    return await initializePlan(userId)
+    const supabase = getDb()
+    if (!supabase) return
+
+    // Verifica se já existe progresso para este usuário
+    const { data: existing } = await supabase
+      .from('user_progress')
+      .select('id')
+      .eq('user_id', userId)
+      .limit(1)
+
+    if (existing && existing.length > 0) return
+
+    // Cria 100 registros (20 semanas × 5 áreas) com subtemas inline
+    const records = []
+    for (let week = 1; week <= 20; week++) {
+      for (const area of AREAS_MEDICAS) {
+        records.push({
+          user_id: userId,
+          week_number: week,
+          area_name: area,
+          subtopic_name: WEEKS_CONTENT[week]?.[area] ?? `${area} – Semana ${week}`,
+          status_completed: false,
+          completed_at: null,
+        })
+      }
+    }
+
+    const { error } = await supabase.from('user_progress').insert(records)
+    if (error && error.code !== '42P01') {
+      console.error('[gamification] Erro ao inicializar plano:', error)
+    }
   } catch (error) {
     console.error('[gamification] Erro em initializeStudyPlan:', error)
   }
