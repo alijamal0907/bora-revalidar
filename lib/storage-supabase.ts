@@ -487,13 +487,10 @@ export async function getQuestionsByTemaAndSubtemas(
 ): Promise<any[]> {
   try {
     const variations = MATERIA_VARIATIONS[tema] || [tema]
-    console.log("[v0] getQuestionsByTemaAndSubtemas: tema=", tema, "variations=", variations, "subtemaTexts=", subtemaTexts)
-
     let allResults: any[] = []
 
     if (subtemaTexts && subtemaTexts.length > 0) {
       const normalizedTexts = subtemaTexts.map((t) => t.trim())
-      console.log("[v0] Query COM subtema: .in('tema', ", variations, ").in('subtema', ", normalizedTexts, ")")
 
       const { data, error } = await getSupabaseClient()
         .from("questoes")
@@ -502,17 +499,12 @@ export async function getQuestionsByTemaAndSubtemas(
         .in("subtema", normalizedTexts)
         .limit(5000)
 
-      if (error) {
-        console.error("[v0] Error fetching questions by subtema:", error)
-        return []
-      }
+      if (error) return []
 
       allResults = data || []
-      console.log("[v0] Query COM subtema retornou:", allResults.length, "questoes")
 
       // Se retornou zero, tentar com ilike para tolerar espaços extras no banco
       if (allResults.length === 0) {
-        console.log("[v0] Tentando fallback com ilike...")
         const ilikePromises = normalizedTexts.map((subtemaText) =>
           getSupabaseClient()
             .from("questoes")
@@ -525,23 +517,17 @@ export async function getQuestionsByTemaAndSubtemas(
         for (const { data: d, error: e } of results) {
           if (!e && d) allResults.push(...d)
         }
-        console.log("[v0] Fallback ilike retornou:", allResults.length, "questoes")
       }
     } else {
       // Sem filtro de subtema — retornar todas as questões do tema
-      console.log("[v0] Query SEM subtema: .in('tema', ", variations, ")")
       const { data, error } = await getSupabaseClient()
         .from("questoes")
         .select("*")
         .in("tema", variations)
         .limit(2000)
 
-      if (error) {
-        console.error("[v0] Error fetching all questions for tema:", error)
-        return []
-      }
+      if (error) return []
       allResults = data || []
-      console.log("[v0] Query SEM subtema retornou:", allResults.length, "questoes")
     }
 
     // Deduplicar por id

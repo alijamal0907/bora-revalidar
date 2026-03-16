@@ -105,19 +105,22 @@ function StudyInner() {
     init()
   }, [router])
 
-  // — Parâmetros de URL vindos do Plano de Estudos —
+  // — Parâmetros de URL vindos do Plano de Estudos (roda apenas 1x na montagem) —
+  const [urlParamsProcessed, setUrlParamsProcessed] = useState(false)
   useEffect(() => {
+    if (urlParamsProcessed || isLoading) return
     const areaParam = searchParams.get("area")
     const subtemaParam = searchParams.get("subtema")
-    if (areaParam && !isLoading) {
+    if (areaParam) {
       setSelectionMode("tema_subtema")
       setSelectedGrandeArea(areaParam)
       setSelectedMateria(areaParam)
       if (subtemaParam) setSelectedSubtemas([subtemaParam])
       setStudyMode("settings")
+      setUrlParamsProcessed(true)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, isLoading])
+  }, [searchParams, isLoading, urlParamsProcessed])
 
   // — Carregar subtemas quando grande área muda —
   useEffect(() => {
@@ -136,7 +139,6 @@ function StudyInner() {
 
   // — Carregar questões —
   const loadStudyCards = async (area: string, subtemas: string[]) => {
-    console.log("[v0] loadStudyCards chamado com area=", area, "subtemas=", subtemas)
     setIsLoading(true)
     try {
       const currentUser = await getSupabaseUser()
@@ -151,14 +153,9 @@ function StudyInner() {
         getCorrectlyAnsweredQuestions(userId),
       ])
 
-      console.log("[v0] Buscando questões com getQuestionsByTemaAndSubtemas...")
       let allQuestions = await getQuestionsByTemaAndSubtemas(area, subtemas)
-      console.log("[v0] Questões encontradas:", allQuestions.length)
-      
       if (allQuestions.length === 0) {
-        console.log("[v0] Fallback: buscando todas da área")
         allQuestions = await getStudyQuestions(area, [])
-        console.log("[v0] Fallback retornou:", allQuestions.length)
       }
 
       const wrongSet = new Set(wrongIds)
@@ -173,14 +170,11 @@ function StudyInner() {
       ]
 
       const limit = plan === "free" ? 15 : numQuestions
-      console.log("[v0] Definindo", sorted.slice(0, limit).length, "questões para estudo")
       setQuestions(sorted.slice(0, limit))
       setCurrentIndex(0)
       setIsLoading(false)
       setStudyMode("questions")
-      console.log("[v0] studyMode setado para 'questions'")
-    } catch (err) {
-      console.error("[v0] Erro em loadStudyCards:", err)
+    } catch {
       setIsLoading(false)
     }
   }
