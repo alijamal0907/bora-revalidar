@@ -1,6 +1,4 @@
-'use server'
-
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 import { differenceInDays, addDays } from 'date-fns'
 
 export interface ReviewItem {
@@ -59,7 +57,7 @@ export async function getDueReviewItems(
   contentType?: 'questao' | 'flashcard'
 ): Promise<ReviewItem[]> {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     // Verificar se tabela existe
     if (!(await tableExists(supabase, 'review_schedule'))) {
@@ -102,7 +100,7 @@ export async function recordReviewResult(
   quality: number = isCorrect ? 4 : 1
 ) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     // Verificar se tabela existe
     if (!(await tableExists(supabase, 'review_schedule'))) {
@@ -210,7 +208,7 @@ export async function getReviewStats(userId: string) {
   }
 
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     // Verificar se tabela existe
     if (!(await tableExists(supabase, 'review_schedule'))) {
@@ -255,7 +253,7 @@ export async function getNextReviewDate(
   contentType: 'questao' | 'flashcard'
 ): Promise<Date | null> {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     // Verificar se tabela existe
     if (!(await tableExists(supabase, 'review_schedule'))) {
@@ -291,7 +289,7 @@ export async function resetReviewSchedule(
   contentType?: 'questao' | 'flashcard'
 ): Promise<number> {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     // Verificar se tabela existe
     if (!(await tableExists(supabase, 'review_schedule'))) {
@@ -323,7 +321,7 @@ export async function resetReviewSchedule(
  */
 export async function getReviewRecommendations(userId: string, limit: number = 5) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     // Verificar se tabela existe
     if (!(await tableExists(supabase, 'weak_topics'))) {
@@ -365,7 +363,7 @@ export async function updateWeakTopicAfterAnswer(
   isCorrect: boolean
 ) {
   try {
-    const supabase = await createClient()
+    const supabase = createClient()
 
     // Verificar se tabela existe
     if (!(await tableExists(supabase, 'weak_topics'))) {

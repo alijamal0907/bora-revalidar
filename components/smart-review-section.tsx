@@ -43,26 +43,26 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-card border border-border rounded-xl p-6 animate-pulse">
-        <div className="h-8 bg-muted rounded mb-4 w-1/3"></div>
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 animate-pulse">
+        <div className="h-6 bg-slate-700 rounded mb-4 w-1/3"></div>
         <div className="space-y-2">
-          <div className="h-4 bg-muted rounded w-full"></div>
-          <div className="h-4 bg-muted rounded w-5/6"></div>
+          <div className="h-4 bg-slate-700 rounded w-full"></div>
+          <div className="h-4 bg-slate-700 rounded w-5/6"></div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl p-6">
+    <div className="bg-gradient-to-br from-blue-900/30 to-slate-900/50 border-2 border-blue-700/50 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-blue-500/20 rounded-lg">
-            <RefreshCw className="w-5 h-5 text-blue-600" />
+            <RefreshCw className="w-5 h-5 text-blue-400" />
           </div>
           <div>
-            <h3 className="font-bold text-foreground">Revisão Inteligente</h3>
-            <p className="text-xs text-muted-foreground">Sistema de Espaçamento Otimizado (SM-2)</p>
+            <h3 className="font-bold text-white">Revisão Inteligente</h3>
+            <p className="text-xs text-slate-400">Sistema de Espaçamento Otimizado (SM-2)</p>
           </div>
         </div>
         {stats.due > 0 && (
@@ -74,50 +74,50 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-        <div className="bg-white/70 rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground">Total Agendado</p>
-          <p className="text-lg font-bold text-foreground">{stats.total}</p>
+        <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+          <p className="text-xs text-slate-400">Total</p>
+          <p className="text-lg font-bold text-white">{stats.total}</p>
         </div>
-        <div className="bg-white/70 rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground">Vencido</p>
-          <p className="text-lg font-bold text-red-600">{stats.due}</p>
+        <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+          <p className="text-xs text-slate-400">Vencido</p>
+          <p className="text-lg font-bold text-red-400">{stats.due}</p>
         </div>
-        <div className="bg-white/70 rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground">Questões</p>
-          <p className="text-lg font-bold text-blue-600">{stats.questoes}</p>
+        <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+          <p className="text-xs text-slate-400">Questões</p>
+          <p className="text-lg font-bold text-blue-400">{stats.questoes}</p>
         </div>
-        <div className="bg-white/70 rounded-lg p-3 text-center">
-          <p className="text-xs text-muted-foreground">Flashcards</p>
-          <p className="text-lg font-bold text-purple-600">{stats.flashcards}</p>
+        <div className="bg-slate-800/60 rounded-lg p-3 text-center">
+          <p className="text-xs text-slate-400">Flashcards</p>
+          <p className="text-lg font-bold text-emerald-400">{stats.flashcards}</p>
         </div>
       </div>
 
       {/* Due Items */}
       {dueItems.length > 0 ? (
         <div className="space-y-2 mb-4">
-          <p className="text-xs font-semibold text-muted-foreground">Próximos para revisar:</p>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Próximos para revisar:</p>
           {dueItems.map((item) => (
-            <div key={item.id} className="bg-white/50 rounded-lg p-3 flex items-center justify-between text-sm">
+            <div key={item.id} className="bg-slate-800/40 rounded-lg p-3 flex items-center justify-between text-sm">
               <div className="flex items-center gap-2">
                 {item.content_type === 'questao' ? (
-                  <BookOpen className="w-4 h-4 text-blue-500" />
+                  <BookOpen className="w-4 h-4 text-blue-400" />
                 ) : (
-                  <Brain className="w-4 h-4 text-purple-500" />
+                  <Brain className="w-4 h-4 text-emerald-400" />
                 )}
-                <span className="text-foreground">
+                <span className="text-slate-200">
                   {item.content_type === 'questao' ? 'Questão' : 'Flashcard'} #{item.content_id.slice(0, 8)}
                 </span>
               </div>
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-slate-500">
                 Intervalo: {item.interval_days}d
               </span>
             </div>
           ))}
         </div>
       ) : (
-        <div className="bg-white/50 rounded-lg p-3 mb-4 flex items-center gap-2 text-sm">
-          <AlertCircle className="w-4 h-4 text-green-600" />
-          <span className="text-green-700 font-medium">Nada para revisar agora! 🎉</span>
+        <div className="bg-emerald-900/20 border border-emerald-700/40 rounded-lg p-3 mb-4 flex items-center gap-2 text-sm">
+          <AlertCircle className="w-4 h-4 text-emerald-400" />
+          <span className="text-emerald-300 font-medium">Nada para revisar agora. Continue estudando!</span>
         </div>
       )}
 
@@ -131,7 +131,7 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
           Iniciar Revisão ({stats.due})
         </Link>
       ) : (
-        <p className="text-center text-xs text-muted-foreground">
+        <p className="text-center text-xs text-slate-500">
           Volte mais tarde para revisar conteúdo agendado
         </p>
       )}

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 import { findSubtopicForModule, getQuestionsForSubtopic, getFlashcardsForSubtopic } from '@/lib/subtopic-search'
 
 // Semanas do plano com seus subtemas para cada área
@@ -207,7 +207,7 @@ export const STUDY_PLAN_STRUCTURE = {
 
 // Inicializar plano de estudo para um usuário
 export async function initializeUserStudyPlan(userId: string) {
-  const supabase = await createClient()
+    const supabase = createClient()
 
   try {
     // Verificar se o plano já foi inicializado
@@ -271,7 +271,7 @@ export async function getQuestionsForModule(
   subtopicName: string,
   limit: number = 5
 ): Promise<any[]> {
-  const supabase = await createClient()
+    const supabase = createClient()
 
   try {
     // Buscar questões por tema/subtema
@@ -310,7 +310,7 @@ export async function getFlashcardsForModule(
   subtopicName: string,
   limit: number = 5
 ): Promise<any[]> {
-  const supabase = await createClient()
+    const supabase = createClient()
 
   try {
     // Buscar flashcards por materia/tema

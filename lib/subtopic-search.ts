@@ -1,6 +1,4 @@
-'use server'
-
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 import unorm from 'unorm'
 
 /**
@@ -33,7 +31,7 @@ export async function findSubtopicForModule(
   area: string,
   subtopicName: string
 ): Promise<SubtopicResult[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   try {
     // 1. Tentar match exato (case-insensitive, com acentuação)
@@ -100,7 +98,7 @@ export async function getQuestionsForSubtopic(
   subtopicName: string,
   limit: number = 10
 ): Promise<any[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   try {
     // Primeiro tenta match exato
@@ -144,7 +142,7 @@ export async function getFlashcardsForSubtopic(
   subtopicName: string,
   limit: number = 10
 ): Promise<any[]> {
-  const supabase = await createClient()
+  const supabase = createClient()
 
   try {
     // Primeiro tenta match exato
