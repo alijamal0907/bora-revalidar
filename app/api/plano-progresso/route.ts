@@ -60,15 +60,23 @@ export async function POST(req: Request) {
       if (!userId || !records?.length)
         return NextResponse.json({ error: 'userId e records obrigatórios' }, { status: 400 })
 
-      // Verificar se já existe
+      // Verificar se já existe com as áreas corretas
       const { data: existing } = await supabase
         .from('user_progress')
-        .select('id')
+        .select('id, area_name')
         .eq('user_id', userId)
-        .limit(1)
+        .limit(20)
 
       if (existing && existing.length > 0) {
-        return NextResponse.json({ success: true, skipped: true })
+        // Verificar se o progresso existente usa as áreas novas (com "Ginecologia e Obstetrícia")
+        const hasNewAreas = existing.some(
+          (r: any) => r.area_name === 'Ginecologia e Obstetrícia'
+        )
+        if (hasNewAreas) {
+          return NextResponse.json({ success: true, skipped: true })
+        }
+        // Progresso antigo detectado — deletar e recriar com os subtemas corretos
+        await supabase.from('user_progress').delete().eq('user_id', userId)
       }
 
       const { error } = await supabase.from('user_progress').insert(records)

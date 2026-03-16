@@ -36,30 +36,28 @@ interface WeekData {
   isCompleted: boolean
 }
 
-// Distribui subtemas reais do banco pelas 20 semanas de forma equilibrada
-function buildPlan(subtemasByArea: Record<string, string[]>): Record<number, Record<Area, string>> {
-  const plan: Record<number, Record<Area, string>> = {}
-
-  for (let w = 1; w <= 20; w++) {
-    plan[w] = {} as Record<Area, string>
-  }
-
-  for (const area of AREAS) {
-    const subtemas = subtemasByArea[area] || []
-    if (subtemas.length === 0) {
-      // Fallback se não há subtemas no banco para essa área
-      for (let w = 1; w <= 20; w++) {
-        plan[w][area] = area
-      }
-      continue
-    }
-    // Distribui ciclicamente: semana 1 = subtema[0], semana 2 = subtema[1], etc.
-    for (let w = 1; w <= 20; w++) {
-      plan[w][area] = subtemas[(w - 1) % subtemas.length]
-    }
-  }
-
-  return plan
+// Plano fixo com subtemas reais da tabela questoes
+const WEEKS_PLAN: Record<number, Record<string, string>> = {
+  1:  { 'Clínica Médica': 'Cardiologia', 'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva', 'Pediatria': 'Neonatologia', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'Políticas Públicas de Saúde' },
+  2:  { 'Clínica Médica': 'Infectologia', 'Clínica Cirúrgica': 'Trauma / ATLS', 'Pediatria': 'Infectologia Pediátrica', 'Ginecologia e Obstetrícia': 'Ginecologia Geral', 'Medicina Preventiva': 'Epidemiologia' },
+  3:  { 'Clínica Médica': 'Pneumologia', 'Clínica Cirúrgica': 'Ortopedia e Traumatologia', 'Pediatria': 'Pneumologia Pediátrica', 'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'APS / Saúde da Família' },
+  4:  { 'Clínica Médica': 'Gastroenterologia', 'Clínica Cirúrgica': 'Oncologia Cirúrgica', 'Pediatria': 'Crescimento e Desenvolvimento', 'Ginecologia e Obstetrícia': 'Oncologia Ginecológica', 'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
+  5:  { 'Clínica Médica': 'Endocrinologia', 'Clínica Cirúrgica': 'Urologia / Proctologia', 'Pediatria': 'Gastroenterologia Pediátrica', 'Ginecologia e Obstetrícia': 'Endocrinologia Reprodutiva', 'Medicina Preventiva': 'Ética Médica e Bioética' },
+  6:  { 'Clínica Médica': 'Nefrologia / Urologia', 'Clínica Cirúrgica': 'Pós-operatório / Complicações Cirúrgicas', 'Pediatria': 'Neurologia Pediátrica', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'Epidemiologia' },
+  7:  { 'Clínica Médica': 'Neurologia', 'Clínica Cirúrgica': 'Feridas / Técnica Cirúrgica', 'Pediatria': 'Hematologia / Oncologia Pediátrica', 'Ginecologia e Obstetrícia': 'Ginecologia Geral', 'Medicina Preventiva': 'APS / Saúde da Família' },
+  8:  { 'Clínica Médica': 'Hematologia', 'Clínica Cirúrgica': 'Urgências Clínicas / Outros', 'Pediatria': 'Imunizações e Vigilância Epidemiológica', 'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'Políticas Públicas de Saúde' },
+  9:  { 'Clínica Médica': 'Reumatologia', 'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva', 'Pediatria': 'Urgências Pediátricas', 'Ginecologia e Obstetrícia': 'Oncologia Ginecológica', 'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
+  10: { 'Clínica Médica': 'Urgências Clínicas / Outros', 'Clínica Cirúrgica': 'Trauma / ATLS', 'Pediatria': 'Saúde da Criança e Adolescente', 'Ginecologia e Obstetrícia': 'Endocrinologia Reprodutiva', 'Medicina Preventiva': 'Ética Médica e Bioética' },
+  11: { 'Clínica Médica': 'Cardiologia', 'Clínica Cirúrgica': 'Ortopedia e Traumatologia', 'Pediatria': 'Neonatologia', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'APS / Saúde da Família' },
+  12: { 'Clínica Médica': 'Psiquiatria', 'Clínica Cirúrgica': 'Oncologia Cirúrgica', 'Pediatria': 'Psiquiatria / Comportamento', 'Ginecologia e Obstetrícia': 'Ginecologia Geral', 'Medicina Preventiva': 'Epidemiologia' },
+  13: { 'Clínica Médica': 'Oncologia / Hematologia', 'Clínica Cirúrgica': 'Urologia / Proctologia', 'Pediatria': 'Endocrinologia / Adolescência', 'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'Políticas Públicas de Saúde' },
+  14: { 'Clínica Médica': 'Dermatologia', 'Clínica Cirúrgica': 'Feridas / Técnica Cirúrgica', 'Pediatria': 'Ortopedia / Cirurgia Pediátrica', 'Ginecologia e Obstetrícia': 'Oncologia Ginecológica', 'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
+  15: { 'Clínica Médica': 'Geriatria', 'Clínica Cirúrgica': 'Pós-operatório / Complicações Cirúrgicas', 'Pediatria': 'Infectologia Pediátrica', 'Ginecologia e Obstetrícia': 'Endocrinologia Reprodutiva', 'Medicina Preventiva': 'Ética Médica e Bioética' },
+  16: { 'Clínica Médica': 'Oftalmologia', 'Clínica Cirúrgica': 'Urgências Clínicas / Outros', 'Pediatria': 'Crescimento e Desenvolvimento', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'APS / Saúde da Família' },
+  17: { 'Clínica Médica': 'Reumatologia / Ortopedia', 'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva', 'Pediatria': 'Neurologia Pediátrica', 'Ginecologia e Obstetrícia': 'Ginecologia Geral', 'Medicina Preventiva': 'Epidemiologia' },
+  18: { 'Clínica Médica': 'Clínica Geral', 'Clínica Cirúrgica': 'Trauma / ATLS', 'Pediatria': 'Pneumologia Pediátrica', 'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
+  19: { 'Clínica Médica': 'Urgências Clínicas / Outros', 'Clínica Cirúrgica': 'Ortopedia e Traumatologia', 'Pediatria': 'Hematologia / Oncologia Pediátrica', 'Ginecologia e Obstetrícia': 'Oncologia Ginecológica', 'Medicina Preventiva': 'Políticas Públicas de Saúde' },
+  20: { 'Clínica Médica': 'Cardiologia', 'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva', 'Pediatria': 'Saúde da Criança e Adolescente', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'Epidemiologia' },
 }
 
 export default function PlanoDeEstudosPage() {
@@ -69,8 +67,6 @@ export default function PlanoDeEstudosPage() {
   const [currentWeek, setCurrentWeek] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([1]))
-  const [subtemasByArea, setSubtemasByArea] = useState<Record<string, string[]>>({})
-  const [planReady, setPlanReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -79,61 +75,35 @@ export default function PlanoDeEstudosPage() {
         const supabase = createClient()
         const { data: { user: u } } = await supabase.auth.getUser()
 
-        if (!u) {
-          router.push('/login')
-          return
-        }
+        if (!u) { router.push('/login'); return }
         setUser(u)
 
-        // 1. Buscar subtemas reais do banco via API
-        const subtemasRes = await fetch('/api/plano-subtemas')
-        const subtemasData = await subtemasRes.json()
-
-        if (subtemasData.error) {
-          setError('Erro ao carregar subtemas: ' + subtemasData.error)
-          setIsLoading(false)
-          return
+        // Montar records com subtemas reais
+        const records: any[] = []
+        for (let week = 1; week <= 20; week++) {
+          for (const area of AREAS) {
+            records.push({
+              user_id: u.id,
+              week_number: week,
+              area_name: area,
+              subtopic_name: WEEKS_PLAN[week]?.[area] || area,
+              status_completed: false,
+              completed_at: null,
+            })
+          }
         }
 
-        const realSubtemas: Record<string, string[]> = subtemasData.subtemas || {}
-        setSubtemasByArea(realSubtemas)
+        // Inicializar progresso (API faz migração automática se necessário)
+        await fetch('/api/plano-progresso', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'initialize', userId: u.id, records }),
+        })
 
-        // 2. Buscar progresso do usuário via API
+        // Buscar progresso atualizado
         const progressRes = await fetch(`/api/plano-progresso?userId=${u.id}`)
         const progressData = await progressRes.json()
-        let existingProgress: any[] = progressData.data || []
-
-        // 3. Se não há progresso, inicializar com subtemas reais do banco
-        if (existingProgress.length === 0) {
-          const plan = buildPlan(realSubtemas)
-          const records: any[] = []
-
-          for (let week = 1; week <= 20; week++) {
-            for (const area of AREAS) {
-              records.push({
-                user_id: u.id,
-                week_number: week,
-                area_name: area,
-                subtopic_name: plan[week][area] || area,
-                status_completed: false,
-                completed_at: null,
-              })
-            }
-          }
-
-          await fetch('/api/plano-progresso', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ action: 'initialize', userId: u.id, records }),
-          })
-
-          // Re-buscar progresso
-          const refetch = await fetch(`/api/plano-progresso?userId=${u.id}`)
-          const refetchData = await refetch.json()
-          existingProgress = refetchData.data || records
-        }
-
-        // 4. Montar módulos
+        const existingProgress: any[] = progressData.data || []
         const mods: Module[] = existingProgress.map((p: any) => ({
           week: p.week_number,
           area: p.area_name as Area,
@@ -143,7 +113,7 @@ export default function PlanoDeEstudosPage() {
         }))
         setModules(mods)
 
-        // 5. Calcular semana atual
+        // Calcular semana atual
         let cw = 1
         for (let w = 1; w <= 20; w++) {
           const wMods = mods.filter((m) => m.week === w)
@@ -153,7 +123,6 @@ export default function PlanoDeEstudosPage() {
         }
         setCurrentWeek(cw)
         setExpandedWeeks(new Set([cw]))
-        setPlanReady(true)
       } catch (err: any) {
         console.error('[plano] Erro:', err)
         setError(err.message)
