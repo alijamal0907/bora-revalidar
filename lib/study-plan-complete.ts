@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { findSubtopicForModule, getQuestionsForSubtopic, getFlashcardsForSubtopic } from '@/lib/subtopic-search'
 
 // Semanas do plano com seus subtemas para cada área
 export const STUDY_PLAN_STRUCTURE = {

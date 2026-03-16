@@ -43,12 +43,12 @@ export default function WeakTopicsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900">
         <Navbar user={user} />
         <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
           <div className="text-center">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Analisando seus pontos fracos...</p>
+            <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-300">Analisando seus pontos fracos...</p>
           </div>
         </div>
       </div>
@@ -56,9 +56,34 @@ export default function WeakTopicsPage() {
   }
 
   const getStatusColor = (errorRate: number) => {
-    if (errorRate > 0.7) return { bg: 'bg-red-50', border: 'border-red-200', label: 'Crítico', color: 'text-red-700' }
-    if (errorRate > 0.5) return { bg: 'bg-orange-50', border: 'border-orange-200', label: 'Alto', color: 'text-orange-700' }
-    return { bg: 'bg-yellow-50', border: 'border-yellow-200', label: 'Médio', color: 'text-yellow-700' }
+    if (errorRate > 0.7) {
+      return {
+        bg: 'bg-red-900/20',
+        border: 'border-red-600',
+        label: 'Crítico',
+        badge: 'bg-red-600 text-white',
+        icon: '🔴',
+        color: 'text-red-400',
+      }
+    }
+    if (errorRate > 0.5) {
+      return {
+        bg: 'bg-orange-900/20',
+        border: 'border-orange-600',
+        label: 'Alto',
+        badge: 'bg-orange-600 text-white',
+        icon: '🟠',
+        color: 'text-orange-400',
+      }
+    }
+    return {
+      bg: 'bg-yellow-900/20',
+      border: 'border-yellow-600',
+      label: 'Médio',
+      badge: 'bg-yellow-600 text-white',
+      icon: '🟡',
+      color: 'text-yellow-400',
+    }
   }
 
   const getSuccessRate = (topic: WeakTopic) => {
@@ -67,7 +92,7 @@ export default function WeakTopicsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900">
       <Navbar user={user} />
 
       <main className="mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-4xl">
@@ -75,33 +100,33 @@ export default function WeakTopicsPage() {
         <div className="mb-6 sm:mb-8">
           <button
             onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition-colors"
+            className="flex items-center gap-2 text-slate-400 hover:text-red-400 mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </button>
 
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
             Seus Pontos Fracos
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Temas onde você tem mais dificuldade - foco nestas áreas para melhorar
+          <p className="text-slate-400 text-sm sm:text-base">
+            Temas onde você tem mais dificuldade - concentre-se nessas áreas para melhorar
           </p>
         </div>
 
         {/* Empty State */}
         {weakTopics.length === 0 ? (
-          <div className="bg-card border-2 border-dashed border-border rounded-xl p-8 sm:p-12 text-center">
-            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertTriangle className="w-8 h-8 text-primary" />
+          <div className="bg-slate-800/50 border-2 border-dashed border-slate-700 rounded-xl p-8 sm:p-12 text-center">
+            <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="w-8 h-8 text-emerald-400" />
             </div>
-            <h2 className="text-xl font-bold text-foreground mb-2">Nenhum ponto fraco detectado</h2>
-            <p className="text-muted-foreground mb-6">
+            <h2 className="text-xl font-bold text-white mb-2">Nenhum ponto fraco detectado</h2>
+            <p className="text-slate-400 mb-6">
               Continue respondendo questões para que o sistema detecte automaticamente seus pontos fracos
             </p>
             <Link
-              href="/study"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              href="/estudo-gamificado"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
             >
               <BookOpen className="w-4 h-4" />
               Iniciar Estudo

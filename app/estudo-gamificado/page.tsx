@@ -13,8 +13,29 @@ import {
   initializeStudyPlan,
   type UserProgress,
 } from '@/lib/gamification'
-import { ArrowLeft, CheckCircle, Lock, BookOpen, Brain, AlertCircle } from 'lucide-react'
+import { STUDY_PLAN_STRUCTURE } from '@/lib/study-plan-complete'
+import { getQuestionsForSubtopic, getFlashcardsForSubtopic } from '@/lib/subtopic-search'
+import { ArrowLeft, CheckCircle, Lock, BookOpen, Brain, AlertCircle, Zap } from 'lucide-react'
 import Link from 'next/link'
+
+const AREAS_MEDICAS = [
+  'Clínica Médica',
+  'Clínica Cirurgica',
+  'Pediatria',
+  'Ginecologia e Obstetrícia',
+  'Medicina Preventiva',
+]
+
+interface WeekData {
+  week: number
+  title: string
+  modules: any[]
+  completedInWeek: number
+  isLocked: boolean
+  isCurrent: boolean
+  isCompleted: boolean
+  unlockedNextWeek: boolean
+}
 
 export default function StudyPlanPage() {
   const router = useRouter()
@@ -95,12 +116,12 @@ export default function StudyPlanPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900">
         <Navbar user={user} />
         <div className="flex items-center justify-center min-h-[calc(100vh-64px)]">
           <div className="text-center">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Carregando plano de estudo...</p>
+            <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-slate-300">Carregando plano de estudo...</p>
           </div>
         </div>
       </div>
@@ -111,26 +132,33 @@ export default function StudyPlanPage() {
   const progressPercentage = Math.round((completedCount / totalModules) * 100)
 
   // Agrupar progresso por semana
-  const weeksData = Array.from({ length: 20 }, (_, i) => {
+  const weeksData: WeekData[] = Array.from({ length: 20 }, (_, i) => {
     const week = i + 1
     const modules = progress.filter((p) => p.week_number === week)
     const completedInWeek = modules.filter((p) => p.status_completed).length
-    const isWeekLocked = week > currentWeek
+    const isWeekLocked = week > currentWeek + 1
     const isWeekCurrent = week === currentWeek
     const isWeekCompleted = completedInWeek === 5
+    const unlockedNextWeek = completedInWeek === 5
+
+    const studyPlanKey = `week${week}` as keyof typeof STUDY_PLAN_STRUCTURE
+    const weekTitle =
+      STUDY_PLAN_STRUCTURE[studyPlanKey as any]?.title || `Semana ${week}`
 
     return {
       week,
+      title: weekTitle,
       modules,
       completedInWeek,
       isLocked: isWeekLocked,
       isCurrent: isWeekCurrent,
       isCompleted: isWeekCompleted,
+      unlockedNextWeek,
     }
   })
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 to-slate-900">
       <Navbar user={user} />
 
       <main className="mx-auto px-3 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 max-w-6xl">
@@ -138,36 +166,36 @@ export default function StudyPlanPage() {
         <div className="mb-6 sm:mb-8">
           <button
             onClick={() => router.push('/dashboard')}
-            className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4 transition-colors"
+            className="flex items-center gap-2 text-slate-400 hover:text-emerald-400 mb-4 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Voltar
           </button>
 
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-foreground mb-2">
-            Plano de Aprovação Revalida – 20 Semanas
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
+            Plano de Aprovação – 20 Semanas
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            Acompanhe seu progresso na trilha de aprendizado gamificada
+          <p className="text-slate-400 text-sm sm:text-base">
+            Trilha estruturada com 5 módulos por semana
           </p>
         </div>
 
         {/* Progresso Geral */}
-        <div className="bg-card border border-border rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
+        <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/50 border border-slate-700 rounded-xl p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-foreground">Semana Atual: {currentWeek}/20</h2>
-              <p className="text-sm text-muted-foreground mt-1">
+              <h2 className="text-lg sm:text-xl font-bold text-white">Semana Atual: {currentWeek}/20</h2>
+              <p className="text-sm text-slate-400 mt-1">
                 {completedCount} de {totalModules} módulos completos
               </p>
             </div>
-            <div className="text-3xl font-bold text-primary">{progressPercentage}%</div>
+            <div className="text-3xl font-bold text-emerald-400">{progressPercentage}%</div>
           </div>
 
-          {/* Progress Bar */}
-          <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+          {/* Progress Bar - Cor verde esmeralda */}
+          <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
             <div
-              className="bg-gradient-to-r from-green-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+              className="bg-gradient-to-r from-emerald-500 to-emerald-400 h-full rounded-full transition-all duration-500"
               style={{ width: `${progressPercentage}%` }}
             />
           </div>
@@ -180,51 +208,60 @@ export default function StudyPlanPage() {
               key={weekData.week}
               className={`border rounded-xl overflow-hidden transition-all ${
                 weekData.isCompleted
-                  ? 'border-emerald-500 bg-emerald-50/10'
+                  ? 'border-emerald-500/50 bg-emerald-900/20'
                   : weekData.isCurrent
-                    ? 'border-primary bg-primary/5'
+                    ? 'border-blue-500/50 bg-blue-900/20'
                     : weekData.isLocked
-                      ? 'border-border bg-muted/30'
-                      : 'border-border'
+                      ? 'border-slate-700 bg-slate-800/30 opacity-70'
+                      : 'border-slate-700 bg-slate-800/50'
               }`}
             >
               {/* Semana Header */}
-              <div className="bg-card p-4 sm:p-6 border-b border-border">
+              <div className="bg-slate-800/50 p-4 sm:p-6 border-b border-slate-700">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${
                         weekData.isCompleted
-                          ? 'bg-emerald-500 text-white'
+                          ? 'bg-emerald-500/30 text-emerald-400 border border-emerald-500'
                           : weekData.isCurrent
-                            ? 'bg-primary text-primary-foreground'
+                            ? 'bg-blue-500/30 text-blue-400 border border-blue-500'
                             : weekData.isLocked
-                              ? 'bg-muted text-muted-foreground'
-                              : 'bg-muted text-muted-foreground'
+                              ? 'bg-slate-700 text-slate-500 border border-slate-600'
+                              : 'bg-slate-700 text-slate-400 border border-slate-600'
                       }`}
                     >
-                      {weekData.isCompleted ? <CheckCircle className="w-5 h-5" /> : `S${weekData.week}`}
+                      {weekData.isCompleted ? (
+                        <CheckCircle className="w-5 h-5" />
+                      ) : weekData.isLocked ? (
+                        <Lock className="w-5 h-5" />
+                      ) : (
+                        `S${weekData.week}`
+                      )}
                     </div>
                     <div>
-                      <h3 className="font-bold text-foreground">Semana {weekData.week}</h3>
-                      <p className="text-sm text-muted-foreground">
+                      <h3 className="font-bold text-white">Semana {weekData.week}</h3>
+                      <p className="text-sm text-slate-400">
+                        {weekData.title}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5">
                         {weekData.completedInWeek}/5 módulos completos
                       </p>
                     </div>
                   </div>
 
                   {weekData.isCompleted && (
-                    <div className="px-3 py-1 bg-emerald-500/20 text-emerald-700 text-xs font-semibold rounded-full">
+                    <div className="px-3 py-1 bg-emerald-500/20 text-emerald-400 text-xs font-semibold rounded-full">
                       ✓ Completo
                     </div>
                   )}
-                  {weekData.isCurrent && (
-                    <div className="px-3 py-1 bg-primary/20 text-primary text-xs font-semibold rounded-full">
+                  {weekData.isCurrent && !weekData.isCompleted && (
+                    <div className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs font-semibold rounded-full">
                       Em Progresso
                     </div>
                   )}
                   {weekData.isLocked && (
-                    <div className="px-3 py-1 bg-muted text-muted-foreground text-xs font-semibold rounded-full flex items-center gap-1">
+                    <div className="px-3 py-1 bg-slate-700 text-slate-400 text-xs font-semibold rounded-full flex items-center gap-1">
                       <Lock className="w-3 h-3" />
                       Bloqueada
                     </div>
@@ -237,53 +274,70 @@ export default function StudyPlanPage() {
                 {weekData.modules.map((module) => (
                   <div
                     key={`${module.week_number}-${module.area_name}`}
-                    className={`p-3 sm:p-4 rounded-lg border-2 transition-all ${
+                    className={`p-4 rounded-lg border-2 transition-all ${
                       module.status_completed
-                        ? 'border-emerald-500 bg-emerald-50/30'
+                        ? 'border-emerald-500/50 bg-emerald-900/30'
                         : weekData.isLocked
-                          ? 'border-border bg-muted/30 opacity-50'
-                          : 'border-border hover:border-primary/50 bg-card'
+                          ? 'border-slate-700 bg-slate-900/30 opacity-60'
+                          : 'border-slate-700 bg-slate-900/50 hover:border-blue-500/50'
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start justify-between gap-4 mb-3">
                       <div className="flex-1">
-                        <h4 className="font-semibold text-foreground">{module.area_name}</h4>
-                        <p className="text-sm text-muted-foreground mt-1">{module.subtopic_name}</p>
+                        <h4 className="font-semibold text-white">{module.area_name}</h4>
+                        <p className="text-sm text-slate-400 mt-1">{module.subtopic_name}</p>
                       </div>
 
-                      {module.status_completed ? (
-                        <div className="flex items-center gap-2 shrink-0">
-                          <CheckCircle className="w-5 h-5 text-emerald-500" />
-                          <span className="text-xs font-semibold text-emerald-600">Concluído</span>
-                        </div>
-                      ) : weekData.isLocked ? (
-                        <Lock className="w-5 h-5 text-muted-foreground shrink-0" />
-                      ) : (
-                        <div className="flex gap-2 shrink-0">
-                          <Link
-                            href={`/study?area=${encodeURIComponent(module.area_name)}&subtopic=${encodeURIComponent(module.subtopic_name)}`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-md hover:bg-primary/90 transition-colors"
-                          >
-                            <BookOpen className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Questões</span>
-                          </Link>
-                          <Link
-                            href={`/flashcards?area=${encodeURIComponent(module.area_name)}&topic=${encodeURIComponent(module.subtopic_name)}`}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-secondary text-secondary-foreground text-xs font-semibold rounded-md hover:bg-secondary/90 transition-colors"
-                          >
-                            <Brain className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Flashcards</span>
-                          </Link>
-                          <button
-                            onClick={() => handleCompleteModule(module.week_number, module.area_name)}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-emerald-500/20 text-emerald-700 text-xs font-semibold rounded-md hover:bg-emerald-500/30 transition-colors"
-                          >
-                            <CheckCircle className="w-3.5 h-3.5" />
-                            <span className="hidden sm:inline">Marcar</span>
-                          </button>
+                      {module.status_completed && (
+                        <div className="flex items-center gap-2 shrink-0 px-2 py-1 bg-emerald-500/20 rounded">
+                          <CheckCircle className="w-4 h-4 text-emerald-400" />
+                          <span className="text-xs font-semibold text-emerald-400">Concluído</span>
                         </div>
                       )}
                     </div>
+
+                    {!module.status_completed && (
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          href={weekData.isLocked ? '#' : `/study?area=${encodeURIComponent(module.area_name)}&subtopic=${encodeURIComponent(module.subtopic_name)}`}
+                          onClick={(e) => weekData.isLocked && e.preventDefault()}
+                          className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-md transition-colors ${
+                            weekData.isLocked
+                              ? 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+                              : 'bg-blue-600/70 text-white hover:bg-blue-600'
+                          }`}
+                        >
+                          <BookOpen className="w-4 h-4" />
+                          Resolver Questões
+                        </Link>
+
+                        <Link
+                          href={weekData.isLocked ? '#' : `/flashcards?area=${encodeURIComponent(module.area_name)}&topic=${encodeURIComponent(module.subtopic_name)}`}
+                          onClick={(e) => weekData.isLocked && e.preventDefault()}
+                          className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-md transition-colors ${
+                            weekData.isLocked
+                              ? 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+                              : 'bg-slate-700 text-slate-200 hover:bg-slate-600'
+                          }`}
+                        >
+                          <Brain className="w-4 h-4" />
+                          Revisar Flashcards
+                        </Link>
+
+                        <button
+                          onClick={() => handleCompleteModule(module.week_number, module.area_name)}
+                          disabled={weekData.isLocked}
+                          className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-md transition-colors ${
+                            weekData.isLocked
+                              ? 'bg-slate-700 text-slate-500 cursor-not-allowed opacity-50'
+                              : 'bg-emerald-600/70 text-white hover:bg-emerald-600'
+                          }`}
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Marcar Concluído
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -292,16 +346,17 @@ export default function StudyPlanPage() {
         </div>
 
         {/* Info Banner */}
-        <div className="bg-blue-50/50 border border-blue-200 rounded-xl p-4 sm:p-6 mt-8">
+        <div className="bg-blue-900/30 border border-blue-700/50 rounded-xl p-4 sm:p-6 mt-8">
           <div className="flex gap-3">
-            <AlertCircle className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+            <AlertCircle className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-blue-900">Como funciona?</h3>
-              <ul className="text-sm text-blue-800 mt-2 space-y-1">
-                <li>• Você progride através de 20 semanas com 5 módulos por semana</li>
-                <li>• Estude questões e flashcards para cada módulo</li>
-                <li>• Marque como concluído após completar os estudos</li>
-                <li>• Desbloque a próxima semana após completar todos os 5 módulos</li>
+              <h3 className="font-semibold text-blue-300">Como funciona o plano?</h3>
+              <ul className="text-sm text-blue-200/80 mt-2 space-y-1">
+                <li>Cor VERDE: Semana/módulo concluído</li>
+                <li>Cor AZUL: Semana/módulo em progresso (destravado)</li>
+                <li>Cor CINZA: Semana/módulo bloqueado - Complete a semana anterior</li>
+                <li>Cada módulo possui questões reais e flashcards para estudo</li>
+                <li>Complete os 5 módulos para desbloquear a próxima semana</li>
               </ul>
             </div>
           </div>
@@ -310,3 +365,4 @@ export default function StudyPlanPage() {
     </div>
   )
 }
+
