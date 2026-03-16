@@ -174,17 +174,20 @@ function StudyInner() {
         getCorrectlyAnsweredQuestions(userId),
       ])
 
-      const effectiveArea    = overrideParams?.area     ?? selectedGrandeArea
-      const effectiveSubtemas = overrideParams?.subtemas ?? selectedSubtemas
+      const effectiveArea     = overrideParams?.area      ?? selectedGrandeArea
+      const effectiveSubtemas = overrideParams?.subtemas  ?? selectedSubtemas
+
+      console.log("[v0] loadStudyCards: effectiveArea=", effectiveArea, "effectiveSubtemas=", effectiveSubtemas)
 
       let allQuestions: any[] = []
 
       if (effectiveArea) {
-        // Usa a mesma função do fluxo normal: getQuestionsByTemaAndSubtemas
         allQuestions = await getQuestionsByTemaAndSubtemas(effectiveArea, effectiveSubtemas)
-        // Fallback: se não achou nada com subtema, pega todos da área
+        console.log("[v0] loadStudyCards: questões retornadas =", allQuestions.length)
         if (allQuestions.length === 0) {
+          console.log("[v0] loadStudyCards: fallback — buscando todas da área")
           allQuestions = await getStudyQuestions(effectiveArea, [])
+          console.log("[v0] loadStudyCards: fallback retornou =", allQuestions.length)
         }
       } else {
         allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
@@ -206,12 +209,14 @@ function StudyInner() {
       setCurrentIndex(0)
       setStudyMode("questions")
       setIsLoading(false)
-    } catch {
+    } catch (err) {
+      console.error("[v0] loadStudyCards erro:", err)
       setIsLoading(false)
     }
   }
 
   const handleStartStudy = async (materiaOverride?: string, subtemaOverride?: string) => {
+    console.log("[v0] handleStartStudy: area=", materiaOverride, "subtema=", subtemaOverride)
     setIsLoading(true)
     await loadStudyCards(
       materiaOverride

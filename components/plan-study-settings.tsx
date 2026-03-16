@@ -40,9 +40,12 @@ export function PlanStudySettings({
       setLoading(true)
       setError(null)
       try {
+        console.log("[v0] PlanStudySettings: buscando subtemas para area =", area)
         const result = await getSubtemasByTema(area)
+        console.log("[v0] PlanStudySettings: subtemas recebidos =", result)
         setSubtemas(result.map(r => r.subtema))
-      } catch {
+      } catch (e) {
+        console.error("[v0] PlanStudySettings: erro ao carregar subtemas", e)
         setError("Falha ao carregar subtemas.")
         setSubtemas([])
       }
