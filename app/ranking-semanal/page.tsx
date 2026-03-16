@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseUser } from '@/lib/auth-supabase'
 import { Navbar } from '@/components/navbar'
-import { getWeeklyRanking, getUserRankingPosition, getUserWeeklyPoints, type WeakTopic } from '@/lib/gamification'
+import { getWeeklyRanking, getUserRankingPosition, getUserWeeklyPoints, type WeakTopic } from '@/lib/gamification-client'
 import { ArrowLeft, Trophy, Medal, TrendingUp } from 'lucide-react'
 
 interface RankingUser {

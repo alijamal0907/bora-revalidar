@@ -149,7 +149,10 @@ function StudyInner() {
         try {
           const subtemas = await getSubtemasByTema(selectedGrandeArea)
           setAvailableSubtemas(subtemas)
-          setSelectedSubtemas([]) // Limpar seleção anterior
+          // Só limpar seleção se não veio da URL (URL já definiu selectedSubtemas)
+          if (!searchParams.get('subtema')) {
+            setSelectedSubtemas([])
+          }
         } catch (error) {
           console.error("[v0] Erro ao carregar subtemas:", error)
           setAvailableSubtemas([])

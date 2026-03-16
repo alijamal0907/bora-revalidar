@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getSupabaseUser } from '@/lib/auth-supabase'
 import { Navbar } from '@/components/navbar'
-import { getUserWeakTopics, type WeakTopic } from '@/lib/gamification'
+import { getUserWeakTopics, type WeakTopic } from '@/lib/gamification-client'
 import {
   ArrowLeft,
   AlertTriangle,
