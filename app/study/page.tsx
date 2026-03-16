@@ -201,10 +201,9 @@ function StudyInner() {
         console.log("[v0] 🔍 Buscando por tema/subtema:", effectiveArea, effectiveSubtemas)
         allQuestions = await getQuestionsByTemaAndSubtemas(effectiveArea, effectiveSubtemas)
         console.log("[v0] 📊 Questões encontradas:", allQuestions.length)
-      } else if (effectiveMode === "materia" && overrideParams?.area) {
-        // Vindo do Plano de Estudos — busca por área usando getStudyQuestions
-        console.log("[v0] 🔍 Buscando por área do plano:", overrideParams.area)
-        allQuestions = await getStudyQuestions(overrideParams.area, [])
+      } else if (effectiveMode === "materia" && effectiveArea) {
+        console.log("[v0] 🔍 Buscando por área:", effectiveArea)
+        allQuestions = await getStudyQuestions(effectiveArea, [])
         console.log("[v0] 📊 Questões encontradas:", allQuestions.length)
       } else {
         allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
@@ -262,9 +261,9 @@ function StudyInner() {
     }
   }
 
-  const handleStartStudy = async () => {
+  const handleStartStudy = async (materiaOverride?: string) => {
     setIsLoading(true)
-    await loadStudyCards()
+    await loadStudyCards(materiaOverride ? { mode: 'materia', area: materiaOverride, subtemas: [] } : undefined)
   }
 
   const handleSelectAnswer = async (letter: string) => {
@@ -469,7 +468,7 @@ function StudyInner() {
               </div>
 
               <button
-                onClick={handleStartStudy}
+                onClick={() => handleStartStudy(fromPlan)}
                 className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl text-lg hover:bg-primary/90 transition-colors"
               >
                 Iniciar Estudo
@@ -887,6 +886,7 @@ function StudyInner() {
   }
 
   if (studyMode === "complete") {
+    const fromPlan = searchParams.get('area')
     return (
       <div>
         <Navbar user={user} />
@@ -906,12 +906,31 @@ function StudyInner() {
               <p className="text-2xl font-bold text-destructive mt-2">{sessionStats.incorrect}</p>
             </div>
           </div>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Voltar ao Dashboard
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            {fromPlan && (
+              <button
+                onClick={() => handleStartStudy(fromPlan)}
+                className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Estudar Novamente
+              </button>
+            )}
+            {fromPlan ? (
+              <button
+                onClick={() => router.push("/estudo-gamificado")}
+                className="px-6 py-3 bg-muted text-muted-foreground rounded-lg hover:bg-muted/80 transition-colors"
+              >
+                Voltar ao Plano
+              </button>
+            ) : (
+              <button
+                onClick={() => router.push("/dashboard")}
+                className="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              >
+                Voltar ao Dashboard
+              </button>
+            )}
+          </div>
         </main>
       </div>
     )

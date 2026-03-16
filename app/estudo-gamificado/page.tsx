@@ -511,6 +511,25 @@ export default function StudyPlanPage() {
                         </button>
                       </div>
                     )}
+
+                    {module.status_completed && !weekData.isLocked && (
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <Link
+                          href={`/study?area=${encodeURIComponent(module.area_name)}`}
+                          className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-md bg-slate-700 text-slate-300 hover:bg-blue-700 hover:text-white transition-colors"
+                        >
+                          <BookOpen className="w-4 h-4" />
+                          Reiniciar Questões
+                        </Link>
+                        <Link
+                          href={`/flashcards?area=${encodeURIComponent(module.area_name)}`}
+                          className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-md bg-slate-700 text-slate-300 hover:bg-slate-600 transition-colors"
+                        >
+                          <Brain className="w-4 h-4" />
+                          Reiniciar Flashcards
+                        </Link>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
