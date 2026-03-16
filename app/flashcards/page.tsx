@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { MATERIAS, MATERIA_ICONS, MATERIA_DESCRIPTIONS, TEMAS_POR_MATERIA, type Materia } from "@/lib/flashcards-config"
 import { BookOpen, ArrowLeft, Brain, Zap } from "lucide-react"
@@ -14,6 +14,7 @@ type Step = "materia" | "tema" | "config" | "study"
 
 export default function FlashcardsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isMounted, setIsMounted] = useState(false)
   const [user, setUser] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -79,6 +80,19 @@ export default function FlashcardsPage() {
 
     checkAuth()
   }, [router, isMounted])
+
+  // Detectar parâmetros de URL vindos do Plano de Estudos e ir direto para estudo
+  useEffect(() => {
+    const areaParam = searchParams.get('area')
+    const topicParam = searchParams.get('topic')
+
+    if (areaParam && topicParam && !isLoading && isMounted) {
+      setSelectedMateria(areaParam as Materia)
+      setSelectedTema(topicParam)
+      setSelectedQuantity(10)
+      setStep('study')
+    }
+  }, [searchParams, isLoading, isMounted])
 
   if (!isMounted) {
     return (

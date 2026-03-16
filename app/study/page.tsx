@@ -2,8 +2,8 @@
 
 export const dynamic = "force-dynamic"
 
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { getSupabaseUser } from "@/lib/auth-supabase"
 import { Navbar } from "@/components/navbar"
 import {
@@ -45,6 +45,7 @@ interface SessionStats {
 
 export default function StudyPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<any>(null)
   const [questions, setQuestions] = useState<Question[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
@@ -117,6 +118,24 @@ export default function StudyPage() {
 
     checkDailyLimit()
   }, [router])
+
+  // Detectar parâmetros de URL vindos do Plano de Estudos
+  useEffect(() => {
+    const areaParam = searchParams.get('area')
+    const subtopicParam = searchParams.get('subtopic')
+
+    if (areaParam && subtopicParam && !isLoading) {
+      // Pré-selecionar modo tema/subtema
+      setSelectionMode('tema_subtema')
+      setSelectedGrandeArea(areaParam)
+      setSelectedSubtemas([subtopicParam])
+      // Iniciar estudo automaticamente após um pequeno delay para o estado ser aplicado
+      setTimeout(() => {
+        handleStartStudy()
+      }, 300)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, isLoading])
 
   // Carregar subtemas quando uma grande área é selecionada
   useEffect(() => {

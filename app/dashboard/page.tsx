@@ -369,6 +369,17 @@ export default function DashboardPage() {
 
         <div className="flex flex-col sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8 lg:mb-12">
           <Link
+            href="/estudo-gamificado"
+            className="bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-lg sm:text-xl font-bold">Plano de Estudos</h3>
+              <BookMarked className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
+            </div>
+            <p className="text-white/90 text-xs sm:text-sm">Trilha de 20 semanas estruturada para Revalida</p>
+          </Link>
+
+          <Link
             href="/study"
             className="bg-gradient-to-br from-primary to-primary/90 text-primary-foreground rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group border border-primary/20"
           >
@@ -436,17 +447,6 @@ export default function DashboardPage() {
               <Trophy className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
             </div>
             <p className="text-white/90 text-xs sm:text-sm">Veja suas conquistas e progresso de badges</p>
-          </Link>
-
-          <Link
-            href="/estudo-gamificado"
-            className="bg-gradient-to-br from-green-500 to-emerald-600 text-white rounded-xl p-6 sm:p-8 hover:shadow-lg transition-all active:scale-95 cursor-pointer group"
-          >
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <h3 className="text-lg sm:text-xl font-bold">Plano Gamificado</h3>
-              <BookMarked className="w-5 h-5 sm:w-6 sm:h-6 group-hover:scale-110 transition-transform" />
-            </div>
-            <p className="text-white/90 text-xs sm:text-sm">Trilha de 20 semanas estruturada para Revalida</p>
           </Link>
 
           <Link

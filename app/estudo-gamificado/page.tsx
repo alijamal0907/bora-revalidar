@@ -13,28 +13,41 @@ import {
   initializeStudyPlan,
   type UserProgress,
 } from '@/lib/gamification'
-import { STUDY_PLAN_STRUCTURE } from '@/lib/study-plan-complete'
-import { getQuestionsForSubtopic, getFlashcardsForSubtopic } from '@/lib/subtopic-search'
-import { ArrowLeft, CheckCircle, Lock, BookOpen, Brain, AlertCircle, Zap } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Lock, BookOpen, Brain, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 
-const AREAS_MEDICAS = [
-  'Clínica Médica',
-  'Clínica Cirurgica',
-  'Pediatria',
-  'Ginecologia e Obstetrícia',
-  'Medicina Preventiva',
-]
+// Títulos das semanas (inline para evitar import de módulos server)
+const WEEK_TITLES: Record<number, string> = {
+  1: 'Fundamentos Clínicos e Cirúrgicos',
+  2: 'Cardiologia e Cirurgia Cardíaca',
+  3: 'Pneumologia e Cirurgia Torácica',
+  4: 'Gastroenterologia e Cirurgia do Abdome',
+  5: 'Nefrologia e Urologia',
+  6: 'Neurologia e Neurocirurgia',
+  7: 'Endocrinologia e Cirurgia Endócrina',
+  8: 'Oncologia e Oncologia Cirúrgica',
+  9: 'Hematologia e Transplantes',
+  10: 'Infectologia e Cirurgia de Urgência',
+  11: 'Reumatologia e Ortopedia',
+  12: 'Dermatologia e Cirurgia Plástica',
+  13: 'Saúde da Mulher e Ginecologia',
+  14: 'Obstetrícia e Alto Risco Gestacional',
+  15: 'Pediatria – Neonatologia e Lactente',
+  16: 'Pediatria – Crescimento e Doenças Crônicas',
+  17: 'Medicina Preventiva e Saúde Coletiva',
+  18: 'Urgência, Emergência e Trauma',
+  19: 'Revisão Multidisciplinar I',
+  20: 'Revisão Multidisciplinar II',
+}
 
 interface WeekData {
   week: number
   title: string
-  modules: any[]
+  modules: UserProgress[]
   completedInWeek: number
   isLocked: boolean
   isCurrent: boolean
   isCompleted: boolean
-  unlockedNextWeek: boolean
 }
 
 export default function StudyPlanPage() {
@@ -139,21 +152,15 @@ export default function StudyPlanPage() {
     const isWeekLocked = week > currentWeek + 1
     const isWeekCurrent = week === currentWeek
     const isWeekCompleted = completedInWeek === 5
-    const unlockedNextWeek = completedInWeek === 5
-
-    const studyPlanKey = `week${week}` as keyof typeof STUDY_PLAN_STRUCTURE
-    const weekTitle =
-      STUDY_PLAN_STRUCTURE[studyPlanKey as any]?.title || `Semana ${week}`
 
     return {
       week,
-      title: weekTitle,
+      title: WEEK_TITLES[week] || `Semana ${week}`,
       modules,
       completedInWeek,
       isLocked: isWeekLocked,
       isCurrent: isWeekCurrent,
       isCompleted: isWeekCompleted,
-      unlockedNextWeek,
     }
   })
 
@@ -173,7 +180,7 @@ export default function StudyPlanPage() {
           </button>
 
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
-            Plano de Aprovação – 20 Semanas
+            Plano de Estudos – 20 Semanas
           </h1>
           <p className="text-slate-400 text-sm sm:text-base">
             Trilha estruturada com 5 módulos por semana
