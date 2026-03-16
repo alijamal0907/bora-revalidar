@@ -41,6 +41,11 @@ export async function getSupabaseUser(): Promise<User | null> {
 export async function signUpSupabase(email: string, password: string): Promise<User | null> {
   try {
     const supabase = getSupabaseClient()
+    
+    if (!supabase) {
+      throw new Error("Erro de conexão. Por favor, tente novamente.")
+    }
+    
     const response = await fetch("/api/auth/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -50,11 +55,15 @@ export async function signUpSupabase(email: string, password: string): Promise<U
     const data = await response.json()
 
     if (!response.ok) {
-      throw new Error(data.error || "Signup failed")
+      // Traduzir mensagens de erro comuns
+      if (data.error?.includes("already registered")) {
+        throw new Error("Este e-mail já está cadastrado")
+      }
+      throw new Error(data.error || "Erro ao criar conta")
     }
 
     if (!data.user) {
-      throw new Error("No user returned from signup")
+      throw new Error("Não foi possível criar a conta. Tente novamente.")
     }
 
     // Auto login after signup
@@ -78,6 +87,10 @@ export async function signUpSupabase(email: string, password: string): Promise<U
       usuario_id: user.id,
     }
   } catch (error: any) {
+    // Tratar erros de rede/fetch
+    if (error?.name === "AuthRetryableFetchError" || error?.message === "Failed to fetch") {
+      throw new Error("Erro de conexão com o servidor. Por favor, verifique sua internet e tente novamente.")
+    }
     console.error("Signup error:", error)
     throw error
   }
@@ -86,17 +99,29 @@ export async function signUpSupabase(email: string, password: string): Promise<U
 export async function signInSupabase(email: string, password: string): Promise<User | null> {
   try {
     const supabase = getSupabaseClient()
+    
+    if (!supabase) {
+      throw new Error("Erro de conexão. Por favor, tente novamente.")
+    }
+    
     const {
       data: { user },
       error,
     } = await supabase.auth.signInWithPassword({ email, password })
 
     if (error) {
+      // Traduzir mensagens de erro comuns
+      if (error.message === "Invalid login credentials") {
+        throw new Error("E-mail ou senha incorretos")
+      }
+      if (error.message?.includes("Email not confirmed")) {
+        throw new Error("Por favor, confirme seu e-mail antes de fazer login")
+      }
       throw error
     }
 
     if (!user) {
-      throw new Error("No user returned from login")
+      throw new Error("Não foi possível fazer login. Tente novamente.")
     }
 
     return {
@@ -104,7 +129,11 @@ export async function signInSupabase(email: string, password: string): Promise<U
       email: user.email || "",
       usuario_id: user.id,
     }
-  } catch (error) {
+  } catch (error: any) {
+    // Tratar erros de rede/fetch
+    if (error?.name === "AuthRetryableFetchError" || error?.message === "Failed to fetch") {
+      throw new Error("Erro de conexão com o servidor. Por favor, verifique sua internet e tente novamente.")
+    }
     console.error("Login error:", error)
     throw error
   }
