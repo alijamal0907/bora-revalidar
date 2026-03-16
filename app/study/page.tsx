@@ -44,6 +44,14 @@ interface SessionStats {
 }
 
 export default function StudyPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <StudyInner />
+    </Suspense>
+  )
+}
+
+function StudyInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [user, setUser] = useState<any>(null)

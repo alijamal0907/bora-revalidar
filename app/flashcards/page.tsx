@@ -2,7 +2,7 @@
 
 export const dynamic = "force-dynamic"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Navbar } from "@/components/navbar"
 import { MATERIAS, MATERIA_ICONS, MATERIA_DESCRIPTIONS, TEMAS_POR_MATERIA, type Materia } from "@/lib/flashcards-config"
@@ -12,7 +12,7 @@ import type { UserPlan } from "@/lib/plan-utils"
 
 type Step = "materia" | "tema" | "config" | "study"
 
-export default function FlashcardsPage() {
+function FlashcardsInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isMounted, setIsMounted] = useState(false)
@@ -434,5 +434,13 @@ export default function FlashcardsPage() {
         )}
       </main>
     </div>
+  )
+}
+
+export default function FlashcardsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <FlashcardsInner />
+    </Suspense>
   )
 }
