@@ -343,8 +343,8 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
 
 const MATERIA_VARIATIONS: { [key: string]: string[] } = {
   "Clínica Médica": ["Clínica Médica", "clinica medica", "Clinica Medica"],
-  "Clínica Cirúrgica": ["Clínica Cirúrgica", "clinica cirurgica", "Cirurgia"],
-  Pediatria: ["Pediatria", "pediatria"],
+  "Clínica Cirúrgica": ["Clínica Cirúrgica", "clinica cirurgica", "Cirurgia", "Clínica Cirurgica"],
+  "Pediatria": ["Pediatria", "pediatria"],
   "Ginecologia e Obstetrícia": [
     "Ginecologia e Obstetrícia",
     "Ginecologia e obstetrícia",
@@ -366,7 +366,13 @@ const MATERIA_VARIATIONS: { [key: string]: string[] } = {
     "ginecologia e obstetricia",
     "obstetricia",
   ],
-  "Medicina Preventiva": ["Medicina Preventiva", "medicina preventiva"],
+  "Medicina Preventiva": [
+    "Medicina Preventiva",
+    "medicina preventiva",
+    "Saúde Coletiva",
+    "saude coletiva",
+    "Medicina de Família",
+  ],
 }
 
 export async function getStudyQuestions(materia: string | null, temas: string[] = []): Promise<any[]> {

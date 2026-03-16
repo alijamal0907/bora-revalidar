@@ -130,10 +130,12 @@ function StudyInner() {
   // Detectar parâmetros de URL vindos do Plano de Estudos
   useEffect(() => {
     const areaParam = searchParams.get('area')
+    const subtemaParam = searchParams.get('subtema')
     if (areaParam && !isLoading) {
-      // Pré-selecionar a matéria e mostrar a tela de settings (usuário escolhe a quantidade)
       setSelectedMateria(areaParam)
-      setSelectionMode('materia')
+      if (subtemaParam) setSelectedSubtemas([subtemaParam])
+      setSelectionMode(subtemaParam ? 'tema_subtema' : 'materia')
+      setSelectedGrandeArea(areaParam)
       setStudyMode('settings')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,9 +263,13 @@ function StudyInner() {
     }
   }
 
-  const handleStartStudy = async (materiaOverride?: string) => {
+  const handleStartStudy = async (materiaOverride?: string, subtemaOverride?: string) => {
     setIsLoading(true)
-    await loadStudyCards(materiaOverride ? { mode: 'materia', area: materiaOverride, subtemas: [] } : undefined)
+    await loadStudyCards(
+      materiaOverride
+        ? { mode: subtemaOverride ? 'tema_subtema' : 'materia', area: materiaOverride, subtemas: subtemaOverride ? [subtemaOverride] : [] }
+        : undefined
+    )
   }
 
   const handleSelectAnswer = async (letter: string) => {
@@ -413,6 +419,7 @@ function StudyInner() {
 
   if (studyMode === "settings") {
     const fromPlan = searchParams.get('area')
+    const fromPlanSubtema = searchParams.get('subtema')
 
     // Tela simplificada quando vem do Plano de Estudos
     if (fromPlan && selectedMateria) {
@@ -432,7 +439,12 @@ function StudyInner() {
               <div className="mb-6">
                 <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">Plano de Estudos</p>
                 <h1 className="text-2xl sm:text-3xl font-bold mb-1">{selectedMateria}</h1>
-                <p className="text-muted-foreground text-sm">Questões selecionadas para esta área</p>
+                {fromPlanSubtema && (
+                  <p className="text-sm text-muted-foreground mt-1 bg-muted/40 rounded-lg px-3 py-2 inline-block">
+                    Subtema: <strong>{fromPlanSubtema}</strong>
+                  </p>
+                )}
+                <p className="text-muted-foreground text-sm mt-2">Selecione a quantidade de questões para iniciar</p>
               </div>
 
               {/* Seleção de quantidade */}
@@ -468,7 +480,7 @@ function StudyInner() {
               </div>
 
               <button
-                onClick={() => handleStartStudy(fromPlan)}
+                onClick={() => handleStartStudy(fromPlan, fromPlanSubtema || undefined)}
                 className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl text-lg hover:bg-primary/90 transition-colors"
               >
                 Iniciar Estudo
