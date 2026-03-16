@@ -50,6 +50,15 @@ const WEEKS_PLAN: Record<number, Record<Area, string>> = {
   20: { 'Clínica Médica': 'Cardiologia',              'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva',      'Pediatria': 'Saúde da Criança e Adolescente',       'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia',      'Medicina Preventiva': 'Epidemiologia' },
 }
 
+// Mapeamento do label do plano para o tema exato no banco
+const AREA_TO_DB_TEMA: Record<Area, string> = {
+  'Clínica Médica':            'Clínica Médica',
+  'Clínica Cirúrgica':         'Cirurgia',
+  'Pediatria':                 'Pediatria',
+  'Ginecologia e Obstetrícia': 'Ginecologia e Obstetrícia',
+  'Medicina Preventiva':       'Medicina Preventiva',
+}
+
 // Versão atual do plano — incrementar força reset automático do progresso salvo
 const PLAN_VERSION = 'v3-subtemas-reais'
 
@@ -308,7 +317,7 @@ export default function PlanoDeEstudosPage() {
 
                           <div className="flex flex-wrap gap-2 pl-6">
                             <Link
-                              href={`/study?area=${encodeURIComponent(area)}&subtema=${encodeURIComponent(subtema)}`}
+                              href={`/study?area=${encodeURIComponent(AREA_TO_DB_TEMA[area])}&subtema=${encodeURIComponent(subtema)}`}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-700/30 transition-colors"
                             >
                               <BookOpen className="w-3.5 h-3.5" />
@@ -316,7 +325,7 @@ export default function PlanoDeEstudosPage() {
                             </Link>
 
                             <Link
-                              href={`/flashcards?area=${encodeURIComponent(area)}&subtema=${encodeURIComponent(subtema)}`}
+                              href={`/flashcards?area=${encodeURIComponent(AREA_TO_DB_TEMA[area])}&subtema=${encodeURIComponent(subtema)}`}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-slate-700/50 text-slate-300 hover:bg-slate-700 border border-slate-700/50 transition-colors"
                             >
                               <Brain className="w-3.5 h-3.5" />

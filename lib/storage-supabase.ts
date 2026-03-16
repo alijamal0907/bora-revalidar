@@ -344,6 +344,7 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
 const MATERIA_VARIATIONS: { [key: string]: string[] } = {
   "Clínica Médica": ["Clínica Médica", "clinica medica", "Clinica Medica"],
   "Clínica Cirúrgica": ["Clínica Cirúrgica", "clinica cirurgica", "Cirurgia", "Clínica Cirurgica"],
+  "Cirurgia": ["Cirurgia", "Clínica Cirúrgica", "clinica cirurgica", "Clínica Cirurgica"],
   "Pediatria": ["Pediatria", "pediatria"],
   "Ginecologia e Obstetrícia": [
     "Ginecologia e Obstetrícia",
