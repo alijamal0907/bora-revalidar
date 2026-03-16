@@ -130,14 +130,11 @@ function StudyInner() {
   // Detectar parâmetros de URL vindos do Plano de Estudos
   useEffect(() => {
     const areaParam = searchParams.get('area')
-
     if (areaParam && !isLoading) {
+      // Pré-selecionar a matéria e mostrar a tela de settings (usuário escolhe a quantidade)
       setSelectedMateria(areaParam)
       setSelectionMode('materia')
-      setStudyMode('questions')
-      setIsLoading(true)
-      // Passa os parâmetros diretamente para evitar problema de closure com estado React
-      loadStudyCards({ mode: 'materia', area: areaParam, subtemas: [] })
+      setStudyMode('settings')
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, isLoading])
@@ -416,6 +413,73 @@ function StudyInner() {
   }
 
   if (studyMode === "settings") {
+    const fromPlan = searchParams.get('area')
+
+    // Tela simplificada quando vem do Plano de Estudos
+    if (fromPlan && selectedMateria) {
+      return (
+        <div className="min-h-screen bg-background">
+          <Navbar user={user} />
+          <main className="max-w-2xl mx-auto px-4 py-12">
+            <button
+              onClick={() => router.push("/estudo-gamificado")}
+              className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Voltar ao Plano de Estudos
+            </button>
+
+            <div className="bg-card border border-border rounded-xl p-6 sm:p-8">
+              <div className="mb-6">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">Plano de Estudos</p>
+                <h1 className="text-2xl sm:text-3xl font-bold mb-1">{selectedMateria}</h1>
+                <p className="text-muted-foreground text-sm">Questões selecionadas para esta área</p>
+              </div>
+
+              {/* Seleção de quantidade */}
+              <div className="mb-8">
+                <label className="block text-sm font-medium mb-3">Quantas questões?</label>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                  {[5, 10, 15, 20, 30].map((n) => {
+                    const limit = userPlan === "free" ? Math.min(n, numQuestions) : n
+                    const disabled = userPlan === "free" && n > numQuestions
+                    return (
+                      <button
+                        key={n}
+                        disabled={disabled}
+                        onClick={() => setNumQuestions(n)}
+                        className={`py-3 rounded-lg border-2 font-bold text-lg transition-all ${
+                          numQuestions === n
+                            ? "border-primary bg-primary/10 text-primary"
+                            : disabled
+                              ? "border-border text-muted-foreground/30 cursor-not-allowed"
+                              : "border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    )
+                  })}
+                </div>
+                {userPlan === "free" && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Plano FREE: máximo {numQuestions} questões restantes hoje
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={handleStartStudy}
+                className="w-full py-4 bg-primary text-primary-foreground font-bold rounded-xl text-lg hover:bg-primary/90 transition-colors"
+              >
+                Iniciar Estudo
+              </button>
+            </div>
+          </main>
+        </div>
+      )
+    }
+
     return (
       <div className="min-h-screen bg-background">
         <Navbar user={user} />
