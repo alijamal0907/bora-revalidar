@@ -130,17 +130,14 @@ function StudyInner() {
   // Detectar parâmetros de URL vindos do Plano de Estudos
   useEffect(() => {
     const areaParam = searchParams.get('area')
-    const subtopicParam = searchParams.get('subtopic')
 
-    if (areaParam && subtopicParam && !isLoading) {
-      // Pré-selecionar modo tema/subtema
-      setSelectionMode('tema_subtema')
-      setSelectedGrandeArea(areaParam)
-      setSelectedSubtemas([subtopicParam])
-      // Iniciar estudo automaticamente após um pequeno delay para o estado ser aplicado
-      setTimeout(() => {
-        handleStartStudy()
-      }, 300)
+    if (areaParam && !isLoading) {
+      setSelectedMateria(areaParam)
+      setSelectionMode('materia')
+      setStudyMode('questions')
+      setIsLoading(true)
+      // Passa os parâmetros diretamente para evitar problema de closure com estado React
+      loadStudyCards({ mode: 'materia', area: areaParam, subtemas: [] })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, isLoading])
@@ -168,7 +165,7 @@ function StudyInner() {
     loadSubtemas()
   }, [selectedGrandeArea, selectionMode])
 
-  const loadStudyCards = async () => {
+  const loadStudyCards = async (overrideParams?: { mode: "tema_subtema" | "materia"; area: string; subtemas: string[] }) => {
     console.log("[v0] 📚 Iniciando loadStudyCards com espaçamento repetido")
     console.log("[v0] Estado atual - materia:", selectedMateria, "temas:", selectedTemas)
 
@@ -197,10 +194,21 @@ function StudyInner() {
         getCorrectlyAnsweredQuestions(userId),
       ])
 
-      // Usar a nova lógica de busca por tema/subtema se o modo estiver ativo
+      // Usar os parâmetros override vindos da URL (evita problema de closure com estado React)
       let allQuestions: any[]
-      if (selectionMode === "tema_subtema" && selectedGrandeArea) {
-        allQuestions = await getQuestionsByTemaAndSubtemas(selectedGrandeArea, selectedSubtemas)
+      const effectiveMode = overrideParams?.mode ?? selectionMode
+      const effectiveArea = overrideParams?.area ?? selectedGrandeArea
+      const effectiveSubtemas = overrideParams?.subtemas ?? selectedSubtemas
+
+      if (effectiveMode === "tema_subtema" && effectiveArea) {
+        console.log("[v0] 🔍 Buscando por tema/subtema:", effectiveArea, effectiveSubtemas)
+        allQuestions = await getQuestionsByTemaAndSubtemas(effectiveArea, effectiveSubtemas)
+        console.log("[v0] 📊 Questões encontradas:", allQuestions.length)
+      } else if (effectiveMode === "materia" && overrideParams?.area) {
+        // Vindo do Plano de Estudos — busca por área usando getStudyQuestions
+        console.log("[v0] 🔍 Buscando por área do plano:", overrideParams.area)
+        allQuestions = await getStudyQuestions(overrideParams.area, [])
+        console.log("[v0] 📊 Questões encontradas:", allQuestions.length)
       } else {
         allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
       }

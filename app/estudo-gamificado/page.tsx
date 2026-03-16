@@ -306,7 +306,7 @@ export default function StudyPlanPage() {
                     {!module.status_completed && (
                       <div className="flex flex-wrap gap-2">
                         <Link
-                          href={weekData.isLocked ? '#' : `/study?area=${encodeURIComponent(module.area_name)}&subtopic=${encodeURIComponent(module.subtopic_name)}`}
+                          href={weekData.isLocked ? '#' : `/study?area=${encodeURIComponent(module.area_name)}`}
                           onClick={(e) => weekData.isLocked && e.preventDefault()}
                           className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-md transition-colors ${
                             weekData.isLocked
@@ -319,7 +319,7 @@ export default function StudyPlanPage() {
                         </Link>
 
                         <Link
-                          href={weekData.isLocked ? '#' : `/flashcards?area=${encodeURIComponent(module.area_name)}&topic=${encodeURIComponent(module.subtopic_name)}`}
+                          href={weekData.isLocked ? '#' : `/flashcards?area=${encodeURIComponent(module.area_name)}`}
                           onClick={(e) => weekData.isLocked && e.preventDefault()}
                           className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-md transition-colors ${
                             weekData.isLocked

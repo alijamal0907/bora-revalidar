@@ -84,12 +84,11 @@ function FlashcardsInner() {
   // Detectar parâmetros de URL vindos do Plano de Estudos e ir direto para estudo
   useEffect(() => {
     const areaParam = searchParams.get('area')
-    const topicParam = searchParams.get('topic')
 
-    if (areaParam && topicParam && !isLoading && isMounted) {
+    if (areaParam && !isLoading && isMounted) {
       setSelectedMateria(areaParam as Materia)
-      setSelectedTema(topicParam)
-      setSelectedQuantity(10)
+      setSelectedTema(null) // sem tema específico — pega todos da área
+      setSelectedQuantity(15)
       setStep('study')
     }
   }, [searchParams, isLoading, isMounted])

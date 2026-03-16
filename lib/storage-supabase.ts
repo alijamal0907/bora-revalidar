@@ -350,6 +350,21 @@ const MATERIA_VARIATIONS: { [key: string]: string[] } = {
     "Ginecologia e obstetrícia",
     "ginecologia e obstetricia",
     "Ginecologia",
+    "Obstetrícia",
+    "obstetricia",
+  ],
+  "Ginecologia": [
+    "Ginecologia",
+    "Ginecologia e Obstetrícia",
+    "Ginecologia e obstetrícia",
+    "ginecologia e obstetricia",
+  ],
+  "Obstetrícia": [
+    "Obstetrícia",
+    "Ginecologia e Obstetrícia",
+    "Ginecologia e obstetrícia",
+    "ginecologia e obstetricia",
+    "obstetricia",
   ],
   "Medicina Preventiva": ["Medicina Preventiva", "medicina preventiva"],
 }
