@@ -176,11 +176,13 @@ function StudyInner() {
       console.log("[v0] Definindo", sorted.slice(0, limit).length, "questões para estudo")
       setQuestions(sorted.slice(0, limit))
       setCurrentIndex(0)
+      setIsLoading(false)
       setStudyMode("questions")
+      console.log("[v0] studyMode setado para 'questions'")
     } catch (err) {
       console.error("[v0] Erro em loadStudyCards:", err)
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   const handleStartStudy = () => {
