@@ -6,8 +6,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Navbar } from '@/components/navbar'
 import { createClient } from '@/lib/supabase/client'
-import { ArrowLeft, CheckCircle, Lock, BookOpen, Brain, AlertCircle, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Lock, BookOpen, Brain, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
+
+// ─── Constantes ───────────────────────────────────────────────────────────────
 
 const AREAS = [
   'Clínica Médica',
@@ -19,150 +21,128 @@ const AREAS = [
 
 type Area = typeof AREAS[number]
 
-interface Module {
-  week: number
-  area: Area
-  subtema: string
+// Subtemas exatos da tabela questoes no Supabase
+// Clínica Médica: 17 subtemas
+// Clínica Cirúrgica (tema="Cirurgia"): 8 subtemas
+// Pediatria: 13 subtemas
+// Ginecologia e Obstetrícia: 5 subtemas
+// Medicina Preventiva: 5 subtemas
+const WEEKS_PLAN: Record<number, Record<Area, string>> = {
+  1:  { 'Clínica Médica': 'Cardiologia',             'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva',       'Pediatria': 'Neonatologia',                        'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia',     'Medicina Preventiva': 'Políticas Públicas de Saúde' },
+  2:  { 'Clínica Médica': 'Infectologia',             'Clínica Cirúrgica': 'Trauma / ATLS',                          'Pediatria': 'Infectologia Pediátrica',              'Ginecologia e Obstetrícia': 'Ginecologia Geral',           'Medicina Preventiva': 'Epidemiologia' },
+  3:  { 'Clínica Médica': 'Pneumologia',              'Clínica Cirúrgica': 'Ortopedia e Traumatologia',              'Pediatria': 'Pneumologia Pediátrica',               'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas','Medicina Preventiva': 'APS / Saúde da Família' },
+  4:  { 'Clínica Médica': 'Gastroenterologia',        'Clínica Cirúrgica': 'Oncologia Cirúrgica',                    'Pediatria': 'Crescimento e Desenvolvimento',        'Ginecologia e Obstetrícia': 'Oncologia Ginecológica',       'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
+  5:  { 'Clínica Médica': 'Endocrinologia',           'Clínica Cirúrgica': 'Urologia / Proctologia',                 'Pediatria': 'Gastroenterologia Pediátrica',         'Ginecologia e Obstetrícia': 'Endocrinologia Reprodutiva',   'Medicina Preventiva': 'Ética Médica e Bioética' },
+  6:  { 'Clínica Médica': 'Nefrologia / Urologia',   'Clínica Cirúrgica': 'Pós-operatório / Complicações Cirúrgicas','Pediatria': 'Neurologia Pediátrica',                'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia',      'Medicina Preventiva': 'Epidemiologia' },
+  7:  { 'Clínica Médica': 'Neurologia',               'Clínica Cirúrgica': 'Feridas / Técnica Cirúrgica',            'Pediatria': 'Hematologia / Oncologia Pediátrica',   'Ginecologia e Obstetrícia': 'Ginecologia Geral',            'Medicina Preventiva': 'APS / Saúde da Família' },
+  8:  { 'Clínica Médica': 'Hematologia',              'Clínica Cirúrgica': 'Urgências Clínicas / Outros',            'Pediatria': 'Imunizações e Vigilância Epidemiológica','Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas','Medicina Preventiva': 'Políticas Públicas de Saúde' },
+  9:  { 'Clínica Médica': 'Reumatologia',             'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva',       'Pediatria': 'Urgências Pediátricas',                'Ginecologia e Obstetrícia': 'Oncologia Ginecológica',       'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
+  10: { 'Clínica Médica': 'Urgências Clínicas / Outros','Clínica Cirúrgica': 'Trauma / ATLS',                        'Pediatria': 'Saúde da Criança e Adolescente',       'Ginecologia e Obstetrícia': 'Endocrinologia Reprodutiva',   'Medicina Preventiva': 'Ética Médica e Bioética' },
+  11: { 'Clínica Médica': 'Cardiologia',              'Clínica Cirúrgica': 'Ortopedia e Traumatologia',              'Pediatria': 'Neonatologia',                         'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia',      'Medicina Preventiva': 'APS / Saúde da Família' },
+  12: { 'Clínica Médica': 'Psiquiatria',              'Clínica Cirúrgica': 'Oncologia Cirúrgica',                    'Pediatria': 'Psiquiatria / Comportamento',           'Ginecologia e Obstetrícia': 'Ginecologia Geral',            'Medicina Preventiva': 'Epidemiologia' },
+  13: { 'Clínica Médica': 'Oncologia / Hematologia',  'Clínica Cirúrgica': 'Urologia / Proctologia',                 'Pediatria': 'Endocrinologia / Adolescência',         'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'Políticas Públicas de Saúde' },
+  14: { 'Clínica Médica': 'Dermatologia',             'Clínica Cirúrgica': 'Feridas / Técnica Cirúrgica',            'Pediatria': 'Ortopedia / Cirurgia Pediátrica',      'Ginecologia e Obstetrícia': 'Oncologia Ginecológica',       'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
+  15: { 'Clínica Médica': 'Geriatria',                'Clínica Cirúrgica': 'Pós-operatório / Complicações Cirúrgicas','Pediatria': 'Infectologia Pediátrica',              'Ginecologia e Obstetrícia': 'Endocrinologia Reprodutiva',   'Medicina Preventiva': 'Ética Médica e Bioética' },
+  16: { 'Clínica Médica': 'Oftalmologia',             'Clínica Cirúrgica': 'Urgências Clínicas / Outros',            'Pediatria': 'Crescimento e Desenvolvimento',         'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia',      'Medicina Preventiva': 'APS / Saúde da Família' },
+  17: { 'Clínica Médica': 'Reumatologia / Ortopedia', 'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva',      'Pediatria': 'Neurologia Pediátrica',                'Ginecologia e Obstetrícia': 'Ginecologia Geral',            'Medicina Preventiva': 'Epidemiologia' },
+  18: { 'Clínica Médica': 'Clínica Geral',            'Clínica Cirúrgica': 'Trauma / ATLS',                          'Pediatria': 'Pneumologia Pediátrica',               'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
+  19: { 'Clínica Médica': 'Urgências Clínicas / Outros','Clínica Cirúrgica': 'Ortopedia e Traumatologia',            'Pediatria': 'Hematologia / Oncologia Pediátrica',   'Ginecologia e Obstetrícia': 'Oncologia Ginecológica',       'Medicina Preventiva': 'Políticas Públicas de Saúde' },
+  20: { 'Clínica Médica': 'Cardiologia',              'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva',      'Pediatria': 'Saúde da Criança e Adolescente',       'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia',      'Medicina Preventiva': 'Epidemiologia' },
+}
+
+// Versão atual do plano — incrementar força reset automático do progresso salvo
+const PLAN_VERSION = 'v3-subtemas-reais'
+
+// ─── Tipos ────────────────────────────────────────────────────────────────────
+
+interface ModuleProgress {
   status_completed: boolean
   completed_at: string | null
 }
 
-interface WeekData {
-  week: number
-  modules: Module[]
-  completedCount: number
-  isLocked: boolean
-  isCurrent: boolean
-  isCompleted: boolean
+type ProgressStore = Record<string, ModuleProgress> // chave: "week-area"
+
+function progressKey(week: number, area: string) {
+  return `${week}::${area}`
 }
 
-// Plano fixo com subtemas reais da tabela questoes
-const WEEKS_PLAN: Record<number, Record<string, string>> = {
-  1:  { 'Clínica Médica': 'Cardiologia', 'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva', 'Pediatria': 'Neonatologia', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'Políticas Públicas de Saúde' },
-  2:  { 'Clínica Médica': 'Infectologia', 'Clínica Cirúrgica': 'Trauma / ATLS', 'Pediatria': 'Infectologia Pediátrica', 'Ginecologia e Obstetrícia': 'Ginecologia Geral', 'Medicina Preventiva': 'Epidemiologia' },
-  3:  { 'Clínica Médica': 'Pneumologia', 'Clínica Cirúrgica': 'Ortopedia e Traumatologia', 'Pediatria': 'Pneumologia Pediátrica', 'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'APS / Saúde da Família' },
-  4:  { 'Clínica Médica': 'Gastroenterologia', 'Clínica Cirúrgica': 'Oncologia Cirúrgica', 'Pediatria': 'Crescimento e Desenvolvimento', 'Ginecologia e Obstetrícia': 'Oncologia Ginecológica', 'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
-  5:  { 'Clínica Médica': 'Endocrinologia', 'Clínica Cirúrgica': 'Urologia / Proctologia', 'Pediatria': 'Gastroenterologia Pediátrica', 'Ginecologia e Obstetrícia': 'Endocrinologia Reprodutiva', 'Medicina Preventiva': 'Ética Médica e Bioética' },
-  6:  { 'Clínica Médica': 'Nefrologia / Urologia', 'Clínica Cirúrgica': 'Pós-operatório / Complicações Cirúrgicas', 'Pediatria': 'Neurologia Pediátrica', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'Epidemiologia' },
-  7:  { 'Clínica Médica': 'Neurologia', 'Clínica Cirúrgica': 'Feridas / Técnica Cirúrgica', 'Pediatria': 'Hematologia / Oncologia Pediátrica', 'Ginecologia e Obstetrícia': 'Ginecologia Geral', 'Medicina Preventiva': 'APS / Saúde da Família' },
-  8:  { 'Clínica Médica': 'Hematologia', 'Clínica Cirúrgica': 'Urgências Clínicas / Outros', 'Pediatria': 'Imunizações e Vigilância Epidemiológica', 'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'Políticas Públicas de Saúde' },
-  9:  { 'Clínica Médica': 'Reumatologia', 'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva', 'Pediatria': 'Urgências Pediátricas', 'Ginecologia e Obstetrícia': 'Oncologia Ginecológica', 'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
-  10: { 'Clínica Médica': 'Urgências Clínicas / Outros', 'Clínica Cirúrgica': 'Trauma / ATLS', 'Pediatria': 'Saúde da Criança e Adolescente', 'Ginecologia e Obstetrícia': 'Endocrinologia Reprodutiva', 'Medicina Preventiva': 'Ética Médica e Bioética' },
-  11: { 'Clínica Médica': 'Cardiologia', 'Clínica Cirúrgica': 'Ortopedia e Traumatologia', 'Pediatria': 'Neonatologia', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'APS / Saúde da Família' },
-  12: { 'Clínica Médica': 'Psiquiatria', 'Clínica Cirúrgica': 'Oncologia Cirúrgica', 'Pediatria': 'Psiquiatria / Comportamento', 'Ginecologia e Obstetrícia': 'Ginecologia Geral', 'Medicina Preventiva': 'Epidemiologia' },
-  13: { 'Clínica Médica': 'Oncologia / Hematologia', 'Clínica Cirúrgica': 'Urologia / Proctologia', 'Pediatria': 'Endocrinologia / Adolescência', 'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'Políticas Públicas de Saúde' },
-  14: { 'Clínica Médica': 'Dermatologia', 'Clínica Cirúrgica': 'Feridas / Técnica Cirúrgica', 'Pediatria': 'Ortopedia / Cirurgia Pediátrica', 'Ginecologia e Obstetrícia': 'Oncologia Ginecológica', 'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
-  15: { 'Clínica Médica': 'Geriatria', 'Clínica Cirúrgica': 'Pós-operatório / Complicações Cirúrgicas', 'Pediatria': 'Infectologia Pediátrica', 'Ginecologia e Obstetrícia': 'Endocrinologia Reprodutiva', 'Medicina Preventiva': 'Ética Médica e Bioética' },
-  16: { 'Clínica Médica': 'Oftalmologia', 'Clínica Cirúrgica': 'Urgências Clínicas / Outros', 'Pediatria': 'Crescimento e Desenvolvimento', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'APS / Saúde da Família' },
-  17: { 'Clínica Médica': 'Reumatologia / Ortopedia', 'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva', 'Pediatria': 'Neurologia Pediátrica', 'Ginecologia e Obstetrícia': 'Ginecologia Geral', 'Medicina Preventiva': 'Epidemiologia' },
-  18: { 'Clínica Médica': 'Clínica Geral', 'Clínica Cirúrgica': 'Trauma / ATLS', 'Pediatria': 'Pneumologia Pediátrica', 'Ginecologia e Obstetrícia': 'IST / Infecções Ginecológicas', 'Medicina Preventiva': 'Imunizações e Vigilância Epidemiológica' },
-  19: { 'Clínica Médica': 'Urgências Clínicas / Outros', 'Clínica Cirúrgica': 'Ortopedia e Traumatologia', 'Pediatria': 'Hematologia / Oncologia Pediátrica', 'Ginecologia e Obstetrícia': 'Oncologia Ginecológica', 'Medicina Preventiva': 'Políticas Públicas de Saúde' },
-  20: { 'Clínica Médica': 'Cardiologia', 'Clínica Cirúrgica': 'Abdome Agudo / Cirurgia Digestiva', 'Pediatria': 'Saúde da Criança e Adolescente', 'Ginecologia e Obstetrícia': 'Pré-natal e Obstetrícia', 'Medicina Preventiva': 'Epidemiologia' },
+function loadProgress(userId: string): ProgressStore {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem(`plano_progresso_${userId}`)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    // Se for versão antiga, reset
+    if (parsed.__version !== PLAN_VERSION) return {}
+    return parsed.data || {}
+  } catch {
+    return {}
+  }
 }
+
+function saveProgress(userId: string, store: ProgressStore) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(
+    `plano_progresso_${userId}`,
+    JSON.stringify({ __version: PLAN_VERSION, data: store }),
+  )
+}
+
+// ─── Componente ───────────────────────────────────────────────────────────────
 
 export default function PlanoDeEstudosPage() {
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
-  const [modules, setModules] = useState<Module[]>([])
+  const [progress, setProgress] = useState<ProgressStore>({})
   const [currentWeek, setCurrentWeek] = useState(1)
   const [isLoading, setIsLoading] = useState(true)
   const [expandedWeeks, setExpandedWeeks] = useState<Set<number>>(new Set([1]))
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     async function init() {
-      try {
-        const supabase = createClient()
-        const { data: { user: u } } = await supabase.auth.getUser()
+      const supabase = createClient()
+      const { data: { user: u } } = await supabase.auth.getUser()
+      if (!u) { router.push('/login'); return }
+      setUser(u)
 
-        if (!u) { router.push('/login'); return }
-        setUser(u)
+      const stored = loadProgress(u.id)
+      setProgress(stored)
 
-        // Montar records com subtemas reais
-        const records: any[] = []
-        for (let week = 1; week <= 20; week++) {
-          for (const area of AREAS) {
-            records.push({
-              user_id: u.id,
-              week_number: week,
-              area_name: area,
-              subtopic_name: WEEKS_PLAN[week]?.[area] || area,
-              status_completed: false,
-              completed_at: null,
-            })
-          }
-        }
-
-        // Inicializar progresso (API faz migração automática se necessário)
-        await fetch('/api/plano-progresso', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: 'initialize', userId: u.id, records }),
-        })
-
-        // Buscar progresso atualizado
-        const progressRes = await fetch(`/api/plano-progresso?userId=${u.id}`)
-        const progressData = await progressRes.json()
-        const existingProgress: any[] = progressData.data || []
-        const mods: Module[] = existingProgress.map((p: any) => ({
-          week: p.week_number,
-          area: p.area_name as Area,
-          subtema: p.subtopic_name || p.area_name,
-          status_completed: p.status_completed || false,
-          completed_at: p.completed_at,
-        }))
-        setModules(mods)
-
-        // Calcular semana atual
-        let cw = 1
-        for (let w = 1; w <= 20; w++) {
-          const wMods = mods.filter((m) => m.week === w)
-          const done = wMods.filter((m) => m.status_completed).length
-          if (done < AREAS.length) { cw = w; break }
-          if (w === 20) cw = 21
-        }
-        setCurrentWeek(cw)
-        setExpandedWeeks(new Set([cw]))
-      } catch (err: any) {
-        console.error('[plano] Erro:', err)
-        setError(err.message)
-      } finally {
-        setIsLoading(false)
+      // Calcular semana atual com base no progresso salvo
+      let cw = 1
+      for (let w = 1; w <= 20; w++) {
+        const doneAll = AREAS.every((a) => stored[progressKey(w, a)]?.status_completed)
+        if (!doneAll) { cw = w; break }
+        if (w === 20) cw = 21
       }
+      setCurrentWeek(cw)
+      setExpandedWeeks(new Set([cw]))
+      setIsLoading(false)
     }
     init()
   }, [router])
 
-  async function handleComplete(week: number, area: Area) {
+  function handleComplete(week: number, area: Area) {
     if (!user) return
-    try {
-      await fetch('/api/plano-progresso', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'complete', userId: user.id, week, area }),
-      })
-      setModules((prev) =>
-        prev.map((m) =>
-          m.week === week && m.area === area
-            ? { ...m, status_completed: true, completed_at: new Date().toISOString() }
-            : m,
-        ),
-      )
-      // Recalcular semana atual
-      const updated = modules.map((m) =>
-        m.week === week && m.area === area ? { ...m, status_completed: true } : m,
-      )
-      let cw = 1
-      for (let w = 1; w <= 20; w++) {
-        const wMods = updated.filter((m) => m.week === w)
-        const done = wMods.filter((m) => m.status_completed).length
-        if (done < AREAS.length) { cw = w; break }
-        if (w === 20) cw = 21
-      }
-      setCurrentWeek(cw)
-    } catch (err) {
-      console.error('[plano] Erro ao marcar concluído:', err)
+    const key = progressKey(week, area)
+    const next: ProgressStore = {
+      ...progress,
+      [key]: { status_completed: true, completed_at: new Date().toISOString() },
     }
+    setProgress(next)
+    saveProgress(user.id, next)
+
+    // Recalcular semana atual
+    let cw = 1
+    for (let w = 1; w <= 20; w++) {
+      const doneAll = AREAS.every((a) => {
+        const k = progressKey(w, a)
+        return (w === week && a === area) ? true : next[k]?.status_completed
+      })
+      if (!doneAll) { cw = w; break }
+      if (w === 20) cw = 21
+    }
+    setCurrentWeek(cw)
   }
 
   function toggleWeek(week: number) {
@@ -174,60 +154,35 @@ export default function PlanoDeEstudosPage() {
     })
   }
 
-  // Montar semanas
-  const weeksData: WeekData[] = Array.from({ length: 20 }, (_, i) => {
-    const week = i + 1
-    const wMods = modules.filter((m) => m.week === week)
-    const completedCount = wMods.filter((m) => m.status_completed).length
-    return {
-      week,
-      modules: wMods,
-      completedCount,
-      isLocked: week > currentWeek + 1,
-      isCurrent: week === currentWeek,
-      isCompleted: completedCount === AREAS.length && AREAS.length > 0,
-    }
-  })
+  // ─── Dados computados ───────────────────────────────────────────────────────
 
-  const totalCompleted = modules.filter((m) => m.status_completed).length
-  const totalModules = modules.length || 100
+  const totalModules = 20 * AREAS.length
+  const totalCompleted = Object.values(progress).filter((p) => p.status_completed).length
   const overallProgress = Math.round((totalCompleted / totalModules) * 100)
+
+  // ─── Tela de carregamento ────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-950">
         <Navbar user={user} />
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-slate-400">Carregando plano de estudos...</p>
+        <div className="flex items-center justify-center pt-32">
+          <div className="text-center">
+            <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-slate-400 text-sm">Carregando plano de estudos...</p>
+          </div>
         </div>
       </div>
     )
   }
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-slate-950">
-        <Navbar user={user} />
-        <main className="max-w-3xl mx-auto px-4 py-12 text-center">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-white mb-2">Erro ao carregar plano</h2>
-          <p className="text-slate-400 mb-6">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-          >
-            Tentar novamente
-          </button>
-        </main>
-      </div>
-    )
-  }
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-slate-950">
       <Navbar user={user} />
       <main className="max-w-4xl mx-auto px-4 py-8">
+
         {/* Cabeçalho */}
         <div className="flex items-center gap-3 mb-6">
           <button
@@ -243,130 +198,144 @@ export default function PlanoDeEstudosPage() {
         </div>
 
         {/* Progresso geral */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-slate-300 font-medium">Progresso Geral</span>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-slate-300 font-medium text-sm">Progresso Geral</span>
             <span className="text-white font-bold">{overallProgress}%</span>
           </div>
-          <div className="w-full bg-slate-800 rounded-full h-3">
+          <div className="w-full bg-slate-800 rounded-full h-2.5">
             <div
-              className="bg-gradient-to-r from-blue-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
+              className="bg-gradient-to-r from-blue-500 to-emerald-500 h-2.5 rounded-full transition-all duration-500"
               style={{ width: `${overallProgress}%` }}
             />
           </div>
           <p className="text-slate-500 text-xs mt-2">
-            {totalCompleted} de {totalModules} módulos concluídos — Semana atual: {currentWeek > 20 ? 'Concluído!' : currentWeek}
+            {totalCompleted} de {totalModules} módulos — Semana atual:{' '}
+            {currentWeek > 20 ? 'Plano concluído!' : currentWeek}
           </p>
         </div>
 
-        {/* Lista de semanas */}
-        <div className="space-y-3">
-          {weeksData.map((wd) => {
-            const isExpanded = expandedWeeks.has(wd.week)
+        {/* Semanas */}
+        <div className="space-y-2">
+          {Array.from({ length: 20 }, (_, i) => {
+            const week = i + 1
+            const completedCount = AREAS.filter(
+              (a) => progress[progressKey(week, a)]?.status_completed,
+            ).length
+            const isCompleted = completedCount === AREAS.length
+            const isCurrent = week === currentWeek
+            const isLocked = week > currentWeek + 1
+            const isExpanded = expandedWeeks.has(week)
 
             return (
               <div
-                key={wd.week}
+                key={week}
                 className={`border rounded-xl overflow-hidden transition-all ${
-                  wd.isCompleted
-                    ? 'border-emerald-700/50 bg-emerald-950/20'
-                    : wd.isCurrent
-                      ? 'border-blue-600/60 bg-blue-950/20'
-                      : wd.isLocked
-                        ? 'border-slate-800 bg-slate-900/40 opacity-60'
-                        : 'border-slate-800 bg-slate-900/60'
+                  isCompleted
+                    ? 'border-emerald-800/50 bg-emerald-950/20'
+                    : isCurrent
+                      ? 'border-blue-700/60 bg-blue-950/20'
+                      : isLocked
+                        ? 'border-slate-800/50 bg-slate-900/30 opacity-50'
+                        : 'border-slate-800 bg-slate-900/50'
                 }`}
               >
-                {/* Header da semana */}
+                {/* Header */}
                 <button
-                  onClick={() => !wd.isLocked && toggleWeek(wd.week)}
-                  disabled={wd.isLocked}
+                  onClick={() => !isLocked && toggleWeek(week)}
+                  disabled={isLocked}
                   className="w-full flex items-center justify-between px-5 py-4 text-left"
                 >
                   <div className="flex items-center gap-3">
-                    {wd.isLocked ? (
-                      <Lock className="w-5 h-5 text-slate-600 shrink-0" />
-                    ) : wd.isCompleted ? (
-                      <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+                    {isLocked ? (
+                      <Lock className="w-4 h-4 text-slate-600 shrink-0" />
+                    ) : isCompleted ? (
+                      <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
                     ) : (
-                      <div className={`w-5 h-5 rounded-full border-2 shrink-0 ${wd.isCurrent ? 'border-blue-400 bg-blue-400/20' : 'border-slate-600'}`} />
+                      <div className={`w-4 h-4 rounded-full border-2 shrink-0 ${isCurrent ? 'border-blue-400' : 'border-slate-600'}`} />
                     )}
                     <div>
-                      <span className="font-semibold text-white text-sm">
-                        Semana {wd.week}
-                        {wd.isCurrent && (
-                          <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">Atual</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-white">Semana {week}</span>
+                        {isCurrent && (
+                          <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full font-medium">
+                            Atual
+                          </span>
                         )}
-                      </span>
-                      <p className="text-xs text-slate-500 mt-0.5">
-                        {wd.completedCount}/{AREAS.length} módulos concluídos
+                        {isCompleted && (
+                          <span className="text-xs bg-emerald-800/60 text-emerald-300 px-2 py-0.5 rounded-full font-medium">
+                            Concluída
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-500">
+                        {completedCount}/{AREAS.length} módulos concluídos
                       </p>
                     </div>
                   </div>
-                  {!wd.isLocked && (
+                  {!isLocked && (
                     isExpanded
-                      ? <ChevronUp className="w-4 h-4 text-slate-400" />
-                      : <ChevronDown className="w-4 h-4 text-slate-400" />
+                      ? <ChevronUp className="w-4 h-4 text-slate-500" />
+                      : <ChevronDown className="w-4 h-4 text-slate-500" />
                   )}
                 </button>
 
-                {/* Módulos da semana */}
-                {isExpanded && !wd.isLocked && (
-                  <div className="border-t border-slate-800 divide-y divide-slate-800/50">
-                    {wd.modules.map((mod) => (
-                      <div
-                        key={`${mod.week}-${mod.area}`}
-                        className={`px-5 py-4 ${mod.status_completed ? 'opacity-70' : ''}`}
-                      >
-                        <div className="flex items-start justify-between gap-4 mb-3">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              {mod.status_completed ? (
-                                <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                              ) : (
-                                <div className="w-4 h-4 rounded-full border border-slate-600 shrink-0" />
-                              )}
-                              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-                                {mod.area}
-                              </span>
+                {/* Módulos */}
+                {isExpanded && !isLocked && (
+                  <div className="border-t border-slate-800 divide-y divide-slate-800/40">
+                    {AREAS.map((area) => {
+                      const subtema = WEEKS_PLAN[week][area]
+                      const done = progress[progressKey(week, area)]?.status_completed ?? false
+
+                      return (
+                        <div
+                          key={area}
+                          className={`px-5 py-4 ${done ? 'opacity-60' : ''}`}
+                        >
+                          <div className="flex items-start gap-2 mb-3">
+                            {done ? (
+                              <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                            ) : (
+                              <div className="w-4 h-4 rounded-full border border-slate-600 shrink-0 mt-0.5" />
+                            )}
+                            <div>
+                              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide leading-tight">
+                                {area}
+                              </p>
+                              <p className="text-sm text-white mt-0.5">{subtema}</p>
                             </div>
-                            <p className="text-sm text-white ml-6 leading-snug">{mod.subtema}</p>
+                          </div>
+
+                          <div className="flex flex-wrap gap-2 pl-6">
+                            <Link
+                              href={`/study?area=${encodeURIComponent(area)}&subtema=${encodeURIComponent(subtema)}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 border border-blue-700/30 transition-colors"
+                            >
+                              <BookOpen className="w-3.5 h-3.5" />
+                              {done ? 'Refazer Questões' : 'Resolver Questões'}
+                            </Link>
+
+                            <Link
+                              href={`/flashcards?area=${encodeURIComponent(area)}&subtema=${encodeURIComponent(subtema)}`}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-slate-700/50 text-slate-300 hover:bg-slate-700 border border-slate-700/50 transition-colors"
+                            >
+                              <Brain className="w-3.5 h-3.5" />
+                              {done ? 'Refazer Flashcards' : 'Revisar Flashcards'}
+                            </Link>
+
+                            {!done && (
+                              <button
+                                onClick={() => handleComplete(week, area)}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-700/20 text-emerald-300 hover:bg-emerald-700/40 border border-emerald-700/30 transition-colors"
+                              >
+                                <CheckCircle className="w-3.5 h-3.5" />
+                                Marcar Concluído
+                              </button>
+                            )}
                           </div>
                         </div>
-
-                        {/* Botões de ação */}
-                        <div className="flex flex-wrap gap-2 ml-6">
-                          {/* Resolver Questões */}
-                          <Link
-                            href={`/study?area=${encodeURIComponent(mod.area)}&subtema=${encodeURIComponent(mod.subtema)}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-blue-600/20 text-blue-300 hover:bg-blue-600/40 transition-colors border border-blue-700/30"
-                          >
-                            <BookOpen className="w-3.5 h-3.5" />
-                            {mod.status_completed ? 'Refazer Questões' : 'Resolver Questões'}
-                          </Link>
-
-                          {/* Revisar Flashcards */}
-                          <Link
-                            href={`/flashcards?area=${encodeURIComponent(mod.area)}&subtema=${encodeURIComponent(mod.subtema)}`}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-slate-700/60 text-slate-300 hover:bg-slate-700 transition-colors border border-slate-700/50"
-                          >
-                            <Brain className="w-3.5 h-3.5" />
-                            {mod.status_completed ? 'Refazer Flashcards' : 'Revisar Flashcards'}
-                          </Link>
-
-                          {/* Marcar concluído (só se não estiver) */}
-                          {!mod.status_completed && (
-                            <button
-                              onClick={() => handleComplete(mod.week, mod.area)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-700/20 text-emerald-300 hover:bg-emerald-700/40 transition-colors border border-emerald-700/30"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              Marcar Concluído
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
