@@ -200,13 +200,13 @@ function StudyInner() {
       const effectiveSubtemas = overrideParams?.subtemas ?? selectedSubtemas
 
       if (effectiveMode === "tema_subtema" && effectiveArea) {
-        console.log("[v0] 🔍 Buscando por tema/subtema:", effectiveArea, effectiveSubtemas)
         allQuestions = await getQuestionsByTemaAndSubtemas(effectiveArea, effectiveSubtemas)
-        console.log("[v0] 📊 Questões encontradas:", allQuestions.length)
+        // Fallback: se subtema não encontrou questões, busca todas da área
+        if (allQuestions.length === 0) {
+          allQuestions = await getStudyQuestions(effectiveArea, [])
+        }
       } else if (effectiveMode === "materia" && effectiveArea) {
-        console.log("[v0] 🔍 Buscando por área:", effectiveArea)
         allQuestions = await getStudyQuestions(effectiveArea, [])
-        console.log("[v0] 📊 Questões encontradas:", allQuestions.length)
       } else {
         allQuestions = await getStudyQuestions(selectedMateria, selectedTemas)
       }

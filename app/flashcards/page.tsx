@@ -84,10 +84,12 @@ function FlashcardsInner() {
   // Detectar parâmetros de URL vindos do Plano de Estudos e ir direto para estudo
   useEffect(() => {
     const areaParam = searchParams.get('area')
+    const subtemaParam = searchParams.get('subtema')
 
     if (areaParam && !isLoading && isMounted) {
       setSelectedMateria(areaParam as Materia)
-      setSelectedTema(null) // sem tema específico — pega todos da área
+      // Se vier subtema da URL, usa; senão usa a área como fallback para o tema
+      setSelectedTema(subtemaParam || areaParam)
       setSelectedQuantity(15)
       setStep('study')
     }
@@ -388,10 +390,10 @@ function FlashcardsInner() {
         )}
 
         {/* ETAPA 4: Modo de Estudo */}
-        {step === "study" && selectedMateria && selectedTema && (
+        {step === "study" && selectedMateria && (
           <FlashcardStudyMode
             materia={selectedMateria}
-            tema={selectedTema}
+            tema={selectedTema || "Todos os temas"}
             onBack={handleBack}
             userPlan={userPlan}
             onFlashcardAnswered={reloadFlashcardsCount}
@@ -404,21 +406,24 @@ function FlashcardsInner() {
                 getFlashcardsWithPriority 
               } = await import("@/lib/flashcards-storage")
 
-              let flashcards = []
+              let flashcards: any[] = []
 
               if (selectedMateria === "todas") {
                 flashcards = await getAllFlashcards()
-              } else if (selectedTema === "Todos os temas") {
+              } else if (!selectedTema || selectedTema === "Todos os temas") {
                 flashcards = await getAllFlashcardsByMateria(selectedMateria)
               } else {
+                // Tenta buscar por tema específico; se vazio, busca todos da matéria
                 flashcards = await getFlashcardsByMateriaAndTema(selectedMateria, selectedTema)
+                if (flashcards.length === 0) {
+                  flashcards = await getAllFlashcardsByMateria(selectedMateria)
+                }
               }
 
               // Prioriza flashcards que o usuario errou anteriormente
               if (user?.id) {
                 flashcards = await getFlashcardsWithPriority(user.id, flashcards)
               } else {
-                // Embaralha aleatoriamente se nao tiver usuario
                 flashcards = flashcards.sort(() => Math.random() - 0.5)
               }
 
