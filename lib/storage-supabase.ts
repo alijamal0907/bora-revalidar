@@ -487,15 +487,13 @@ export async function getQuestionsByTemaAndSubtemas(
 ): Promise<any[]> {
   try {
     const variations = MATERIA_VARIATIONS[tema] || [tema]
+    console.log("[v0] getQuestionsByTemaAndSubtemas: tema=", tema, "variations=", variations, "subtemaTexts=", subtemaTexts)
 
     let allResults: any[] = []
 
     if (subtemaTexts && subtemaTexts.length > 0) {
-      // Filtrar diretamente no banco usando .in() com os textos exatos dos subtemas.
-      // A getSubtemasByTema já normaliza os textos com .trim(), então os valores
-      // em selectedSubtemas correspondem exatamente ao subtema.trim() do banco.
-      // Usamos também as variantes com espaços para tolerância.
       const normalizedTexts = subtemaTexts.map((t) => t.trim())
+      console.log("[v0] Query COM subtema: .in('tema', ", variations, ").in('subtema', ", normalizedTexts, ")")
 
       const { data, error } = await getSupabaseClient()
         .from("questoes")
@@ -505,29 +503,33 @@ export async function getQuestionsByTemaAndSubtemas(
         .limit(5000)
 
       if (error) {
-        console.error("Error fetching questions by subtema:", error)
+        console.error("[v0] Error fetching questions by subtema:", error)
         return []
       }
 
       allResults = data || []
+      console.log("[v0] Query COM subtema retornou:", allResults.length, "questoes")
 
       // Se retornou zero, tentar com ilike para tolerar espaços extras no banco
       if (allResults.length === 0) {
+        console.log("[v0] Tentando fallback com ilike...")
         const ilikePromises = normalizedTexts.map((subtemaText) =>
           getSupabaseClient()
             .from("questoes")
             .select("*")
             .in("tema", variations)
-            .ilike("subtema", subtemaText)
+            .ilike("subtema", `%${subtemaText}%`)
             .limit(5000)
         )
         const results = await Promise.all(ilikePromises)
         for (const { data: d, error: e } of results) {
           if (!e && d) allResults.push(...d)
         }
+        console.log("[v0] Fallback ilike retornou:", allResults.length, "questoes")
       }
     } else {
       // Sem filtro de subtema — retornar todas as questões do tema
+      console.log("[v0] Query SEM subtema: .in('tema', ", variations, ")")
       const { data, error } = await getSupabaseClient()
         .from("questoes")
         .select("*")
@@ -535,10 +537,11 @@ export async function getQuestionsByTemaAndSubtemas(
         .limit(2000)
 
       if (error) {
-        console.error("Error fetching all questions for tema:", error)
+        console.error("[v0] Error fetching all questions for tema:", error)
         return []
       }
       allResults = data || []
+      console.log("[v0] Query SEM subtema retornou:", allResults.length, "questoes")
     }
 
     // Deduplicar por id
