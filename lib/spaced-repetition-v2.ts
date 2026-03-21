@@ -82,6 +82,11 @@ export async function getDueReviewItems(
       }
     }
 
+    // Coletar todos os itens de revisao (flashcards E questoes)
+    const allDueItems: ReviewItem[] = []
+    const now = new Date()
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+
     // Fallback: buscar flashcards com alto índice de erro do histórico
     if (!contentType || contentType === 'flashcard') {
       const hasHistory = await tableExists(supabase, 'flashcard_history')
@@ -110,18 +115,13 @@ export async function getDueReviewItems(
             }
           }
           
-          const now = new Date()
-          const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
-          
           // Criar itens de revisão simulados para flashcards que precisam de revisão
-          const dueItems: ReviewItem[] = []
-          
           for (const [flashcardId, stats] of flashcardStats) {
             const errorRate = stats.wrong / (stats.correct + stats.wrong)
             const needsReview = errorRate > 0.3 || stats.lastSeen < oneDayAgo
             
             if (needsReview) {
-              dueItems.push({
+              allDueItems.push({
                 id: `fallback-${flashcardId}`,
                 user_id: userId,
                 content_type: 'flashcard',
@@ -136,11 +136,6 @@ export async function getDueReviewItems(
               })
             }
           }
-          
-          // Ordenar por taxa de erro (mais difíceis primeiro)
-          dueItems.sort((a, b) => a.ease_factor - b.ease_factor)
-          
-          return dueItems.slice(0, 20)
         }
       }
     }
@@ -172,11 +167,8 @@ export async function getDueReviewItems(
             }
           }
           
-          const now = new Date()
-          const dueQuestions: ReviewItem[] = []
-          
           for (const [questionId, stats] of questionStats) {
-            dueQuestions.push({
+            allDueItems.push({
               id: `fallback-q-${questionId}`,
               user_id: userId,
               content_type: 'questao',
@@ -190,16 +182,25 @@ export async function getDueReviewItems(
               updated_at: stats.lastSeen.toISOString(),
             })
           }
-          
-          // Ordenar por número de erros (mais erros primeiro)
-          dueQuestions.sort((a, b) => b.review_count - a.review_count)
-          
-          return dueQuestions.slice(0, 20)
         }
       }
     }
 
-    return []
+    // Ordenar por ease_factor (mais difíceis primeiro) e intercalar tipos
+    allDueItems.sort((a, b) => a.ease_factor - b.ease_factor)
+    
+    // Intercalar flashcards e questoes para variar o tipo de conteudo
+    const flashcards = allDueItems.filter(i => i.content_type === 'flashcard')
+    const questoes = allDueItems.filter(i => i.content_type === 'questao')
+    const interleavedItems: ReviewItem[] = []
+    
+    const maxLen = Math.max(flashcards.length, questoes.length)
+    for (let i = 0; i < maxLen; i++) {
+      if (i < flashcards.length) interleavedItems.push(flashcards[i])
+      if (i < questoes.length) interleavedItems.push(questoes[i])
+    }
+
+    return interleavedItems.slice(0, 20)
   } catch (error) {
     console.error('[spaced-repetition] Erro em getDueReviewItems:', error)
     return []
