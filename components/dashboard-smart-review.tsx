@@ -38,7 +38,11 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [isReviewMode, setIsReviewMode] = useState(false)
+  const [isStartingReview, setIsStartingReview] = useState(false)
   const [activeTab, setActiveTab] = useState<'revisao' | 'fracos'>('revisao')
+  
+  // Limite maximo de itens por sessao
+  const MAX_REVIEW_ITEMS = 20
 
   const loadReviewData = useCallback(async () => {
     try {
@@ -132,8 +136,16 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
     loadReviewData()
   }, [loadReviewData])
 
-  const handleStartReview = () => {
+  const handleStartReview = async () => {
+    if (rawDueItems.length === 0) return
+    
+    setIsStartingReview(true)
+    
+    // Pequeno delay para mostrar a animacao de carregamento
+    await new Promise(resolve => setTimeout(resolve, 300))
+    
     setIsReviewMode(true)
+    setIsStartingReview(false)
   }
 
   const handleCompleteReview = () => {
@@ -145,10 +157,14 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
     setIsReviewMode(false)
   }
 
+  // Itens limitados para a sessao (max 20)
+  const reviewSessionItems = rawDueItems.slice(0, MAX_REVIEW_ITEMS)
+  const hasMoreItems = rawDueItems.length > MAX_REVIEW_ITEMS
+
   // Review Mode - Full Screen
-  if (isReviewMode && rawDueItems.length > 0) {
+  if (isReviewMode && reviewSessionItems.length > 0) {
     return (
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="bg-card border border-border rounded-xl overflow-hidden animate-in fade-in-0 duration-300">
         <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 p-4 border-b border-border">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -157,12 +173,15 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
               </div>
               <div>
                 <h3 className="font-bold text-foreground">Revisão Inteligente Combinada</h3>
-                <p className="text-xs text-muted-foreground">{rawDueItems.length} itens para revisar</p>
+                <p className="text-xs text-muted-foreground">
+                  {reviewSessionItems.length} itens nesta sessão
+                  {hasMoreItems && ` (${rawDueItems.length - MAX_REVIEW_ITEMS} restantes)`}
+                </p>
               </div>
             </div>
             <button
               onClick={handleBackFromReview}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded-lg hover:bg-muted/50"
             >
               Voltar ao Dashboard
             </button>
@@ -171,7 +190,7 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
         <div className="p-4">
           <CombinedReviewMode
             userId={userId}
-            dueItems={rawDueItems}
+            dueItems={reviewSessionItems}
             onComplete={handleCompleteReview}
             onBack={handleBackFromReview}
           />
@@ -267,7 +286,12 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
         {/* Due Items Preview */}
         {dueItems.length > 0 ? (
           <div className="space-y-2 mb-4">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Próximos para revisar:</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Próximos para revisar:</p>
+              <p className="text-xs text-muted-foreground">
+                {Math.min(stats.due, MAX_REVIEW_ITEMS)} itens na próxima sessão
+              </p>
+            </div>
             {dueItems.slice(0, 3).map((item) => (
               <div 
                 key={item.id} 
@@ -344,14 +368,29 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
         {stats.due > 0 ? (
           <button
             onClick={handleStartReview}
-            className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl group border-2 border-blue-400/30"
+            disabled={isStartingReview}
+            className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl group border-2 border-blue-400/30 disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            <Play className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            <span className="text-lg">Iniciar Revisão Combinada</span>
-            <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold ml-2">
-              {stats.due} {stats.due === 1 ? 'item' : 'itens'}
-            </span>
-            <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            {isStartingReview ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span className="text-lg">Iniciando sessão...</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                <span className="text-lg">Iniciar Revisão</span>
+                <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold ml-2">
+                  {Math.min(stats.due, MAX_REVIEW_ITEMS)} {Math.min(stats.due, MAX_REVIEW_ITEMS) === 1 ? 'item' : 'itens'}
+                </span>
+                {stats.due > MAX_REVIEW_ITEMS && (
+                  <span className="text-xs opacity-80">
+                    (+{stats.due - MAX_REVIEW_ITEMS} depois)
+                  </span>
+                )}
+                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </>
+            )}
           </button>
         ) : (
           <div className="text-center py-2">

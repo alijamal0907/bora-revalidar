@@ -178,20 +178,23 @@ export async function getDueReviewItems(
             const totalAttempts = stats.correct + stats.wrong
             
             // Determinar se precisa revisao:
-            // 1. Questoes erradas (errorRate > 0.3) - sempre incluir
-            // 2. Questoes respondidas ha mais de 3 dias - incluir para revisao
-            // 3. Questoes com poucos acertos - incluir
+            // 1. Questoes com QUALQUER erro - sempre incluir (prioridade maxima)
+            // 2. Questoes com alta taxa de erro - revisar urgentemente
+            // 3. Questoes respondidas ha mais de 3 dias - incluir para revisao
+            // 4. Questoes com poucos acertos - incluir
             let needsReview = false
             let intervalDays = 7
             
-            if (errorRate > 0.5) {
-              // Alta taxa de erro - revisar em 1 dia
+            if (stats.wrong > 0) {
+              // Qualquer erro = incluir para revisao
               needsReview = true
-              intervalDays = 1
-            } else if (errorRate > 0.3) {
-              // Taxa de erro moderada - revisar em 3 dias
-              needsReview = true
-              intervalDays = 3
+              if (errorRate > 0.5) {
+                intervalDays = 1 // Alta taxa de erro - urgente
+              } else if (errorRate > 0.3) {
+                intervalDays = 2 // Taxa moderada
+              } else {
+                intervalDays = 3 // Poucos erros mas ainda precisa revisar
+              }
             } else if (stats.lastSeen < threeDaysAgo && totalAttempts < 3) {
               // Pouca pratica e nao vista recentemente
               needsReview = true
@@ -236,7 +239,8 @@ export async function getDueReviewItems(
       if (i < questoes.length) interleavedItems.push(questoes[i])
     }
 
-    return interleavedItems.slice(0, 20)
+    // Retornar ate 50 itens para permitir sessoes maiores
+    return interleavedItems.slice(0, 50)
   } catch (error) {
     console.error('[spaced-repetition] Erro em getDueReviewItems:', error)
     return []

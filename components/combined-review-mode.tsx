@@ -239,10 +239,14 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex items-center justify-center min-h-[400px] animate-in fade-in-0 duration-300">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando conteúdo para revisão...</p>
+          <div className="relative">
+            <div className="w-16 h-16 border-4 border-primary/20 rounded-full"></div>
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+          </div>
+          <p className="text-muted-foreground mt-4">Carregando conteúdo para revisão...</p>
+          <p className="text-xs text-muted-foreground/60 mt-1">Preparando {dueItems.length} itens</p>
         </div>
       </div>
     )
@@ -311,7 +315,7 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
       {/* Progress bar and stats */}
       <div className="flex items-center justify-between mb-4">
         <Button variant="ghost" size="sm" onClick={onBack}>
