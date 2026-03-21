@@ -413,11 +413,11 @@ export async function getReviewStats(userId: string) {
           const now = new Date()
           const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
           
-          // Flashcards que precisam de revisão: errados ou não vistos há mais de 1 dia
+          // Flashcards que precisam de revisao: qualquer erro ou nao vistos ha mais de 1 dia
           let dueCount = 0
           for (const [_, stats] of flashcardStats) {
-            const errorRate = stats.wrong / (stats.correct + stats.wrong)
-            if (errorRate > 0.3 || stats.lastSeen < oneDayAgo) {
+            // Qualquer erro = precisa revisar (sincronizado com getDueReviewItems)
+            if (stats.wrong > 0 || stats.lastSeen < oneDayAgo) {
               dueCount++
             }
           }
@@ -456,14 +456,18 @@ export async function getReviewStats(userId: string) {
               questoesCount = questionStats.size
               
               // Contar questoes que precisam revisao
+              // Sincronizado com getDueReviewItems: qualquer erro = precisa revisar
               const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
               const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
               
               for (const [_, stats] of questionStats) {
-                const errorRate = stats.wrong / (stats.correct + stats.wrong)
                 const totalAttempts = stats.correct + stats.wrong
                 
-                if (errorRate > 0.3 || 
+                // Mesma logica de getDueReviewItems:
+                // 1. Qualquer erro = incluir
+                // 2. Pouca pratica e nao vista recentemente = incluir
+                // 3. Nao vista ha mais de uma semana = incluir
+                if (stats.wrong > 0 || 
                     (stats.lastSeen < threeDaysAgo && totalAttempts < 3) ||
                     stats.lastSeen < oneWeekAgo) {
                   questoesDue++
@@ -516,10 +520,10 @@ export async function getReviewStats(userId: string) {
           
           let dueQuestoes = 0
           for (const [_, stats] of questionStats) {
-            const errorRate = stats.wrong / (stats.correct + stats.wrong)
             const totalAttempts = stats.correct + stats.wrong
             
-            if (errorRate > 0.3 || 
+            // Mesma logica: qualquer erro = incluir
+            if (stats.wrong > 0 || 
                 (stats.lastSeen < threeDaysAgo && totalAttempts < 3) ||
                 stats.lastSeen < oneWeekAgo) {
               dueQuestoes++

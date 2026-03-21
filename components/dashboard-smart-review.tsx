@@ -264,24 +264,48 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-gradient-to-br from-red-500/20 to-red-500/5 rounded-lg p-3 text-center border border-red-500/20">
-            <p className="text-2xl font-bold text-red-400">{stats.due}</p>
-            <p className="text-xs text-muted-foreground">Pendentes</p>
+            <p className="text-3xl font-bold text-red-400">{stats.due}</p>
+            <p className="text-xs text-muted-foreground">Total Pendente</p>
           </div>
           <div className="bg-blue-500/10 rounded-lg p-3 text-center border border-blue-500/20">
             <div className="flex items-center justify-center gap-1">
               <Brain className="w-4 h-4 text-blue-400" />
-              <p className="text-2xl font-bold text-blue-400">{stats.flashcards}</p>
+              <p className="text-3xl font-bold text-blue-400">{stats.flashcards}</p>
             </div>
-            <p className="text-xs text-muted-foreground">Flashcards</p>
+            <p className="text-xs text-muted-foreground">Flashcards Pendentes</p>
           </div>
           <div className="bg-purple-500/10 rounded-lg p-3 text-center border border-purple-500/20">
             <div className="flex items-center justify-center gap-1">
               <BookOpen className="w-4 h-4 text-purple-400" />
-              <p className="text-2xl font-bold text-purple-400">{stats.questoes}</p>
+              <p className="text-3xl font-bold text-purple-400">{stats.questoes}</p>
             </div>
-            <p className="text-xs text-muted-foreground">Questões</p>
+            <p className="text-xs text-muted-foreground">Questoes Pendentes</p>
           </div>
         </div>
+
+        {/* Botao Revisar Agora - sempre visivel quando tem itens */}
+        {stats.due > 0 && (
+          <button
+            onClick={handleStartReview}
+            disabled={isStartingReview}
+            className="w-full flex items-center justify-center gap-3 px-4 py-4 mb-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white font-bold rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl group border-2 border-green-400/30 disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isStartingReview ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span className="text-lg">Preparando...</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                <span className="text-xl">REVISAR AGORA</span>
+                <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold">
+                  {Math.min(stats.due, MAX_REVIEW_ITEMS)} itens
+                </span>
+              </>
+            )}
+          </button>
+        )}
 
         {/* Due Items Preview */}
         {dueItems.length > 0 ? (
@@ -364,35 +388,8 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
           </div>
         )}
 
-        {/* CTA Button */}
-        {stats.due > 0 ? (
-          <button
-            onClick={handleStartReview}
-            disabled={isStartingReview}
-            className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl group border-2 border-blue-400/30 disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isStartingReview ? (
-              <>
-                <RefreshCw className="w-5 h-5 animate-spin" />
-                <span className="text-lg">Iniciando sessão...</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                <span className="text-lg">Iniciar Revisão</span>
-                <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold ml-2">
-                  {Math.min(stats.due, MAX_REVIEW_ITEMS)} {Math.min(stats.due, MAX_REVIEW_ITEMS) === 1 ? 'item' : 'itens'}
-                </span>
-                {stats.due > MAX_REVIEW_ITEMS && (
-                  <span className="text-xs opacity-80">
-                    (+{stats.due - MAX_REVIEW_ITEMS} depois)
-                  </span>
-                )}
-                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-              </>
-            )}
-          </button>
-        ) : (
+        {/* Links secundarios */}
+        {stats.due === 0 && (
           <div className="text-center py-2">
             <p className="text-xs text-muted-foreground mb-2">
               Volte mais tarde para revisar conteúdo agendado
