@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { getReviewStats, getDueReviewItems, type ReviewItem } from '@/lib/spaced-repetition-v2'
-import { Brain, BookOpen, RefreshCw, Clock, Play, ChevronRight, Zap, Target, Trophy } from 'lucide-react'
+import { getUserWeakTopics, type WeakTopic } from '@/lib/gamification-client'
+import { Brain, BookOpen, RefreshCw, Clock, Play, ChevronRight, Zap, Target, Trophy, AlertTriangle, TrendingDown } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { createClient } from '@/lib/supabase/client'
 import { CombinedReviewMode } from '@/components/combined-review-mode'
+import Link from 'next/link'
 
 interface DashboardSmartReviewProps {
   userId: string
@@ -32,9 +34,11 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
   })
   const [dueItems, setDueItems] = useState<EnrichedReviewItem[]>([])
   const [rawDueItems, setRawDueItems] = useState<ReviewItem[]>([])
+  const [weakTopics, setWeakTopics] = useState<WeakTopic[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [isReviewMode, setIsReviewMode] = useState(false)
+  const [activeTab, setActiveTab] = useState<'revisao' | 'fracos'>('revisao')
 
   const loadReviewData = useCallback(async () => {
     try {
@@ -213,8 +217,8 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
           </div>
           <div className="flex items-center gap-2">
             {stats.due > 0 && (
-              <div className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                {stats.due} pendentes
+              <div className="bg-red-500 text-white text-xs font-bold px-3 py-1.5 rounded-full animate-pulse">
+                {stats.due} para revisar
               </div>
             )}
             <button
@@ -240,18 +244,18 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
 
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-muted/30 rounded-lg p-3 text-center">
-            <p className="text-2xl font-bold text-foreground">{stats.total}</p>
-            <p className="text-xs text-muted-foreground">Total</p>
+          <div className="bg-gradient-to-br from-red-500/20 to-red-500/5 rounded-lg p-3 text-center border border-red-500/20">
+            <p className="text-2xl font-bold text-red-400">{stats.due}</p>
+            <p className="text-xs text-muted-foreground">Pendentes</p>
           </div>
-          <div className="bg-blue-500/10 rounded-lg p-3 text-center">
+          <div className="bg-blue-500/10 rounded-lg p-3 text-center border border-blue-500/20">
             <div className="flex items-center justify-center gap-1">
               <Brain className="w-4 h-4 text-blue-400" />
               <p className="text-2xl font-bold text-blue-400">{stats.flashcards}</p>
             </div>
             <p className="text-xs text-muted-foreground">Flashcards</p>
           </div>
-          <div className="bg-purple-500/10 rounded-lg p-3 text-center">
+          <div className="bg-purple-500/10 rounded-lg p-3 text-center border border-purple-500/20">
             <div className="flex items-center justify-center gap-1">
               <BookOpen className="w-4 h-4 text-purple-400" />
               <p className="text-2xl font-bold text-purple-400">{stats.questoes}</p>
@@ -340,26 +344,48 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
         {stats.due > 0 ? (
           <button
             onClick={handleStartReview}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl group"
+            className="w-full flex items-center justify-center gap-2 px-4 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl group border-2 border-blue-400/30"
           >
-            <Play className="w-4 h-4 group-hover:scale-110 transition-transform" />
-            Iniciar Revisão Combinada
-            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs ml-1">
+            <Play className="w-5 h-5 group-hover:scale-110 transition-transform" />
+            <span className="text-lg">Iniciar Revisão Combinada</span>
+            <span className="bg-white/20 px-3 py-1 rounded-full text-sm font-bold ml-2">
               {stats.due} {stats.due === 1 ? 'item' : 'itens'}
             </span>
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </button>
         ) : (
           <div className="text-center py-2">
             <p className="text-xs text-muted-foreground mb-2">
               Volte mais tarde para revisar conteúdo agendado
             </p>
-            <button 
-              onClick={() => router.push('/flashcards')}
-              className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+            <div className="flex items-center justify-center gap-4">
+              <button 
+                onClick={() => router.push('/flashcards')}
+                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+              >
+                Estudar novos flashcards
+              </button>
+              <span className="text-muted-foreground">|</span>
+              <Link 
+                href="/review"
+                className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                Ver todas as revisões
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Link secundario para pagina de revisao */}
+        {stats.due > 0 && (
+          <div className="mt-3 text-center">
+            <Link 
+              href="/review"
+              className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
             >
-              Estudar novos flashcards
-            </button>
+              Ou acesse a página de revisão completa
+              <ChevronRight className="w-3 h-3" />
+            </Link>
           </div>
         )}
       </div>

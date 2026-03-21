@@ -144,17 +144,14 @@ export async function getDueReviewItems(
     // Inclui questoes erradas (prioridade) e corretas (para revisao periodica)
     if (!contentType || contentType === 'questao') {
       const hasHistQuestoes = await tableExists(supabase, 'hist_questoes')
-      console.log('[v0] hist_questoes table exists:', hasHistQuestoes)
       if (hasHistQuestoes) {
         // Buscar todas as questoes respondidas (erradas E corretas)
-        const { data: histData, error: histError } = await supabase
+        const { data: histData } = await supabase
           .from('hist_questoes')
           .select('questao_id, correta, created_at')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(500)
-        
-        console.log('[v0] hist_questoes query result:', { count: histData?.length || 0, error: histError?.message })
         
         if (histData && histData.length > 0) {
           const questionStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
@@ -221,9 +218,6 @@ export async function getDueReviewItems(
               })
             }
           }
-          
-          const questoesAdded = allDueItems.filter(i => i.content_type === 'questao').length
-          console.log('[v0] Questoes added to review:', questoesAdded, 'from', questionStats.size, 'unique questions')
         }
       }
     }
@@ -478,8 +472,8 @@ export async function getReviewStats(userId: string) {
             total: flashcardStats.size + questoesCount,
             due: dueCount + questoesDue,
             overdue: 0,
-            questoes: questoesCount,
-            flashcards: flashcardStats.size,
+            questoes: questoesDue, // Mostrar apenas questoes pendentes para revisao
+            flashcards: dueCount, // Mostrar apenas flashcards pendentes para revisao
             averageEaseFactor: '2.5',
           }
         }
@@ -532,7 +526,7 @@ export async function getReviewStats(userId: string) {
             total: questionStats.size,
             due: dueQuestoes,
             overdue: 0,
-            questoes: questionStats.size,
+            questoes: dueQuestoes, // Mostrar apenas questoes pendentes
             flashcards: 0,
             averageEaseFactor: '2.5',
           }

@@ -15,6 +15,7 @@ import {
 } from "lucide-react"
 import { recordReviewResult, type ReviewItem } from "@/lib/spaced-repetition-v2"
 import { createClient } from "@/lib/supabase/client"
+import { saveQuizAnswer } from "@/lib/storage-supabase"
 import { cn } from "@/lib/utils"
 
 interface CombinedReviewModeProps {
@@ -81,14 +82,11 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
 
       // Fetch questions - alternativas estao em colunas separadas
       let questionsMap = new Map<string, any>()
-      console.log('[v0] CombinedReviewMode - questionIds to fetch:', questionIds.length, questionIds.slice(0, 3))
       if (questionIds.length > 0) {
-        const { data, error: questionsError } = await supabase
+        const { data } = await supabase
           .from('questoes')
           .select('id, enunciado, alternativaA, alternativaB, alternativaC, alternativaD, alternativaE, resposta_correta, explicacao, tema, subtema')
           .in('id', questionIds)
-        
-        console.log('[v0] CombinedReviewMode - questoes query result:', { found: data?.length || 0, error: questionsError?.message })
         
         if (data) {
           data.forEach(q => {
@@ -141,14 +139,8 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
         
         if (isValidFlashcard || isValidQuestion) {
           enrichedItems.push(enriched)
-        } else {
-          console.log('[v0] Item skipped - invalid:', { type: item.content_type, id: item.content_id, hasEnunciado: !!enriched.enunciado })
         }
       }
-
-      const flashcardCount = enrichedItems.filter(i => i.content_type === 'flashcard').length
-      const questionCount = enrichedItems.filter(i => i.content_type === 'questao').length
-      console.log('[v0] CombinedReviewMode - final enriched items:', { total: enrichedItems.length, flashcards: flashcardCount, questoes: questionCount })
       
       setItems(enrichedItems)
       setIsLoading(false)
@@ -208,6 +200,20 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
     setShowResult(true)
     setResults(prev => [...prev, { itemId: currentItem.content_id, correct: isCorrect }])
 
+    // Salvar resposta no historico de questoes
+    try {
+      await saveQuizAnswer(
+        userId,
+        currentItem.content_id,
+        selectedAnswer.toUpperCase(),
+        isCorrect,
+        "estudo"
+      )
+    } catch (error) {
+      console.error("Erro ao salvar resposta no historico:", error)
+    }
+
+    // Registrar resultado para o sistema de revisao espacada
     await recordReviewResult(
       userId,
       currentItem.content_id,
