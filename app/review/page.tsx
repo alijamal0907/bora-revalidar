@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseUser } from "@/lib/auth-supabase"
 import { Navbar } from "@/components/navbar"
-import { Brain, BookOpen, CheckCircle2, XCircle, ArrowLeft, Lock, TrendingUp } from "lucide-react"
+import { Brain, BookOpen, CheckCircle2, XCircle, ArrowLeft } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getWrongAnswers, getUserPlan } from "@/lib/storage-supabase"
 import { getWrongFlashcards } from "@/lib/flashcards-storage"
@@ -45,8 +45,10 @@ export default function ReviewPage() {
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
   const [incorrectQuestions, setIncorrectQuestions] = useState<any[]>([])
   const [wrongFlashcards, setWrongFlashcards] = useState<any[]>([])
+  const [dueItems, setDueItems] = useState<ReviewItem[]>([])
+  const [isLoadingDueItems, setIsLoadingDueItems] = useState(false)
 
-  const [activeReviewMode, setActiveReviewMode] = useState<"none" | "questions" | "flashcards">("none")
+  const [activeReviewMode, setActiveReviewMode] = useState<"none" | "questions" | "flashcards" | "combined">("none")
   const [activeTheme, setActiveTheme] = useState<string | null>(null)
   const [activeQuestions, setActiveQuestions] = useState<any[]>([])
   const [activeFlashcards, setActiveFlashcards] = useState<any[]>([])
@@ -74,17 +76,20 @@ export default function ReviewPage() {
         }
 
         try {
-          const [wrongQuestions, wrongCards] = await Promise.all([
+          const [wrongQuestions, wrongCards, due] = await Promise.all([
             getWrongAnswers(currentUser.id),
             getWrongFlashcards(currentUser.id),
+            getDueReviewItems(currentUser.id),
           ])
 
           setIncorrectQuestions(wrongQuestions || [])
           setWrongFlashcards(wrongCards || [])
+          setDueItems(due || [])
         } catch (error) {
-          console.error("Erro ao carregar questões erradas:", error)
+          console.error("Erro ao carregar dados de revisão:", error)
           setIncorrectQuestions([])
           setWrongFlashcards([])
+          setDueItems([])
         }
 
         setIsLoading(false)
@@ -145,6 +150,11 @@ export default function ReviewPage() {
     setActiveFlashcards([])
   }
 
+  const handleStartCombinedReview = async () => {
+    if (dueItems.length === 0) return
+    setActiveReviewMode("combined")
+  }
+
   if (error) {
     return (
       <div>
@@ -182,6 +192,40 @@ export default function ReviewPage() {
             <p className="text-muted-foreground">Carregando suas questões erradas...</p>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (activeReviewMode === "combined" && user && dueItems.length > 0) {
+    return (
+      <div>
+        <Navbar user={user} />
+        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <button
+            onClick={handleBackToOverview}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 group"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span>Voltar para visão geral</span>
+          </button>
+
+          <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-6 mb-8 border border-blue-500/20">
+            <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
+              <Zap className="w-8 h-8 text-blue-400" />
+              Revisão Inteligente Combinada
+            </h1>
+            <p className="text-muted-foreground">
+              {dueItems.length} item{dueItems.length !== 1 ? "ns" : ""} para revisar (flashcards e questões)
+            </p>
+          </div>
+
+          <CombinedReviewMode
+            userId={user.id}
+            dueItems={dueItems}
+            onComplete={handleBackToOverview}
+            onBack={handleBackToOverview}
+          />
+        </main>
       </div>
     )
   }
@@ -277,11 +321,14 @@ export default function ReviewPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        {/* Stats cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/20 rounded-xl p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Questões Erradas</h3>
-              <XCircle className="w-6 h-6 text-red-500" />
+              <div className="p-2 bg-red-500/20 rounded-lg">
+                <XCircle className="w-5 h-5 text-red-500" />
+              </div>
             </div>
             <p className="text-5xl font-bold text-foreground mb-1">{incorrectQuestions.length}</p>
             <p className="text-sm text-muted-foreground">para revisar</p>
@@ -292,21 +339,12 @@ export default function ReviewPage() {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Flashcards Errados
               </h3>
-              <BookOpen className="w-6 h-6 text-amber-500" />
+              <div className="p-2 bg-amber-500/20 rounded-lg">
+                <BookOpen className="w-5 h-5 text-amber-500" />
+              </div>
             </div>
             <p className="text-5xl font-bold text-foreground mb-1">{wrongFlashcards.length}</p>
             <p className="text-sm text-muted-foreground">para revisar</p>
-          </div>
-
-          <div className="bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20 rounded-xl p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Áreas Cobertas</h3>
-              <CheckCircle2 className="w-6 h-6 text-green-500" />
-            </div>
-            <p className="text-5xl font-bold text-foreground mb-1">
-              {Object.keys(questionsByTheme).length + Object.keys(flashcardsByMateria).length}
-            </p>
-            <p className="text-sm text-muted-foreground">temas diferentes</p>
           </div>
         </div>
 

@@ -1,8 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { CheckCircle2, XCircle, ChevronLeft } from "lucide-react"
+import { recordReviewResult } from "@/lib/spaced-repetition-v2"
+import { getSupabaseUser } from "@/lib/auth-supabase"
 
 interface Question {
   id: string
@@ -24,6 +26,13 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [showResult, setShowResult] = useState(false)
   const [results, setResults] = useState<boolean[]>([])
+  const [userId, setUserId] = useState<string | null>(null)
+
+  useEffect(() => {
+    getSupabaseUser().then(user => {
+      if (user) setUserId(user.id)
+    })
+  }, [])
 
   const parseAlternativas = (alternativas: any): Record<string, string> => {
     if (!alternativas) return {}
@@ -100,7 +109,7 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
     }
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!selectedAnswer) return
 
     const normalizedSelected = selectedAnswer.toUpperCase()
@@ -108,6 +117,21 @@ export function QuestionStudyMode({ questions, onComplete, isReviewMode = false 
     const isCorrect = normalizedSelected === normalizedCorrect
     setResults([...results, isCorrect])
     setShowResult(true)
+
+    // Registrar para o sistema de revisão espaçada
+    if (userId && currentQuestion.id) {
+      try {
+        await recordReviewResult(
+          userId,
+          currentQuestion.id,
+          'questao',
+          isCorrect,
+          isCorrect ? 4 : 1 // quality: 4 = fácil/correto, 1 = difícil/errado
+        )
+      } catch (error) {
+        console.error("Erro ao salvar resultado da questão:", error)
+      }
+    }
   }
 
   const handleNext = () => {

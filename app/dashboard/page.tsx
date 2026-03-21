@@ -27,7 +27,7 @@ import { getUserPlan, getDailyQuestionCount } from "@/lib/storage-supabase"
 import type { UserPlan } from "@/lib/plan-utils"
 import { getFlashcardProgressByMateria } from "@/lib/flashcards-storage"
 import { DailyGoalsSection } from "@/components/daily-goals-section"
-import { SmartReviewSection } from "@/components/smart-review-section"
+import { DashboardSmartReview } from "@/components/dashboard-smart-review"
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -363,7 +363,7 @@ export default function DashboardPage() {
 
         {user && (
           <div className="mb-6 sm:mb-8 lg:mb-12">
-            <SmartReviewSection userId={user.id} />
+            <DashboardSmartReview userId={user.id} />
           </div>
         )}
 

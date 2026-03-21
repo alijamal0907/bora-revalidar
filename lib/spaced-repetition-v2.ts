@@ -51,6 +51,7 @@ async function tableExists(supabase: any, tableName: string): Promise<boolean> {
 
 /**
  * Obter itens vencidos para revisao
+ * Inclui fallback para flashcard_history quando review_schedule está vazio
  */
 export async function getDueReviewItems(
   userId: string,
@@ -60,29 +61,186 @@ export async function getDueReviewItems(
     const supabase = createClient()
 
     // Verificar se tabela existe
-    if (!(await tableExists(supabase, 'review_schedule'))) {
-      return []
+    const hasReviewSchedule = await tableExists(supabase, 'review_schedule')
+    
+    if (hasReviewSchedule) {
+      let query = supabase
+        .from('review_schedule')
+        .select('*')
+        .eq('user_id', userId)
+        .lte('next_review', new Date().toISOString())
+        .order('next_review', { ascending: true })
+
+      if (contentType) {
+        query = query.eq('content_type', contentType)
+      }
+
+      const { data, error } = await query.limit(20)
+
+      if (!error && data && data.length > 0) {
+        return data as ReviewItem[]
+      }
     }
 
-    let query = supabase
-      .from('review_schedule')
-      .select('*')
-      .eq('user_id', userId)
-      .lte('next_review', new Date().toISOString())
-      .order('next_review', { ascending: true })
+    // Coletar todos os itens de revisao (flashcards E questoes)
+    const allDueItems: ReviewItem[] = []
+    const now = new Date()
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
 
-    if (contentType) {
-      query = query.eq('content_type', contentType)
+    // Fallback: buscar flashcards com alto índice de erro do histórico
+    if (!contentType || contentType === 'flashcard') {
+      const hasHistory = await tableExists(supabase, 'flashcard_history')
+      if (hasHistory) {
+        const { data: historyData } = await supabase
+          .from('flashcard_history')
+          .select('flashcard_id, correct, answered_at')
+          .eq('user_id', userId)
+          .order('answered_at', { ascending: false })
+          .limit(500)
+        
+        if (historyData && historyData.length > 0) {
+          const flashcardStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
+          
+          for (const h of historyData) {
+            const existing = flashcardStats.get(h.flashcard_id)
+            if (!existing) {
+              flashcardStats.set(h.flashcard_id, {
+                correct: h.correct ? 1 : 0,
+                wrong: h.correct ? 0 : 1,
+                lastSeen: new Date(h.answered_at)
+              })
+            } else {
+              if (h.correct) existing.correct++
+              else existing.wrong++
+            }
+          }
+          
+          // Criar itens de revisão simulados para flashcards que precisam de revisão
+          for (const [flashcardId, stats] of flashcardStats) {
+            const errorRate = stats.wrong / (stats.correct + stats.wrong)
+            const needsReview = errorRate > 0.3 || stats.lastSeen < oneDayAgo
+            
+            if (needsReview) {
+              allDueItems.push({
+                id: `fallback-${flashcardId}`,
+                user_id: userId,
+                content_type: 'flashcard',
+                content_id: flashcardId,
+                last_seen: stats.lastSeen.toISOString(),
+                next_review: now.toISOString(),
+                interval_days: errorRate > 0.5 ? 1 : errorRate > 0.3 ? 3 : 7,
+                ease_factor: 2.5 - errorRate,
+                review_count: stats.correct + stats.wrong,
+                created_at: stats.lastSeen.toISOString(),
+                updated_at: stats.lastSeen.toISOString(),
+              })
+            }
+          }
+        }
+      }
     }
 
-    const { data, error } = await query.limit(20)
-
-    if (error) {
-      console.error('[spaced-repetition] Erro ao buscar itens de revisao:', error)
-      return []
+    // Fallback adicional: buscar TODAS as questoes respondidas de hist_questoes
+    // Inclui questoes erradas (prioridade) e corretas (para revisao periodica)
+    if (!contentType || contentType === 'questao') {
+      const hasHistQuestoes = await tableExists(supabase, 'hist_questoes')
+      if (hasHistQuestoes) {
+        // Buscar todas as questoes respondidas (erradas E corretas)
+        const { data: histData } = await supabase
+          .from('hist_questoes')
+          .select('questao_id, correta, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(500)
+        
+        if (histData && histData.length > 0) {
+          const questionStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
+          
+          for (const h of histData) {
+            const existing = questionStats.get(h.questao_id)
+            if (!existing) {
+              questionStats.set(h.questao_id, {
+                correct: h.correta ? 1 : 0,
+                wrong: h.correta ? 0 : 1,
+                lastSeen: new Date(h.created_at)
+              })
+            } else {
+              if (h.correta) existing.correct++
+              else existing.wrong++
+            }
+          }
+          
+          const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          
+          for (const [questionId, stats] of questionStats) {
+            const errorRate = stats.wrong / (stats.correct + stats.wrong)
+            const totalAttempts = stats.correct + stats.wrong
+            
+            // Determinar se precisa revisao:
+            // 1. Questoes com QUALQUER erro - sempre incluir (prioridade maxima)
+            // 2. Questoes com alta taxa de erro - revisar urgentemente
+            // 3. Questoes respondidas ha mais de 3 dias - incluir para revisao
+            // 4. Questoes com poucos acertos - incluir
+            let needsReview = false
+            let intervalDays = 7
+            
+            if (stats.wrong > 0) {
+              // Qualquer erro = incluir para revisao
+              needsReview = true
+              if (errorRate > 0.5) {
+                intervalDays = 1 // Alta taxa de erro - urgente
+              } else if (errorRate > 0.3) {
+                intervalDays = 2 // Taxa moderada
+              } else {
+                intervalDays = 3 // Poucos erros mas ainda precisa revisar
+              }
+            } else if (stats.lastSeen < threeDaysAgo && totalAttempts < 3) {
+              // Pouca pratica e nao vista recentemente
+              needsReview = true
+              intervalDays = 3
+            } else if (stats.lastSeen < oneWeekAgo) {
+              // Nao vista ha mais de uma semana - revisao periodica
+              needsReview = true
+              intervalDays = 7
+            }
+            
+            if (needsReview) {
+              allDueItems.push({
+                id: `fallback-q-${questionId}`,
+                user_id: userId,
+                content_type: 'questao',
+                content_id: questionId,
+                last_seen: stats.lastSeen.toISOString(),
+                next_review: now.toISOString(),
+                interval_days: intervalDays,
+                ease_factor: Math.max(1.3, 2.5 - errorRate),
+                review_count: totalAttempts,
+                created_at: stats.lastSeen.toISOString(),
+                updated_at: stats.lastSeen.toISOString(),
+              })
+            }
+          }
+        }
+      }
     }
 
-    return (data as ReviewItem[]) || []
+    // Ordenar por ease_factor (mais difíceis primeiro) e intercalar tipos
+    allDueItems.sort((a, b) => a.ease_factor - b.ease_factor)
+    
+    // Intercalar flashcards e questoes para variar o tipo de conteudo
+    const flashcards = allDueItems.filter(i => i.content_type === 'flashcard')
+    const questoes = allDueItems.filter(i => i.content_type === 'questao')
+    const interleavedItems: ReviewItem[] = []
+    
+    const maxLen = Math.max(flashcards.length, questoes.length)
+    for (let i = 0; i < maxLen; i++) {
+      if (i < flashcards.length) interleavedItems.push(flashcards[i])
+      if (i < questoes.length) interleavedItems.push(questoes[i])
+    }
+
+    // Retornar ate 50 itens para permitir sessoes maiores
+    return interleavedItems.slice(0, 50)
   } catch (error) {
     console.error('[spaced-repetition] Erro em getDueReviewItems:', error)
     return []
@@ -196,6 +354,7 @@ export async function recordReviewResult(
 
 /**
  * Obter estatisticas de revisao do usuario
+ * Inclui fallback para flashcard_history quando review_schedule está vazio
  */
 export async function getReviewStats(userId: string) {
   const defaultStats = {
@@ -211,18 +370,181 @@ export async function getReviewStats(userId: string) {
     const supabase = createClient()
 
     // Verificar se tabela existe
-    if (!(await tableExists(supabase, 'review_schedule'))) {
+    const hasReviewSchedule = await tableExists(supabase, 'review_schedule')
+
+    let items: ReviewItem[] = []
+    
+    if (hasReviewSchedule) {
+      const { data, error } = await supabase.from('review_schedule').select('*').eq('user_id', userId)
+      if (!error && data) {
+        items = data as ReviewItem[]
+      }
+    }
+
+    // Se não há dados em review_schedule, buscar de flashcard_history
+    // e criar estatísticas baseadas no histórico de erros
+    if (items.length === 0) {
+      const hasHistory = await tableExists(supabase, 'flashcard_history')
+      if (hasHistory) {
+        const { data: historyData } = await supabase
+          .from('flashcard_history')
+          .select('flashcard_id, correct, answered_at')
+          .eq('user_id', userId)
+          .order('answered_at', { ascending: false })
+        
+        if (historyData && historyData.length > 0) {
+          // Contar flashcards únicos com erros recentes
+          const flashcardStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
+          
+          for (const h of historyData) {
+            const existing = flashcardStats.get(h.flashcard_id)
+            if (!existing) {
+              flashcardStats.set(h.flashcard_id, {
+                correct: h.correct ? 1 : 0,
+                wrong: h.correct ? 0 : 1,
+                lastSeen: new Date(h.answered_at)
+              })
+            } else {
+              if (h.correct) existing.correct++
+              else existing.wrong++
+            }
+          }
+          
+          const now = new Date()
+          const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          
+          // Flashcards que precisam de revisao: qualquer erro ou nao vistos ha mais de 1 dia
+          let dueCount = 0
+          for (const [_, stats] of flashcardStats) {
+            // Qualquer erro = precisa revisar (sincronizado com getDueReviewItems)
+            if (stats.wrong > 0 || stats.lastSeen < oneDayAgo) {
+              dueCount++
+            }
+          }
+          
+          // Tambem buscar todas as questoes respondidas
+          let questoesCount = 0
+          let questoesDue = 0
+          
+          const hasHistQuestoes = await tableExists(supabase, 'hist_questoes')
+          if (hasHistQuestoes) {
+            const { data: questoesData } = await supabase
+              .from('hist_questoes')
+              .select('questao_id, correta, created_at')
+              .eq('user_id', userId)
+            
+            if (questoesData && questoesData.length > 0) {
+              const questionStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
+              
+              for (const q of questoesData) {
+                const existing = questionStats.get(q.questao_id)
+                if (!existing) {
+                  questionStats.set(q.questao_id, {
+                    correct: q.correta ? 1 : 0,
+                    wrong: q.correta ? 0 : 1,
+                    lastSeen: new Date(q.created_at)
+                  })
+                } else {
+                  if (q.correta) existing.correct++
+                  else existing.wrong++
+                  if (new Date(q.created_at) > existing.lastSeen) {
+                    existing.lastSeen = new Date(q.created_at)
+                  }
+                }
+              }
+              
+              questoesCount = questionStats.size
+              
+              // Contar questoes que precisam revisao
+              // Sincronizado com getDueReviewItems: qualquer erro = precisa revisar
+              const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+              const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+              
+              for (const [_, stats] of questionStats) {
+                const totalAttempts = stats.correct + stats.wrong
+                
+                // Mesma logica de getDueReviewItems:
+                // 1. Qualquer erro = incluir
+                // 2. Pouca pratica e nao vista recentemente = incluir
+                // 3. Nao vista ha mais de uma semana = incluir
+                if (stats.wrong > 0 || 
+                    (stats.lastSeen < threeDaysAgo && totalAttempts < 3) ||
+                    stats.lastSeen < oneWeekAgo) {
+                  questoesDue++
+                }
+              }
+            }
+          }
+          
+          return {
+            total: flashcardStats.size + questoesCount,
+            due: dueCount + questoesDue,
+            overdue: 0,
+            questoes: questoesDue, // Mostrar apenas questoes pendentes para revisao
+            flashcards: dueCount, // Mostrar apenas flashcards pendentes para revisao
+            averageEaseFactor: '2.5',
+          }
+        }
+      }
+      
+      // Se nao tem historico de flashcards, verificar apenas questoes
+      const hasHistQuestoesOnly = await tableExists(supabase, 'hist_questoes')
+      if (hasHistQuestoesOnly) {
+        const { data: questoesData } = await supabase
+          .from('hist_questoes')
+          .select('questao_id, correta, created_at')
+          .eq('user_id', userId)
+        
+        if (questoesData && questoesData.length > 0) {
+          const questionStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
+          
+          for (const q of questoesData) {
+            const existing = questionStats.get(q.questao_id)
+            if (!existing) {
+              questionStats.set(q.questao_id, {
+                correct: q.correta ? 1 : 0,
+                wrong: q.correta ? 0 : 1,
+                lastSeen: new Date(q.created_at)
+              })
+            } else {
+              if (q.correta) existing.correct++
+              else existing.wrong++
+              if (new Date(q.created_at) > existing.lastSeen) {
+                existing.lastSeen = new Date(q.created_at)
+              }
+            }
+          }
+          
+          const nowQuestoes = new Date()
+          const threeDaysAgo = new Date(nowQuestoes.getTime() - 3 * 24 * 60 * 60 * 1000)
+          const oneWeekAgo = new Date(nowQuestoes.getTime() - 7 * 24 * 60 * 60 * 1000)
+          
+          let dueQuestoes = 0
+          for (const [_, stats] of questionStats) {
+            const totalAttempts = stats.correct + stats.wrong
+            
+            // Mesma logica: qualquer erro = incluir
+            if (stats.wrong > 0 || 
+                (stats.lastSeen < threeDaysAgo && totalAttempts < 3) ||
+                stats.lastSeen < oneWeekAgo) {
+              dueQuestoes++
+            }
+          }
+          
+          return {
+            total: questionStats.size,
+            due: dueQuestoes,
+            overdue: 0,
+            questoes: dueQuestoes, // Mostrar apenas questoes pendentes
+            flashcards: 0,
+            averageEaseFactor: '2.5',
+          }
+        }
+      }
+      
       return defaultStats
     }
 
-    const { data, error } = await supabase.from('review_schedule').select('*').eq('user_id', userId)
-
-    if (error) {
-      console.error('[spaced-repetition] Erro ao buscar stats:', error)
-      return defaultStats
-    }
-
-    const items = (data as ReviewItem[]) || []
     const now = new Date()
 
     return {
