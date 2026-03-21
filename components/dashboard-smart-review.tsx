@@ -79,7 +79,7 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
         if (questionIds.length > 0) {
           const { data: questions } = await supabase
             .from('questoes')
-            .select('id, enunciado, tema, subtema')
+            .select('id, enunciado, tema, subtema, resposta_correta')
             .in('id', questionIds)
           
           if (questions) {
@@ -207,7 +207,7 @@ export function DashboardSmartReview({ userId }: DashboardSmartReviewProps) {
               <Zap className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <h3 className="font-bold text-foreground">Revisao Inteligente Combinada</h3>
+                <h3 className="font-bold text-foreground">Revisão Inteligente Combinada</h3>
               <p className="text-xs text-muted-foreground">Sistema SM-2 - Flashcards + Questões</p>
             </div>
           </div>

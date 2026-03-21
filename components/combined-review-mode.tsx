@@ -79,15 +79,32 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
         }
       }
 
-      // Fetch questions
+      // Fetch questions - alternativas estao em colunas separadas
       let questionsMap = new Map<string, any>()
+      console.log('[v0] CombinedReviewMode - questionIds to fetch:', questionIds.length, questionIds.slice(0, 3))
       if (questionIds.length > 0) {
-        const { data } = await supabase
+        const { data, error: questionsError } = await supabase
           .from('questoes')
-          .select('id, enunciado, alternativas, resposta_correta, explicacao, tema, subtema')
+          .select('id, enunciado, alternativaA, alternativaB, alternativaC, alternativaD, alternativaE, resposta_correta, explicacao, tema, subtema')
           .in('id', questionIds)
+        
+        console.log('[v0] CombinedReviewMode - questoes query result:', { found: data?.length || 0, error: questionsError?.message })
+        
         if (data) {
-          data.forEach(q => questionsMap.set(q.id, q))
+          data.forEach(q => {
+            // Montar objeto alternativas a partir das colunas
+            const alternativas: Record<string, string> = {}
+            if (q.alternativaA) alternativas['A'] = q.alternativaA
+            if (q.alternativaB) alternativas['B'] = q.alternativaB
+            if (q.alternativaC) alternativas['C'] = q.alternativaC
+            if (q.alternativaD) alternativas['D'] = q.alternativaD
+            if (q.alternativaE) alternativas['E'] = q.alternativaE
+            
+            questionsMap.set(q.id, {
+              ...q,
+              alternativas
+            })
+          })
         }
       }
 
@@ -117,11 +134,22 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
         }
         
         // Only add items that have content
-        if ((enriched.frente && enriched.verso) || (enriched.enunciado && enriched.alternativas)) {
+        // For flashcards: need frente and verso
+        // For questions: need enunciado (alternativas may be empty object)
+        const isValidFlashcard = item.content_type === 'flashcard' && enriched.frente && enriched.verso
+        const isValidQuestion = item.content_type === 'questao' && enriched.enunciado
+        
+        if (isValidFlashcard || isValidQuestion) {
           enrichedItems.push(enriched)
+        } else {
+          console.log('[v0] Item skipped - invalid:', { type: item.content_type, id: item.content_id, hasEnunciado: !!enriched.enunciado })
         }
       }
 
+      const flashcardCount = enrichedItems.filter(i => i.content_type === 'flashcard').length
+      const questionCount = enrichedItems.filter(i => i.content_type === 'questao').length
+      console.log('[v0] CombinedReviewMode - final enriched items:', { total: enrichedItems.length, flashcards: flashcardCount, questoes: questionCount })
+      
       setItems(enrichedItems)
       setIsLoading(false)
     }
@@ -441,7 +469,8 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
 
           {/* Alternatives */}
           <div className="space-y-3">
-            {currentItem.alternativas && Object.entries(currentItem.alternativas).map(([key, value]) => {
+            {currentItem.alternativas && typeof currentItem.alternativas === 'object' && Object.entries(currentItem.alternativas).length > 0 ? (
+              Object.entries(currentItem.alternativas).map(([key, value]) => {
               const isSelected = selectedAnswer === key
               const isCorrectAnswer = key.toUpperCase() === (currentItem.resposta_correta || "").toUpperCase()
               
@@ -480,7 +509,12 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
                   <span className="text-foreground pt-1">{value as string}</span>
                 </button>
               )
-            })}
+            })
+            ) : (
+              <div className="text-center text-muted-foreground p-4 bg-muted/30 rounded-xl">
+                <p>Alternativas não disponíveis para esta questão.</p>
+              </div>
+            )}
           </div>
 
           {/* Submit button or explanation */}

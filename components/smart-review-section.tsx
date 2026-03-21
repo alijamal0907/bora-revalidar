@@ -74,7 +74,7 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
         if (questionIds.length > 0) {
           const { data: questions } = await supabase
             .from('questoes')
-            .select('id, enunciado, tema, subtema')
+            .select('id, enunciado, tema, subtema, resposta_correta')
             .in('id', questionIds)
           
           if (questions) {

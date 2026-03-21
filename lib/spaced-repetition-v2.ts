@@ -140,48 +140,90 @@ export async function getDueReviewItems(
       }
     }
 
-    // Fallback adicional: buscar questões erradas de hist_questoes
+    // Fallback adicional: buscar TODAS as questoes respondidas de hist_questoes
+    // Inclui questoes erradas (prioridade) e corretas (para revisao periodica)
     if (!contentType || contentType === 'questao') {
       const hasHistQuestoes = await tableExists(supabase, 'hist_questoes')
+      console.log('[v0] hist_questoes table exists:', hasHistQuestoes)
       if (hasHistQuestoes) {
-        const { data: histData } = await supabase
+        // Buscar todas as questoes respondidas (erradas E corretas)
+        const { data: histData, error: histError } = await supabase
           .from('hist_questoes')
           .select('questao_id, correta, created_at')
           .eq('user_id', userId)
-          .eq('correta', false)
           .order('created_at', { ascending: false })
-          .limit(200)
+          .limit(500)
+        
+        console.log('[v0] hist_questoes query result:', { count: histData?.length || 0, error: histError?.message })
         
         if (histData && histData.length > 0) {
-          const questionStats = new Map<string, { wrong: number; lastSeen: Date }>()
+          const questionStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
           
           for (const h of histData) {
             const existing = questionStats.get(h.questao_id)
             if (!existing) {
               questionStats.set(h.questao_id, {
-                wrong: 1,
+                correct: h.correta ? 1 : 0,
+                wrong: h.correta ? 0 : 1,
                 lastSeen: new Date(h.created_at)
               })
             } else {
-              existing.wrong++
+              if (h.correta) existing.correct++
+              else existing.wrong++
             }
           }
           
+          const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          
           for (const [questionId, stats] of questionStats) {
-            allDueItems.push({
-              id: `fallback-q-${questionId}`,
-              user_id: userId,
-              content_type: 'questao',
-              content_id: questionId,
-              last_seen: stats.lastSeen.toISOString(),
-              next_review: now.toISOString(),
-              interval_days: Math.max(1, 7 - stats.wrong),
-              ease_factor: Math.max(1.3, 2.5 - (stats.wrong * 0.2)),
-              review_count: stats.wrong,
-              created_at: stats.lastSeen.toISOString(),
-              updated_at: stats.lastSeen.toISOString(),
-            })
+            const errorRate = stats.wrong / (stats.correct + stats.wrong)
+            const totalAttempts = stats.correct + stats.wrong
+            
+            // Determinar se precisa revisao:
+            // 1. Questoes erradas (errorRate > 0.3) - sempre incluir
+            // 2. Questoes respondidas ha mais de 3 dias - incluir para revisao
+            // 3. Questoes com poucos acertos - incluir
+            let needsReview = false
+            let intervalDays = 7
+            
+            if (errorRate > 0.5) {
+              // Alta taxa de erro - revisar em 1 dia
+              needsReview = true
+              intervalDays = 1
+            } else if (errorRate > 0.3) {
+              // Taxa de erro moderada - revisar em 3 dias
+              needsReview = true
+              intervalDays = 3
+            } else if (stats.lastSeen < threeDaysAgo && totalAttempts < 3) {
+              // Pouca pratica e nao vista recentemente
+              needsReview = true
+              intervalDays = 3
+            } else if (stats.lastSeen < oneWeekAgo) {
+              // Nao vista ha mais de uma semana - revisao periodica
+              needsReview = true
+              intervalDays = 7
+            }
+            
+            if (needsReview) {
+              allDueItems.push({
+                id: `fallback-q-${questionId}`,
+                user_id: userId,
+                content_type: 'questao',
+                content_id: questionId,
+                last_seen: stats.lastSeen.toISOString(),
+                next_review: now.toISOString(),
+                interval_days: intervalDays,
+                ease_factor: Math.max(1.3, 2.5 - errorRate),
+                review_count: totalAttempts,
+                created_at: stats.lastSeen.toISOString(),
+                updated_at: stats.lastSeen.toISOString(),
+              })
+            }
           }
+          
+          const questoesAdded = allDueItems.filter(i => i.content_type === 'questao').length
+          console.log('[v0] Questoes added to review:', questoesAdded, 'from', questionStats.size, 'unique questions')
         }
       }
     }
@@ -382,7 +424,7 @@ export async function getReviewStats(userId: string) {
             }
           }
           
-          // Também buscar questões erradas
+          // Tambem buscar todas as questoes respondidas
           let questoesCount = 0
           let questoesDue = 0
           
@@ -390,14 +432,45 @@ export async function getReviewStats(userId: string) {
           if (hasHistQuestoes) {
             const { data: questoesData } = await supabase
               .from('hist_questoes')
-              .select('questao_id')
+              .select('questao_id, correta, created_at')
               .eq('user_id', userId)
-              .eq('correta', false)
             
-            if (questoesData) {
-              const uniqueQuestoes = new Set(questoesData.map(q => q.questao_id))
-              questoesCount = uniqueQuestoes.size
-              questoesDue = uniqueQuestoes.size // Todas as erradas precisam revisão
+            if (questoesData && questoesData.length > 0) {
+              const questionStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
+              
+              for (const q of questoesData) {
+                const existing = questionStats.get(q.questao_id)
+                if (!existing) {
+                  questionStats.set(q.questao_id, {
+                    correct: q.correta ? 1 : 0,
+                    wrong: q.correta ? 0 : 1,
+                    lastSeen: new Date(q.created_at)
+                  })
+                } else {
+                  if (q.correta) existing.correct++
+                  else existing.wrong++
+                  if (new Date(q.created_at) > existing.lastSeen) {
+                    existing.lastSeen = new Date(q.created_at)
+                  }
+                }
+              }
+              
+              questoesCount = questionStats.size
+              
+              // Contar questoes que precisam revisao
+              const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+              const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+              
+              for (const [_, stats] of questionStats) {
+                const errorRate = stats.wrong / (stats.correct + stats.wrong)
+                const totalAttempts = stats.correct + stats.wrong
+                
+                if (errorRate > 0.3 || 
+                    (stats.lastSeen < threeDaysAgo && totalAttempts < 3) ||
+                    stats.lastSeen < oneWeekAgo) {
+                  questoesDue++
+                }
+              }
             }
           }
           
@@ -412,22 +485,54 @@ export async function getReviewStats(userId: string) {
         }
       }
       
-      // Se não tem histórico de flashcards, verificar apenas questões
-      const hasHistQuestoes = await tableExists(supabase, 'hist_questoes')
-      if (hasHistQuestoes) {
+      // Se nao tem historico de flashcards, verificar apenas questoes
+      const hasHistQuestoesOnly = await tableExists(supabase, 'hist_questoes')
+      if (hasHistQuestoesOnly) {
         const { data: questoesData } = await supabase
           .from('hist_questoes')
-          .select('questao_id')
+          .select('questao_id, correta, created_at')
           .eq('user_id', userId)
-          .eq('correta', false)
         
         if (questoesData && questoesData.length > 0) {
-          const uniqueQuestoes = new Set(questoesData.map(q => q.questao_id))
+          const questionStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
+          
+          for (const q of questoesData) {
+            const existing = questionStats.get(q.questao_id)
+            if (!existing) {
+              questionStats.set(q.questao_id, {
+                correct: q.correta ? 1 : 0,
+                wrong: q.correta ? 0 : 1,
+                lastSeen: new Date(q.created_at)
+              })
+            } else {
+              if (q.correta) existing.correct++
+              else existing.wrong++
+              if (new Date(q.created_at) > existing.lastSeen) {
+                existing.lastSeen = new Date(q.created_at)
+              }
+            }
+          }
+          
+          const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          
+          let dueQuestoes = 0
+          for (const [_, stats] of questionStats) {
+            const errorRate = stats.wrong / (stats.correct + stats.wrong)
+            const totalAttempts = stats.correct + stats.wrong
+            
+            if (errorRate > 0.3 || 
+                (stats.lastSeen < threeDaysAgo && totalAttempts < 3) ||
+                stats.lastSeen < oneWeekAgo) {
+              dueQuestoes++
+            }
+          }
+          
           return {
-            total: uniqueQuestoes.size,
-            due: uniqueQuestoes.size,
+            total: questionStats.size,
+            due: dueQuestoes,
             overdue: 0,
-            questoes: uniqueQuestoes.size,
+            questoes: questionStats.size,
             flashcards: 0,
             averageEaseFactor: '2.5',
           }
