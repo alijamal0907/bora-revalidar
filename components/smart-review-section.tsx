@@ -171,13 +171,23 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
 
   // Start review immediately
   const startReview = async () => {
+    console.log("[v0] startReview called, current state:", reviewState)
     setReviewState('loading')
     
     try {
       const supabase = createClient()
-      const dueData = await getDueReviewItems(userId)
+      if (!supabase) {
+        console.log("[v0] Supabase client not available")
+        setReviewState('idle')
+        return
+      }
       
-      if (dueData.length === 0) {
+      console.log("[v0] Fetching due items for userId:", userId)
+      const dueData = await getDueReviewItems(userId)
+      console.log("[v0] Due items received:", dueData?.length || 0, dueData)
+      
+      if (!dueData || dueData.length === 0) {
+        console.log("[v0] No due items, setting completed")
         setReviewState('completed')
         return
       }
@@ -191,20 +201,24 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
       // Fetch flashcards
       let flashcardsMap = new Map<string, any>()
       if (flashcardIds.length > 0) {
-        const { data } = await supabase
+        console.log("[v0] Fetching flashcards:", flashcardIds)
+        const { data, error } = await supabase
           .from('flashcards')
           .select('id, frente, verso, alternativa_tendenciosa, materia, tema')
           .in('id', flashcardIds)
+        console.log("[v0] Flashcards result:", data?.length, error)
         if (data) data.forEach(f => flashcardsMap.set(f.id, f))
       }
 
       // Fetch questions
       let questionsMap = new Map<string, any>()
       if (questionIds.length > 0) {
-        const { data } = await supabase
+        console.log("[v0] Fetching questions:", questionIds)
+        const { data, error } = await supabase
           .from('questoes')
           .select('id, enunciado, alternativaA, alternativaB, alternativaC, alternativaD, alternativaE, resposta_correta, explicacao, tema, subtema')
           .in('id', questionIds)
+        console.log("[v0] Questions result:", data?.length, error)
         if (data) {
           data.forEach(q => {
             const alternativas: Record<string, string> = {}
@@ -245,26 +259,37 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
           }
         }
         
-        // Only add valid items
-        const isValidFlashcard = item.content_type === 'flashcard' && enriched.frente && enriched.verso
-        const isValidQuestion = item.content_type === 'questao' && enriched.enunciado
+        // Only add valid items - relaxed validation
+        const isValidFlashcard = item.content_type === 'flashcard' && (enriched.frente || enriched.title)
+        const isValidQuestion = item.content_type === 'questao' && (enriched.enunciado || enriched.title)
+        
+        console.log("[v0] Item validation:", item.content_id, "type:", item.content_type, "valid:", isValidFlashcard || isValidQuestion)
         
         if (isValidFlashcard || isValidQuestion) {
+          enrichedItems.push(enriched)
+        } else {
+          // Still add the item even if not fully enriched - we'll handle display gracefully
+          console.log("[v0] Adding item with partial data:", item.content_id)
           enrichedItems.push(enriched)
         }
       }
 
+      console.log("[v0] Enriched items:", enrichedItems.length, enrichedItems)
+      
       if (enrichedItems.length === 0) {
+        console.log("[v0] No valid enriched items, setting completed")
         setReviewState('completed')
         return
       }
 
+      console.log("[v0] Setting review items and starting review mode")
       setReviewItems(enrichedItems)
       setCurrentIndex(0)
       setResults([])
       setReviewState('reviewing')
+      console.log("[v0] Review state set to 'reviewing'")
     } catch (error) {
-      console.error('Erro ao iniciar revisao:', error)
+      console.error('[v0] Erro ao iniciar revisao:', error)
       setReviewState('idle')
     }
   }
@@ -484,7 +509,25 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
   }
 
   // Active review mode
-  if (reviewState === 'reviewing' && currentItem) {
+  if (reviewState === 'reviewing') {
+    // Handle case where currentItem is undefined (edge case)
+    if (!currentItem) {
+      console.log("[v0] Review mode active but no currentItem, reviewItems:", reviewItems.length, "currentIndex:", currentIndex)
+      return (
+        <div className="bg-gradient-to-br from-blue-900/30 via-slate-900/50 to-purple-900/20 border-2 border-blue-700/50 rounded-xl p-6 shadow-xl">
+          <div className="text-center py-6">
+            <AlertCircle className="w-12 h-12 text-amber-400 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-white mb-2">Erro ao carregar item</h3>
+            <p className="text-slate-400 mb-4">Nao foi possivel carregar o conteudo para revisao.</p>
+            <Button onClick={handleRestart} className="bg-blue-600 hover:bg-blue-700">
+              Voltar
+            </Button>
+          </div>
+        </div>
+      )
+    }
+    
+    // Normal review mode with valid currentItem
     return (
       <div className="bg-gradient-to-br from-blue-900/30 via-slate-900/50 to-purple-900/20 border-2 border-blue-700/50 rounded-xl p-4 sm:p-6 shadow-xl">
         {/* Header with progress */}
@@ -749,7 +792,7 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
       </div>
 
       {/* Quick start button - most prominent */}
-      {stats.due > 0 && (
+      {stats.due > 0 ? (
         <button
           onClick={startReview}
           className="mb-5 w-full flex items-center justify-between px-5 py-4 bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 text-white font-semibold rounded-xl hover:from-blue-700 hover:via-blue-800 hover:to-purple-700 transition-all shadow-lg shadow-blue-500/30 group border border-blue-400/20 text-left"
@@ -773,6 +816,14 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
             </span>
             <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
           </div>
+        </button>
+      ) : (
+        <button
+          onClick={startReview}
+          className="mb-5 w-full flex items-center justify-center gap-3 px-5 py-4 bg-slate-800/60 text-white font-medium rounded-xl hover:bg-slate-700/60 transition-all border border-slate-600"
+        >
+          <Play className="w-5 h-5 text-slate-400" />
+          <span>Verificar conteudo para revisao</span>
         </button>
       )}
       
