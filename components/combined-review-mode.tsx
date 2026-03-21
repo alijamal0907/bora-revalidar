@@ -208,7 +208,7 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Carregando conteudo para revisao...</p>
+          <p className="text-muted-foreground">Carregando conteúdo para revisão...</p>
         </div>
       </div>
     )
@@ -219,7 +219,7 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
       <div className="bg-card border border-border rounded-xl p-12 text-center">
         <Trophy className="w-16 h-16 text-green-500 mx-auto mb-4" />
         <h3 className="text-2xl font-bold text-foreground mb-2">Tudo em dia!</h3>
-        <p className="text-muted-foreground mb-6">Nao ha itens pendentes para revisao no momento.</p>
+        <p className="text-muted-foreground mb-6">Não há itens pendentes para revisão no momento.</p>
         <Button onClick={onBack}>Voltar</Button>
       </div>
     )
@@ -232,7 +232,7 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
     return (
       <div className="bg-card border border-border rounded-xl p-8 text-center">
         <Trophy className="w-20 h-20 text-amber-500 mx-auto mb-6" />
-        <h2 className="text-3xl font-bold text-foreground mb-4">Revisao Concluida!</h2>
+        <h2 className="text-3xl font-bold text-foreground mb-4">Revisão Concluída!</h2>
         
         <div className="grid grid-cols-3 gap-4 max-w-md mx-auto mb-8">
           <div className="bg-muted/50 rounded-lg p-4">
@@ -326,7 +326,7 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
           ) : (
             <>
               <BookOpen className="w-4 h-4" />
-              Questao
+              Questão
             </>
           )}
         </div>
@@ -497,7 +497,7 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
             <div className="space-y-4">
               {currentItem.explicacao && (
                 <div className="bg-muted/50 border border-border rounded-xl p-4">
-                  <h4 className="font-semibold text-foreground mb-2">Explicacao:</h4>
+                  <h4 className="font-semibold text-foreground mb-2">Explicação:</h4>
                   <p className="text-muted-foreground whitespace-pre-wrap">{currentItem.explicacao}</p>
                 </div>
               )}
@@ -505,7 +505,7 @@ export function CombinedReviewMode({ userId, dueItems, onComplete, onBack }: Com
               <Button onClick={handleNext} className="w-full" size="lg">
                 {currentIndex < items.length - 1 ? (
                   <>
-                    Proxima
+                    Próxima
                     <ChevronRight className="w-4 h-4 ml-2" />
                   </>
                 ) : (

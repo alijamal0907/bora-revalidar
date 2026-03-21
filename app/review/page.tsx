@@ -47,8 +47,10 @@ export default function ReviewPage() {
   const [userPlan, setUserPlan] = useState<UserPlan>("free")
   const [incorrectQuestions, setIncorrectQuestions] = useState<any[]>([])
   const [wrongFlashcards, setWrongFlashcards] = useState<any[]>([])
+  const [dueItems, setDueItems] = useState<ReviewItem[]>([])
+  const [isLoadingDueItems, setIsLoadingDueItems] = useState(false)
 
-  const [activeReviewMode, setActiveReviewMode] = useState<"none" | "questions" | "flashcards">("none")
+  const [activeReviewMode, setActiveReviewMode] = useState<"none" | "questions" | "flashcards" | "combined">("none")
   const [activeTheme, setActiveTheme] = useState<string | null>(null)
   const [activeQuestions, setActiveQuestions] = useState<any[]>([])
   const [activeFlashcards, setActiveFlashcards] = useState<any[]>([])
@@ -76,17 +78,20 @@ export default function ReviewPage() {
         }
 
         try {
-          const [wrongQuestions, wrongCards] = await Promise.all([
+          const [wrongQuestions, wrongCards, due] = await Promise.all([
             getWrongAnswers(currentUser.id),
             getWrongFlashcards(currentUser.id),
+            getDueReviewItems(currentUser.id),
           ])
 
           setIncorrectQuestions(wrongQuestions || [])
           setWrongFlashcards(wrongCards || [])
+          setDueItems(due || [])
         } catch (error) {
-          console.error("Erro ao carregar questões erradas:", error)
+          console.error("Erro ao carregar dados de revisão:", error)
           setIncorrectQuestions([])
           setWrongFlashcards([])
+          setDueItems([])
         }
 
         setIsLoading(false)
@@ -147,6 +152,11 @@ export default function ReviewPage() {
     setActiveFlashcards([])
   }
 
+  const handleStartCombinedReview = async () => {
+    if (dueItems.length === 0) return
+    setActiveReviewMode("combined")
+  }
+
   if (error) {
     return (
       <div>
@@ -184,6 +194,40 @@ export default function ReviewPage() {
             <p className="text-muted-foreground">Carregando suas questões erradas...</p>
           </div>
         </div>
+      </div>
+    )
+  }
+
+  if (activeReviewMode === "combined" && user && dueItems.length > 0) {
+    return (
+      <div>
+        <Navbar user={user} />
+        <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <button
+            onClick={handleBackToOverview}
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-6 group"
+          >
+            <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span>Voltar para visão geral</span>
+          </button>
+
+          <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-xl p-6 mb-8 border border-blue-500/20">
+            <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center gap-3">
+              <Zap className="w-8 h-8 text-blue-400" />
+              Revisão Inteligente Combinada
+            </h1>
+            <p className="text-muted-foreground">
+              {dueItems.length} item{dueItems.length !== 1 ? "ns" : ""} para revisar (flashcards e questões)
+            </p>
+          </div>
+
+          <CombinedReviewMode
+            userId={user.id}
+            dueItems={dueItems}
+            onComplete={handleBackToOverview}
+            onBack={handleBackToOverview}
+          />
+        </main>
       </div>
     )
   }
@@ -280,6 +324,23 @@ export default function ReviewPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {dueItems.length > 0 && (
+            <button
+              onClick={handleStartCombinedReview}
+              className="group relative bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-2 border-blue-500/20 hover:border-blue-500/50 rounded-xl p-6 hover:shadow-lg transition-all"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Revisão Inteligente</h3>
+                <Zap className="w-6 h-6 text-blue-400 group-hover:scale-110 transition-transform" />
+              </div>
+              <p className="text-5xl font-bold text-foreground mb-1">{dueItems.length}</p>
+              <p className="text-sm text-muted-foreground">itens para revisar (combinado)</p>
+              <div className="flex items-center gap-2 mt-4 text-sm text-blue-400 group-hover:text-blue-300 transition-colors">
+                <Play className="w-4 h-4" />
+                <span>Começar agora</span>
+              </div>
+            </button>
+          )}
           <div className="bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/20 rounded-xl p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Questões Erradas</h3>
@@ -299,21 +360,19 @@ export default function ReviewPage() {
             <p className="text-5xl font-bold text-foreground mb-1">{wrongFlashcards.length}</p>
             <p className="text-sm text-muted-foreground">para revisar</p>
           </div>
-
-          <div className="bg-gradient-to-br from-green-500/10 to-green-500/5 border border-green-500/20 rounded-xl p-6 hover:shadow-lg transition-shadow">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Áreas Cobertas</h3>
-              <CheckCircle2 className="w-6 h-6 text-green-500" />
-            </div>
-            <p className="text-5xl font-bold text-foreground mb-1">
-              {Object.keys(questionsByTheme).length + Object.keys(flashcardsByMateria).length}
-            </p>
-            <p className="text-sm text-muted-foreground">temas diferentes</p>
-          </div>
         </div>
 
-        <Tabs defaultValue="questions" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/50 p-1 h-auto">
+        <Tabs defaultValue="combined" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 mb-8 bg-muted/50 p-1 h-auto">
+            {dueItems.length > 0 && (
+              <TabsTrigger
+                value="combined"
+                className="py-3 data-[state=active]:bg-background data-[state=active]:shadow-sm"
+              >
+                <Zap className="w-4 h-4 mr-2" />
+                Revisão Inteligente
+              </TabsTrigger>
+            )}
             <TabsTrigger
               value="questions"
               className="py-3 data-[state=active]:bg-background data-[state=active]:shadow-sm"
@@ -329,6 +388,80 @@ export default function ReviewPage() {
               Flashcards Errados
             </TabsTrigger>
           </TabsList>
+
+          {dueItems.length > 0 && (
+            <TabsContent value="combined" className="space-y-6 mt-8">
+              <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <Zap className="w-5 h-5 text-blue-400" />
+                  <h2 className="text-2xl font-bold text-foreground">Revisão Inteligente Combinada</h2>
+                </div>
+                <p className="text-muted-foreground">
+                  Revise tanto questões quanto flashcards em uma única sessão otimizada pelo sistema SM-2 de espaçamento inteligente.
+                </p>
+              </div>
+
+              <button
+                onClick={handleStartCombinedReview}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 text-lg"
+              >
+                <Play className="w-5 h-5" />
+                Iniciar Revisão Combinada ({dueItems.length} itens)
+              </button>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <Brain className="w-5 h-5 text-blue-400" />
+                    Vantagens da Revisão Inteligente
+                  </h3>
+                  <ul className="space-y-2 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-1">✓</span>
+                      <span>Alternância entre questões e flashcards</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-1">✓</span>
+                      <span>Prioriza itens mais difíceis</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-1">✓</span>
+                      <span>Algoritmo SM-2 otimizado</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-blue-400 mt-1">✓</span>
+                      <span>Experiência de revisão completa</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="bg-card border border-border rounded-lg p-4">
+                  <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                    <TrendingUp className="w-5 h-5 text-purple-400" />
+                    Como Funciona
+                  </h3>
+                  <ol className="space-y-2 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-400 font-semibold">1.</span>
+                      <span>Sistema seleciona conteúdo vencido</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-400 font-semibold">2.</span>
+                      <span>Intercala questões e flashcards</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-400 font-semibold">3.</span>
+                      <span>Registra seu desempenho</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-purple-400 font-semibold">4.</span>
+                      <span>Reagenda automaticamente</span>
+                    </li>
+                  </ol>
+                </div>
+              </div>
+            </TabsContent>
+          )}
 
           <TabsContent value="questions" className="space-y-6 mt-8">
             {Object.keys(questionsByTheme).length > 0 ? (
