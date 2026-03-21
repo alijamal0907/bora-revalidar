@@ -145,6 +145,60 @@ export async function getDueReviewItems(
       }
     }
 
+    // Fallback adicional: buscar questões erradas de hist_questoes
+    if (!contentType || contentType === 'questao') {
+      const hasHistQuestoes = await tableExists(supabase, 'hist_questoes')
+      if (hasHistQuestoes) {
+        const { data: histData } = await supabase
+          .from('hist_questoes')
+          .select('questao_id, correta, created_at')
+          .eq('user_id', userId)
+          .eq('correta', false)
+          .order('created_at', { ascending: false })
+          .limit(200)
+        
+        if (histData && histData.length > 0) {
+          const questionStats = new Map<string, { wrong: number; lastSeen: Date }>()
+          
+          for (const h of histData) {
+            const existing = questionStats.get(h.questao_id)
+            if (!existing) {
+              questionStats.set(h.questao_id, {
+                wrong: 1,
+                lastSeen: new Date(h.created_at)
+              })
+            } else {
+              existing.wrong++
+            }
+          }
+          
+          const now = new Date()
+          const dueQuestions: ReviewItem[] = []
+          
+          for (const [questionId, stats] of questionStats) {
+            dueQuestions.push({
+              id: `fallback-q-${questionId}`,
+              user_id: userId,
+              content_type: 'questao',
+              content_id: questionId,
+              last_seen: stats.lastSeen.toISOString(),
+              next_review: now.toISOString(),
+              interval_days: Math.max(1, 7 - stats.wrong),
+              ease_factor: Math.max(1.3, 2.5 - (stats.wrong * 0.2)),
+              review_count: stats.wrong,
+              created_at: stats.lastSeen.toISOString(),
+              updated_at: stats.lastSeen.toISOString(),
+            })
+          }
+          
+          // Ordenar por número de erros (mais erros primeiro)
+          dueQuestions.sort((a, b) => b.review_count - a.review_count)
+          
+          return dueQuestions.slice(0, 20)
+        }
+      }
+    }
+
     return []
   } catch (error) {
     console.error('[spaced-repetition] Erro em getDueReviewItems:', error)
@@ -327,12 +381,53 @@ export async function getReviewStats(userId: string) {
             }
           }
           
+          // Também buscar questões erradas
+          let questoesCount = 0
+          let questoesDue = 0
+          
+          const hasHistQuestoes = await tableExists(supabase, 'hist_questoes')
+          if (hasHistQuestoes) {
+            const { data: questoesData } = await supabase
+              .from('hist_questoes')
+              .select('questao_id')
+              .eq('user_id', userId)
+              .eq('correta', false)
+            
+            if (questoesData) {
+              const uniqueQuestoes = new Set(questoesData.map(q => q.questao_id))
+              questoesCount = uniqueQuestoes.size
+              questoesDue = uniqueQuestoes.size // Todas as erradas precisam revisão
+            }
+          }
+          
           return {
-            total: flashcardStats.size,
-            due: dueCount,
+            total: flashcardStats.size + questoesCount,
+            due: dueCount + questoesDue,
             overdue: 0,
-            questoes: 0,
+            questoes: questoesCount,
             flashcards: flashcardStats.size,
+            averageEaseFactor: '2.5',
+          }
+        }
+      }
+      
+      // Se não tem histórico de flashcards, verificar apenas questões
+      const hasHistQuestoes = await tableExists(supabase, 'hist_questoes')
+      if (hasHistQuestoes) {
+        const { data: questoesData } = await supabase
+          .from('hist_questoes')
+          .select('questao_id')
+          .eq('user_id', userId)
+          .eq('correta', false)
+        
+        if (questoesData && questoesData.length > 0) {
+          const uniqueQuestoes = new Set(questoesData.map(q => q.questao_id))
+          return {
+            total: uniqueQuestoes.size,
+            due: uniqueQuestoes.size,
+            overdue: 0,
+            questoes: uniqueQuestoes.size,
+            flashcards: 0,
             averageEaseFactor: '2.5',
           }
         }
