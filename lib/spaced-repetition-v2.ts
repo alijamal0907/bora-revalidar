@@ -51,6 +51,7 @@ async function tableExists(supabase: any, tableName: string): Promise<boolean> {
 
 /**
  * Obter itens vencidos para revisao
+ * Inclui fallback para flashcard_history quando review_schedule está vazio
  */
 export async function getDueReviewItems(
   userId: string,
@@ -60,29 +61,91 @@ export async function getDueReviewItems(
     const supabase = createClient()
 
     // Verificar se tabela existe
-    if (!(await tableExists(supabase, 'review_schedule'))) {
-      return []
+    const hasReviewSchedule = await tableExists(supabase, 'review_schedule')
+    
+    if (hasReviewSchedule) {
+      let query = supabase
+        .from('review_schedule')
+        .select('*')
+        .eq('user_id', userId)
+        .lte('next_review', new Date().toISOString())
+        .order('next_review', { ascending: true })
+
+      if (contentType) {
+        query = query.eq('content_type', contentType)
+      }
+
+      const { data, error } = await query.limit(20)
+
+      if (!error && data && data.length > 0) {
+        return data as ReviewItem[]
+      }
     }
 
-    let query = supabase
-      .from('review_schedule')
-      .select('*')
-      .eq('user_id', userId)
-      .lte('next_review', new Date().toISOString())
-      .order('next_review', { ascending: true })
-
-    if (contentType) {
-      query = query.eq('content_type', contentType)
+    // Fallback: buscar flashcards com alto índice de erro do histórico
+    if (!contentType || contentType === 'flashcard') {
+      const hasHistory = await tableExists(supabase, 'flashcard_history')
+      if (hasHistory) {
+        const { data: historyData } = await supabase
+          .from('flashcard_history')
+          .select('flashcard_id, correct, answered_at')
+          .eq('user_id', userId)
+          .order('answered_at', { ascending: false })
+          .limit(500)
+        
+        if (historyData && historyData.length > 0) {
+          const flashcardStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
+          
+          for (const h of historyData) {
+            const existing = flashcardStats.get(h.flashcard_id)
+            if (!existing) {
+              flashcardStats.set(h.flashcard_id, {
+                correct: h.correct ? 1 : 0,
+                wrong: h.correct ? 0 : 1,
+                lastSeen: new Date(h.answered_at)
+              })
+            } else {
+              if (h.correct) existing.correct++
+              else existing.wrong++
+            }
+          }
+          
+          const now = new Date()
+          const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          
+          // Criar itens de revisão simulados para flashcards que precisam de revisão
+          const dueItems: ReviewItem[] = []
+          
+          for (const [flashcardId, stats] of flashcardStats) {
+            const errorRate = stats.wrong / (stats.correct + stats.wrong)
+            const needsReview = errorRate > 0.3 || stats.lastSeen < oneDayAgo
+            
+            if (needsReview) {
+              dueItems.push({
+                id: `fallback-${flashcardId}`,
+                user_id: userId,
+                content_type: 'flashcard',
+                content_id: flashcardId,
+                last_seen: stats.lastSeen.toISOString(),
+                next_review: now.toISOString(),
+                interval_days: errorRate > 0.5 ? 1 : errorRate > 0.3 ? 3 : 7,
+                ease_factor: 2.5 - errorRate,
+                review_count: stats.correct + stats.wrong,
+                created_at: stats.lastSeen.toISOString(),
+                updated_at: stats.lastSeen.toISOString(),
+              })
+            }
+          }
+          
+          // Ordenar por taxa de erro (mais difíceis primeiro)
+          dueItems.sort((a, b) => a.ease_factor - b.ease_factor)
+          
+          return dueItems.slice(0, 20)
+        }
+      }
     }
 
-    const { data, error } = await query.limit(20)
-
-    if (error) {
-      console.error('[spaced-repetition] Erro ao buscar itens de revisao:', error)
-      return []
-    }
-
-    return (data as ReviewItem[]) || []
+    return []
   } catch (error) {
     console.error('[spaced-repetition] Erro em getDueReviewItems:', error)
     return []
@@ -196,6 +259,7 @@ export async function recordReviewResult(
 
 /**
  * Obter estatisticas de revisao do usuario
+ * Inclui fallback para flashcard_history quando review_schedule está vazio
  */
 export async function getReviewStats(userId: string) {
   const defaultStats = {
@@ -211,18 +275,72 @@ export async function getReviewStats(userId: string) {
     const supabase = createClient()
 
     // Verificar se tabela existe
-    if (!(await tableExists(supabase, 'review_schedule'))) {
+    const hasReviewSchedule = await tableExists(supabase, 'review_schedule')
+
+    let items: ReviewItem[] = []
+    
+    if (hasReviewSchedule) {
+      const { data, error } = await supabase.from('review_schedule').select('*').eq('user_id', userId)
+      if (!error && data) {
+        items = data as ReviewItem[]
+      }
+    }
+
+    // Se não há dados em review_schedule, buscar de flashcard_history
+    // e criar estatísticas baseadas no histórico de erros
+    if (items.length === 0) {
+      const hasHistory = await tableExists(supabase, 'flashcard_history')
+      if (hasHistory) {
+        const { data: historyData } = await supabase
+          .from('flashcard_history')
+          .select('flashcard_id, correct, answered_at')
+          .eq('user_id', userId)
+          .order('answered_at', { ascending: false })
+        
+        if (historyData && historyData.length > 0) {
+          // Contar flashcards únicos com erros recentes
+          const flashcardStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
+          
+          for (const h of historyData) {
+            const existing = flashcardStats.get(h.flashcard_id)
+            if (!existing) {
+              flashcardStats.set(h.flashcard_id, {
+                correct: h.correct ? 1 : 0,
+                wrong: h.correct ? 0 : 1,
+                lastSeen: new Date(h.answered_at)
+              })
+            } else {
+              if (h.correct) existing.correct++
+              else existing.wrong++
+            }
+          }
+          
+          const now = new Date()
+          const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+          
+          // Flashcards que precisam de revisão: errados ou não vistos há mais de 1 dia
+          let dueCount = 0
+          for (const [_, stats] of flashcardStats) {
+            const errorRate = stats.wrong / (stats.correct + stats.wrong)
+            if (errorRate > 0.3 || stats.lastSeen < oneDayAgo) {
+              dueCount++
+            }
+          }
+          
+          return {
+            total: flashcardStats.size,
+            due: dueCount,
+            overdue: 0,
+            questoes: 0,
+            flashcards: flashcardStats.size,
+            averageEaseFactor: '2.5',
+          }
+        }
+      }
+      
       return defaultStats
     }
 
-    const { data, error } = await supabase.from('review_schedule').select('*').eq('user_id', userId)
-
-    if (error) {
-      console.error('[spaced-repetition] Erro ao buscar stats:', error)
-      return defaultStats
-    }
-
-    const items = (data as ReviewItem[]) || []
     const now = new Date()
 
     return {

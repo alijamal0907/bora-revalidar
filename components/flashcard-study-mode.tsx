@@ -9,6 +9,7 @@ import { saveFlashcardAnswer, deleteFlashcardAnswer } from "@/lib/flashcards-sto
 import { getSupabaseUser } from "@/lib/auth-supabase"
 import { generateSmartContent, updateLearningStatus, type SmartFlashcard } from "@/lib/smart-flashcards-v3"
 import { orderWithSmartRepetition } from "@/lib/smart-repetition"
+import { recordReviewResult } from "@/lib/spaced-repetition-v2"
 
 interface FlashcardStudyModeProps {
   materia: string
@@ -50,7 +51,7 @@ function FlashcardStudyMode({
   const [flashcards, setFlashcards] = useState<SmartFlashcardExtended[]>([])
   const [allFlashcards, setAllFlashcards] = useState<SmartFlashcardExtended[]>([]) // Armazena todos os flashcards disponiveis
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [selectedAnswer, setSelectedAnswer] = useState<"correct" | "wrong" | "reveal" | null>(null)
+  const [selectedAnswer, setSelectedAnswer] = useState<"correct" | "wrong" | "reveal" | "reveal-help" | null>(null)
   const [showAnswer, setShowAnswer] = useState(false)
   const [correct, setCorrect] = useState(0)
   const [wrong, setWrong] = useState(0)
@@ -136,6 +137,40 @@ function FlashcardStudyMode({
     }
   }, [currentIndex])
 
+  // GERAR OPÇÕES: Quando muda de flashcard, gera as opções embaralhadas
+  useEffect(() => {
+    if (flashcards.length === 0 || currentIndex >= flashcards.length) return
+    
+    const currentCard = flashcards[currentIndex]
+    
+    // Se é modo clássico, não precisa de opções
+    if (currentCard.modo_classico) {
+      setShuffledOptions([])
+      return
+    }
+    
+    // Gera opções baseadas no verso (correto) e alternativa tendenciosa (incorreta)
+    const options: { text: string; isCorrect: boolean }[] = []
+    
+    // Adiciona a resposta correta
+    options.push({ text: currentCard.verso, isCorrect: true })
+    
+    // Adiciona a alternativa tendenciosa (incorreta)
+    if (currentCard.alternativa_tendenciosa) {
+      options.push({ text: currentCard.alternativa_tendenciosa, isCorrect: false })
+    }
+    
+    // Se não tem alternativa tendenciosa suficiente, usa modo clássico
+    if (options.length < 2) {
+      setShuffledOptions([])
+      return
+    }
+    
+    // Embaralha as opções
+    const shuffled = options.sort(() => Math.random() - 0.5)
+    setShuffledOptions(shuffled)
+  }, [currentIndex, flashcards])
+
   // ATALHOS DE TECLADO: Melhora usabilidade e rapidez na revisão
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -179,7 +214,6 @@ function FlashcardStudyMode({
   const handleAnswerSelect = async (isCorrect: boolean) => {
     // BLOQUEIO: Previne múltiplas submissões verificando answersMap
     if (answersMap.has(currentIndex)) {
-      console.log(`[v0] 🛡️ Bloqueado: Flashcard ${currentIndex + 1} já foi respondido nesta sessão`)
       return
     }
 
@@ -192,22 +226,19 @@ function FlashcardStudyMode({
     const currentCard = flashcards[currentIndex]
     const answeredAt = new Date().toISOString()
 
-    console.log(`[v0] 📝 Registrando resposta para flashcard ${currentIndex + 1}/${flashcards.length}`)
-
     setAnswersMap((prevMap) => prevMap.set(currentIndex, { flashcardId: currentCard.id, correct: isCorrect, answeredAt }))
 
     if (isCorrect) {
       setCorrect(correct + 1)
-      console.log(`[v0] ✓ Resposta CORRETA (Acertos: ${correct + 1} | Erros: ${wrong})`)
     } else {
       setWrong(wrong + 1)
       setWrongCards((prevWrongCards) => [...prevWrongCards, currentCard])
-      console.log(`[v0] ✗ Resposta ERRADA (Acertos: ${correct} | Erros: ${wrong + 1})`)
     }
 
     setInteractionCount(interactionCount + 1)
     setShowFeedback(true)
-    setIsAnswered(true) // Set isAnswered to true when an answer is selected
+    setIsAnswered(true)
+    setSelectedAnswer(isCorrect ? "correct" : "wrong")
 
     // Update learning status
     const currentLearningState = learningStates.get(currentCard.id) || { flashcardId: currentCard.id, status: "novo", wrongCount: 0, lastAnswered: currentIndex }
@@ -216,9 +247,38 @@ function FlashcardStudyMode({
 
     setLearningStates((prevStates) => prevStates.set(currentCard.id, { ...currentLearningState, status: newStatus, wrongCount: newWrongCount, lastAnswered: currentIndex }))
     
+    // PERSISTIR RESPOSTA NO BANCO DE DADOS
+    if (userId) {
+      try {
+        // Salva no histórico de flashcards
+        await saveFlashcardAnswer(
+          userId,
+          currentCard.id,
+          isCorrect,
+          currentCard.materia,
+          currentCard.tema
+        )
+        
+        // Registra para o sistema de revisão espaçada (SM-2)
+        await recordReviewResult(
+          userId,
+          currentCard.id,
+          'flashcard',
+          isCorrect,
+          isCorrect ? 4 : 1 // quality: 4 = fácil/correto, 1 = difícil/errado
+        )
+        
+        // Notifica o componente pai para atualizar contadores
+        if (onFlashcardAnswered) {
+          onFlashcardAnswered()
+        }
+      } catch (error) {
+        console.error("Erro ao salvar resposta do flashcard:", error)
+      }
+    }
+    
     // AVANÇO AUTOMÁTICO: Avança automaticamente SEMPRE após mostrar feedback
     const delayMs = isCorrect ? 2000 : 3000 // Erradas têm delay maior para ler feedback
-    console.log(`[v0] ⏱️ Avanço automático em ${delayMs / 1000} segundos...`)
     
     advanceTimeoutRef.current = setTimeout(() => {
       moveToNext()
@@ -670,7 +730,7 @@ function FlashcardStudyMode({
               </div>
             )}
 
-            {!currentCard.modo_classico && selectedAnswer !== "correct" && selectedAnswer !== "reveal-help" && (
+            {!currentCard.modo_classico && selectedAnswer === "wrong" && (
               <div>
                 <div className="bg-red-500/10 border-2 border-red-500/20 rounded-xl p-6 mb-6 animate-pulse">
                   <div className="flex items-center gap-3 mb-2">

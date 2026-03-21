@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { getReviewStats, getDueReviewItems, type ReviewItem } from '@/lib/spaced-repetition-v2'
-import { AlertCircle, BookOpen, Brain, RefreshCw } from 'lucide-react'
+import { AlertCircle, BookOpen, Brain, RefreshCw, Clock } from 'lucide-react'
 import Link from 'next/link'
+import { formatDistanceToNow } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 
 interface SmartReviewSectionProps {
   userId: string
@@ -20,26 +22,29 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
   })
   const [dueItems, setDueItems] = useState<ReviewItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+
+  const loadReviewData = useCallback(async () => {
+    try {
+      setIsLoading(true)
+      const [statsData, dueData] = await Promise.all([
+        getReviewStats(userId),
+        getDueReviewItems(userId),
+      ])
+
+      setStats(statsData)
+      setDueItems(dueData.slice(0, 5)) // Mostrar apenas os 5 primeiros
+      setLastUpdated(new Date())
+      setIsLoading(false)
+    } catch (error) {
+      console.error('Erro ao carregar dados de revisão:', error)
+      setIsLoading(false)
+    }
+  }, [userId])
 
   useEffect(() => {
-    const loadReviewData = async () => {
-      try {
-        const [statsData, dueData] = await Promise.all([
-          getReviewStats(userId),
-          getDueReviewItems(userId),
-        ])
-
-        setStats(statsData)
-        setDueItems(dueData.slice(0, 5)) // Mostrar apenas os 5 primeiros
-        setIsLoading(false)
-      } catch (error) {
-        console.error('[v0] Erro ao carregar dados de revisão:', error)
-        setIsLoading(false)
-      }
-    }
-
     loadReviewData()
-  }, [userId])
+  }, [loadReviewData])
 
   if (isLoading) {
     return (
@@ -65,12 +70,30 @@ export function SmartReviewSection({ userId }: SmartReviewSectionProps) {
             <p className="text-xs text-slate-400">Sistema de Espaçamento Otimizado (SM-2)</p>
           </div>
         </div>
-        {stats.due > 0 && (
-          <div className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-            {stats.due} para revisar
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          {stats.due > 0 && (
+            <div className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+              {stats.due} para revisar
+            </div>
+          )}
+          <button
+            onClick={() => loadReviewData()}
+            disabled={isLoading}
+            className="p-2 hover:bg-slate-700/50 rounded-lg transition-colors disabled:opacity-50"
+            title="Atualizar dados"
+          >
+            <RefreshCw className={`w-4 h-4 text-slate-400 ${isLoading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
+      
+      {/* Última atualização */}
+      {lastUpdated && (
+        <div className="flex items-center gap-1 text-xs text-slate-500 mb-3">
+          <Clock className="w-3 h-3" />
+          <span>Atualizado {formatDistanceToNow(lastUpdated, { addSuffix: true, locale: ptBR })}</span>
+        </div>
+      )}
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
