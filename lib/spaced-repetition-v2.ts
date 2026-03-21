@@ -515,8 +515,9 @@ export async function getReviewStats(userId: string) {
             }
           }
           
-          const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
-          const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+          const nowQuestoes = new Date()
+          const threeDaysAgo = new Date(nowQuestoes.getTime() - 3 * 24 * 60 * 60 * 1000)
+          const oneWeekAgo = new Date(nowQuestoes.getTime() - 7 * 24 * 60 * 60 * 1000)
           
           let dueQuestoes = 0
           for (const [_, stats] of questionStats) {
