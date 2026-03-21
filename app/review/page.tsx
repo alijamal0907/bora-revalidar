@@ -6,7 +6,7 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseUser } from "@/lib/auth-supabase"
 import { Navbar } from "@/components/navbar"
-import { Brain, BookOpen, CheckCircle2, XCircle, ArrowLeft, Lock, TrendingUp, Zap, Play } from "lucide-react"
+import { Brain, BookOpen, CheckCircle2, XCircle, ArrowLeft, Lock, TrendingUp, Zap, Play, ChevronRight } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getWrongAnswers, getUserPlan } from "@/lib/storage-supabase"
 import { getWrongFlashcards } from "@/lib/flashcards-storage"
@@ -323,28 +323,47 @@ export default function ReviewPage() {
           </div>
         </div>
 
+        {/* Stats cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {dueItems.length > 0 && (
             <button
               onClick={handleStartCombinedReview}
-              className="group relative bg-gradient-to-br from-blue-500/10 to-purple-500/10 border-2 border-blue-500/20 hover:border-blue-500/50 rounded-xl p-6 hover:shadow-lg transition-all"
+              className="group relative bg-gradient-to-br from-blue-500/15 via-purple-500/10 to-blue-500/15 border-2 border-blue-500/30 hover:border-blue-500/60 rounded-xl p-6 hover:shadow-xl hover:shadow-blue-500/10 transition-all text-left overflow-hidden"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Revisão Inteligente</h3>
-                <Zap className="w-6 h-6 text-blue-400 group-hover:scale-110 transition-transform" />
-              </div>
-              <p className="text-5xl font-bold text-foreground mb-1">{dueItems.length}</p>
-              <p className="text-sm text-muted-foreground">itens para revisar (combinado)</p>
-              <div className="flex items-center gap-2 mt-4 text-sm text-blue-400 group-hover:text-blue-300 transition-colors">
-                <Play className="w-4 h-4" />
-                <span>Começar agora</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-600/5 to-purple-600/0 group-hover:via-blue-600/10 transition-all"></div>
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-blue-300 uppercase tracking-wide">Revisao Inteligente</h3>
+                  <div className="p-2 bg-blue-500/20 rounded-lg group-hover:scale-110 transition-transform">
+                    <Zap className="w-5 h-5 text-blue-400" />
+                  </div>
+                </div>
+                <p className="text-5xl font-bold text-foreground mb-1">{dueItems.length}</p>
+                <p className="text-sm text-muted-foreground mb-3">itens prontos para revisao</p>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="flex items-center gap-1 bg-blue-500/20 px-2 py-1 rounded-full text-blue-300">
+                    <BookOpen className="w-3 h-3" />
+                    {dueItems.filter(i => i.content_type === 'questao').length} questoes
+                  </span>
+                  <span className="flex items-center gap-1 bg-emerald-500/20 px-2 py-1 rounded-full text-emerald-300">
+                    <Brain className="w-3 h-3" />
+                    {dueItems.filter(i => i.content_type === 'flashcard').length} flashcards
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 mt-4 text-sm text-blue-400 group-hover:text-blue-300 font-medium">
+                  <Play className="w-4 h-4" />
+                  <span>Comecar agora</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
             </button>
           )}
           <div className="bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/20 rounded-xl p-6 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Questões Erradas</h3>
-              <XCircle className="w-6 h-6 text-red-500" />
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Questoes Erradas</h3>
+              <div className="p-2 bg-red-500/20 rounded-lg">
+                <XCircle className="w-5 h-5 text-red-500" />
+              </div>
             </div>
             <p className="text-5xl font-bold text-foreground mb-1">{incorrectQuestions.length}</p>
             <p className="text-sm text-muted-foreground">para revisar</p>
@@ -355,7 +374,9 @@ export default function ReviewPage() {
               <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                 Flashcards Errados
               </h3>
-              <BookOpen className="w-6 h-6 text-amber-500" />
+              <div className="p-2 bg-amber-500/20 rounded-lg">
+                <BookOpen className="w-5 h-5 text-amber-500" />
+              </div>
             </div>
             <p className="text-5xl font-bold text-foreground mb-1">{wrongFlashcards.length}</p>
             <p className="text-sm text-muted-foreground">para revisar</p>
@@ -391,71 +412,141 @@ export default function ReviewPage() {
 
           {dueItems.length > 0 && (
             <TabsContent value="combined" className="space-y-6 mt-8">
-              <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-xl p-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <Zap className="w-5 h-5 text-blue-400" />
-                  <h2 className="text-2xl font-bold text-foreground">Revisão Inteligente Combinada</h2>
+              {/* Header com estatisticas */}
+              <div className="bg-gradient-to-r from-blue-500/10 via-purple-500/10 to-blue-500/10 border border-blue-500/20 rounded-xl p-6">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-blue-500/20 rounded-xl">
+                      <Zap className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-foreground">Revisao Inteligente</h2>
+                      <p className="text-muted-foreground text-sm">
+                        Sistema SM-2 de espacamento otimizado
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <div className="bg-blue-500/20 px-4 py-2 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-blue-400">
+                        {dueItems.filter(i => i.content_type === 'questao').length}
+                      </p>
+                      <p className="text-xs text-blue-300">Questoes</p>
+                    </div>
+                    <div className="bg-emerald-500/20 px-4 py-2 rounded-lg text-center">
+                      <p className="text-2xl font-bold text-emerald-400">
+                        {dueItems.filter(i => i.content_type === 'flashcard').length}
+                      </p>
+                      <p className="text-xs text-emerald-300">Flashcards</p>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-muted-foreground">
-                  Revise tanto questões quanto flashcards em uma única sessão otimizada pelo sistema SM-2 de espaçamento inteligente.
-                </p>
               </div>
 
+              {/* Botao principal */}
               <button
                 onClick={handleStartCombinedReview}
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold py-4 px-6 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 text-lg"
+                className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 text-white font-semibold py-5 px-6 rounded-xl hover:from-blue-700 hover:via-purple-700 hover:to-blue-700 transition-all shadow-xl hover:shadow-2xl flex items-center justify-center gap-3 text-xl group border border-blue-400/30"
               >
-                <Play className="w-5 h-5" />
-                Iniciar Revisão Combinada ({dueItems.length} itens)
+                <Play className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                Iniciar Revisao Completa
+                <span className="bg-white/20 px-4 py-1 rounded-full text-base ml-2">
+                  {dueItems.length} itens
+                </span>
               </button>
 
+              {/* Preview dos itens */}
+              <div className="bg-card border border-border rounded-xl p-5">
+                <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-muted-foreground" />
+                  Conteudo a ser revisado
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[300px] overflow-y-auto pr-2">
+                  {dueItems.slice(0, 10).map((item, index) => (
+                    <div
+                      key={item.id || index}
+                      className={`p-3 rounded-lg border flex items-start gap-2 ${
+                        item.content_type === 'questao'
+                          ? 'bg-blue-500/5 border-blue-500/20'
+                          : 'bg-emerald-500/5 border-emerald-500/20'
+                      }`}
+                    >
+                      <div className={`p-1 rounded ${
+                        item.content_type === 'questao' ? 'bg-blue-500/20' : 'bg-emerald-500/20'
+                      }`}>
+                        {item.content_type === 'questao' ? (
+                          <BookOpen className="w-3.5 h-3.5 text-blue-400" />
+                        ) : (
+                          <Brain className="w-3.5 h-3.5 text-emerald-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className={`text-[10px] font-medium uppercase tracking-wide ${
+                          item.content_type === 'questao' ? 'text-blue-400' : 'text-emerald-400'
+                        }`}>
+                          {item.content_type === 'questao' ? 'Questao' : 'Flashcard'}
+                        </span>
+                        <p className="text-xs text-muted-foreground truncate">
+                          ID: {item.content_id.slice(0, 12)}...
+                        </p>
+                      </div>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+                        item.interval_days <= 1 
+                          ? 'bg-red-500/20 text-red-400'
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {item.interval_days}d
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {dueItems.length > 10 && (
+                  <p className="text-xs text-muted-foreground text-center mt-3">
+                    ... e mais {dueItems.length - 10} itens
+                  </p>
+                )}
+              </div>
+
+              {/* Info cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                  <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
                     <Brain className="w-5 h-5 text-blue-400" />
-                    Vantagens da Revisão Inteligente
+                    Vantagens
                   </h3>
                   <ul className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-400 mt-1">✓</span>
-                      <span>Alternância entre questões e flashcards</span>
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                      Alternancia entre questoes e flashcards
                     </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-400 mt-1">✓</span>
-                      <span>Prioriza itens mais difíceis</span>
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                      Prioriza itens mais dificeis
                     </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-400 mt-1">✓</span>
-                      <span>Algoritmo SM-2 otimizado</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-blue-400 mt-1">✓</span>
-                      <span>Experiência de revisão completa</span>
+                    <li className="flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                      Algoritmo SM-2 otimizado
                     </li>
                   </ul>
                 </div>
 
                 <div className="bg-card border border-border rounded-lg p-4">
-                  <h3 className="font-semibold text-foreground mb-2 flex items-center gap-2">
+                  <h3 className="font-semibold text-foreground mb-3 flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-purple-400" />
                     Como Funciona
                   </h3>
                   <ol className="space-y-2 text-sm text-muted-foreground">
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-400 font-semibold">1.</span>
-                      <span>Sistema seleciona conteúdo vencido</span>
+                    <li className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 text-xs flex items-center justify-center font-bold">1</span>
+                      Seleciona conteudo vencido
                     </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-400 font-semibold">2.</span>
-                      <span>Intercala questões e flashcards</span>
+                    <li className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 text-xs flex items-center justify-center font-bold">2</span>
+                      Intercala tipos de conteudo
                     </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-400 font-semibold">3.</span>
-                      <span>Registra seu desempenho</span>
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="text-purple-400 font-semibold">4.</span>
-                      <span>Reagenda automaticamente</span>
+                    <li className="flex items-center gap-2">
+                      <span className="w-5 h-5 rounded-full bg-purple-500/20 text-purple-400 text-xs flex items-center justify-center font-bold">3</span>
+                      Reagenda automaticamente
                     </li>
                   </ol>
                 </div>
