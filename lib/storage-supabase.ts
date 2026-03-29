@@ -330,9 +330,10 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
         B: q.alternativaB || q.alternativab || "",
         C: q.alternativaC || q.alternativac || "",
         D: q.alternativaD || q.alternativad || "",
+        E: q.alternativaE || q.alternativae || "",
       },
       resposta_correta: (q.correta || q.resposta_correta || "").toUpperCase(),
-      explicacao: q.explicacao || null, // Incluindo campo explicacao
+      explicacao: q.explicacao || null,
       wrongCount: historico.filter((h: any) => h.questao_id === q.id).length,
     }))
   } catch (error) {

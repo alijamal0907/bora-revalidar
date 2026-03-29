@@ -6,34 +6,79 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { getSupabaseUser } from "@/lib/auth-supabase"
 import { Navbar } from "@/components/navbar"
-import { Brain, BookOpen, CheckCircle2, XCircle, ArrowLeft } from "lucide-react"
+import { Brain, BookOpen, CheckCircle2, XCircle, ArrowLeft, Zap, TrendingUp, Lock } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getWrongAnswers, getUserPlan } from "@/lib/storage-supabase"
 import { getWrongFlashcards } from "@/lib/flashcards-storage"
 import { QuestionStudyMode } from "@/components/question-study-mode"
 import { FlashcardStudyMode } from "@/components/flashcard-study-mode"
+import { CombinedReviewMode } from "@/components/combined-review-mode"
+import { getDueReviewItems, type ReviewItem } from "@/lib/spaced-repetition-v2"
 import type { UserPlan } from "@/lib/plan-utils"
 
-const TEMAS_PRINCIPAIS = ["Clínica Médica", "Cirurgia", "Medicina Preventiva", "Pediatria", "Ginecologia e Obstetrícia"]
+const TEMAS_PRINCIPAIS = ["Clínica Médica", "Cirurgia", "Medicina Preventiva", "Pediatria", "Ginecologia e Obstetrícia", "Outros"]
 
 const normalizeTema = (tema: string | null | undefined): string => {
   if (!tema || typeof tema !== "string") return "Outros"
 
-  const temaLower = tema.toLowerCase().trim()
+  const temaLower = tema.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
 
-  if (temaLower.includes("clinica") || temaLower.includes("clínica") || temaLower.includes("médica"))
-    return "Clínica Médica"
-  if (temaLower.includes("cirurgia") || temaLower.includes("cirúrgica")) return "Cirurgia"
-  if (temaLower.includes("ginecologia") || temaLower.includes("obstetrícia") || temaLower.includes("obstetricia"))
+  // Cirurgia - verificar primeiro para não confundir com clínica
+  if (
+    temaLower.includes("cirurgia") || 
+    temaLower.includes("cirurgica") ||
+    temaLower.includes("trauma") ||
+    temaLower.includes("urgencia")
+  ) {
+    return "Cirurgia"
+  }
+  
+  // Pediatria
+  if (temaLower.includes("pediatria") || temaLower.includes("neonatologia") || temaLower.includes("crianca")) {
+    return "Pediatria"
+  }
+  
+  // Ginecologia e Obstetrícia
+  if (
+    temaLower.includes("ginecologia") || 
+    temaLower.includes("obstetricia") || 
+    temaLower.includes("gineco") ||
+    temaLower === "go"
+  ) {
     return "Ginecologia e Obstetrícia"
-  if (temaLower.includes("pediatria") || temaLower.includes("criança")) return "Pediatria"
+  }
+  
+  // Medicina Preventiva
   if (
     temaLower.includes("preventiva") ||
     temaLower.includes("coletiva") ||
-    temaLower.includes("saúde pública") ||
-    temaLower.includes("saude publica")
-  )
+    temaLower.includes("saude publica") ||
+    temaLower.includes("epidemiologia") ||
+    temaLower.includes("imunizacao") ||
+    temaLower.includes("medicina de familia")
+  ) {
     return "Medicina Preventiva"
+  }
+  
+  // Clínica Médica - verificar por último
+  if (
+    temaLower.includes("clinica") || 
+    temaLower.includes("medica") ||
+    temaLower.includes("cardiologia") ||
+    temaLower.includes("pneumologia") ||
+    temaLower.includes("gastroenterologia") ||
+    temaLower.includes("neurologia") ||
+    temaLower.includes("infectologia") ||
+    temaLower.includes("dermatologia") ||
+    temaLower.includes("emergencia") ||
+    temaLower.includes("psiquiatria") ||
+    temaLower.includes("endocrinologia") ||
+    temaLower.includes("reumatologia") ||
+    temaLower.includes("nefrologia") ||
+    temaLower.includes("hematologia")
+  ) {
+    return "Clínica Médica"
+  }
 
   return "Outros"
 }
@@ -105,11 +150,8 @@ export default function ReviewPage() {
   const questionsByTheme = incorrectQuestions.reduce(
     (acc, q) => {
       const theme = normalizeTema(q.tema)
-
-      if (TEMAS_PRINCIPAIS.includes(theme)) {
-        if (!acc[theme]) acc[theme] = []
-        acc[theme].push(q)
-      }
+      if (!acc[theme]) acc[theme] = []
+      acc[theme].push(q)
       return acc
     },
     {} as { [key: string]: any[] },
@@ -377,11 +419,9 @@ export default function ReviewPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {TEMAS_PRINCIPAIS.map((theme) => {
-                    const questions = questionsByTheme[theme] || []
-                    if (questions.length === 0) return null
-
-                    return (
+                  {Object.entries(questionsByTheme)
+                    .sort((a, b) => b[1].length - a[1].length)
+                    .map(([theme, questions]) => (
                       <button
                         key={theme}
                         onClick={() => handleReviewByTheme(theme)}
@@ -412,8 +452,7 @@ export default function ReviewPage() {
                           </div>
                         </div>
                       </button>
-                    )
-                  })}
+                    ))}
                 </div>
               </>
             ) : (
