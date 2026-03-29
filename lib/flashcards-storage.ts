@@ -341,7 +341,6 @@ export async function getAllWrongFlashcards(userId: string): Promise<Flashcard[]
       .order("created_at", { ascending: false })
 
     if (historyError || !historyData || historyData.length === 0) {
-      console.log("[v0] Nenhum flashcard errado encontrado no histórico")
       return []
     }
 
@@ -353,13 +352,13 @@ export async function getAllWrongFlashcards(userId: string): Promise<Flashcard[]
       .in("id", flashcardIds)
 
     if (flashcardsError) {
-      console.error("[v0] Erro ao buscar flashcards:", flashcardsError)
+      console.error("Error fetching flashcards:", flashcardsError)
       return []
     }
 
     return flashcards || []
   } catch (error) {
-    console.error("[v0] Erro em getAllWrongFlashcards:", error)
+    console.error("Error in getAllWrongFlashcards:", error)
     return []
   }
 }

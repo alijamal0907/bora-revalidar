@@ -304,19 +304,13 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
       .limit(1000)
 
     if (histError) {
-      console.error("[v0] Error fetching wrong answers from hist:", histError)
+      console.error("Error fetching wrong answers from hist:", histError)
       return []
     }
 
-    if (!historico || historico.length === 0) {
-      console.log("[v0] Nenhuma questão errada encontrada para usuário:", userId)
-      return []
-    }
-
-    console.log("[v0] Histórico de erros encontrado:", historico.length, "registros")
+    if (!historico || historico.length === 0) return []
 
     const questaoIds = [...new Set(historico.map((h) => h.questao_id))]
-    console.log("[v0] IDs únicos de questões:", questaoIds.length)
 
     const { data: questoes, error: questError } = await getSupabaseClient()
       .from("questoes")
@@ -324,11 +318,9 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
       .in("id", questaoIds)
 
     if (questError) {
-      console.error("[v0] Error fetching questoes:", questError)
+      console.error("Error fetching questoes:", questError)
       return []
     }
-
-    console.log("[v0] Questões encontradas:", questoes?.length || 0)
 
     return (questoes || []).map((q: any) => ({
       ...q,
@@ -345,7 +337,7 @@ export async function getWrongAnswers(userId: string): Promise<any[]> {
       wrongCount: historico.filter((h: any) => h.questao_id === q.id).length,
     }))
   } catch (error) {
-    console.error("[v0] Error in getWrongAnswers:", error)
+    console.error("Error in getWrongAnswers:", error)
     return []
   }
 }
