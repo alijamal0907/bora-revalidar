@@ -59,9 +59,11 @@ export async function getDueReviewItems(
 ): Promise<ReviewItem[]> {
   try {
     const supabase = createClient()
+    console.log("[v0] getDueReviewItems - userId:", userId)
 
     // Verificar se tabela existe
     const hasReviewSchedule = await tableExists(supabase, 'review_schedule')
+    console.log("[v0] Tabela review_schedule existe:", hasReviewSchedule)
     
     if (hasReviewSchedule) {
       let query = supabase
@@ -76,6 +78,7 @@ export async function getDueReviewItems(
       }
 
       const { data, error } = await query.limit(20)
+      console.log("[v0] review_schedule data:", data?.length || 0, "error:", error?.message || "none")
 
       if (!error && data && data.length > 0) {
         return data as ReviewItem[]
@@ -86,17 +89,21 @@ export async function getDueReviewItems(
     const allDueItems: ReviewItem[] = []
     const now = new Date()
     const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    console.log("[v0] Iniciando fallbacks para coletar itens de revisao")
 
     // Fallback: buscar flashcards com alto índice de erro do histórico
     if (!contentType || contentType === 'flashcard') {
       const hasHistory = await tableExists(supabase, 'flashcard_history')
+      console.log("[v0] Tabela flashcard_history existe:", hasHistory)
       if (hasHistory) {
-        const { data: historyData } = await supabase
+        const { data: historyData, error: histError } = await supabase
           .from('flashcard_history')
           .select('flashcard_id, correct, answered_at')
           .eq('user_id', userId)
           .order('answered_at', { ascending: false })
           .limit(500)
+        
+        console.log("[v0] flashcard_history:", historyData?.length || 0, "registros, erro:", histError?.message || "none")
         
         if (historyData && historyData.length > 0) {
           const flashcardStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
@@ -144,14 +151,17 @@ export async function getDueReviewItems(
     // Inclui questoes erradas (prioridade) e corretas (para revisao periodica)
     if (!contentType || contentType === 'questao') {
       const hasHistQuestoes = await tableExists(supabase, 'hist_questoes')
+      console.log("[v0] Tabela hist_questoes existe:", hasHistQuestoes)
       if (hasHistQuestoes) {
         // Buscar todas as questoes respondidas (erradas E corretas)
-        const { data: histData } = await supabase
+        const { data: histData, error: histQError } = await supabase
           .from('hist_questoes')
           .select('questao_id, correta, created_at')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(500)
+        
+        console.log("[v0] hist_questoes:", histData?.length || 0, "registros, erro:", histQError?.message || "none")
         
         if (histData && histData.length > 0) {
           const questionStats = new Map<string, { correct: number; wrong: number; lastSeen: Date }>()
@@ -227,11 +237,14 @@ export async function getDueReviewItems(
 
     // Ordenar por ease_factor (mais difíceis primeiro) e intercalar tipos
     allDueItems.sort((a, b) => a.ease_factor - b.ease_factor)
+    console.log("[v0] Total allDueItems antes de intercalar:", allDueItems.length)
     
     // Intercalar flashcards e questoes para variar o tipo de conteudo
     const flashcards = allDueItems.filter(i => i.content_type === 'flashcard')
     const questoes = allDueItems.filter(i => i.content_type === 'questao')
     const interleavedItems: ReviewItem[] = []
+    
+    console.log("[v0] Flashcards para revisao:", flashcards.length, "Questoes para revisao:", questoes.length)
     
     const maxLen = Math.max(flashcards.length, questoes.length)
     for (let i = 0; i < maxLen; i++) {
@@ -240,6 +253,7 @@ export async function getDueReviewItems(
     }
 
     // Retornar ate 50 itens para permitir sessoes maiores
+    console.log("[v0] Total itens retornados:", Math.min(interleavedItems.length, 50))
     return interleavedItems.slice(0, 50)
   } catch (error) {
     console.error('[spaced-repetition] Erro em getDueReviewItems:', error)

@@ -303,32 +303,65 @@ export async function getWrongFlashcardsByMateria(userId: string, materia: strin
 
 export async function getAllWrongFlashcards(userId: string): Promise<Flashcard[]> {
   const supabase = getSupabaseClient()
-  const { data, error } = await supabase
-    .from("flashcard_history")
-    .select(
-      `
-      flashcard_id,
-      correct,
-      flashcards (*)
-    `,
-    )
-    .eq("user_id", userId)
-    .eq("correct", false)
-    .order("created_at", { ascending: false })
+  
+  try {
+    // Primeiro tenta com join
+    const { data, error } = await supabase
+      .from("flashcard_history")
+      .select(
+        `
+        flashcard_id,
+        correct,
+        flashcards (*)
+      `,
+      )
+      .eq("user_id", userId)
+      .eq("correct", false)
+      .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Error fetching all wrong flashcards:", error)
+    if (!error && data && data.length > 0) {
+      const flashcardsMap = new Map<string, Flashcard>()
+      data.forEach((item: any) => {
+        if (item.flashcards) {
+          flashcardsMap.set(item.flashcard_id, item.flashcards)
+        }
+      })
+      
+      if (flashcardsMap.size > 0) {
+        return Array.from(flashcardsMap.values())
+      }
+    }
+
+    // Fallback: buscar flashcard_ids primeiro e depois os flashcards
+    const { data: historyData, error: historyError } = await supabase
+      .from("flashcard_history")
+      .select("flashcard_id")
+      .eq("user_id", userId)
+      .eq("correct", false)
+      .order("created_at", { ascending: false })
+
+    if (historyError || !historyData || historyData.length === 0) {
+      console.log("[v0] Nenhum flashcard errado encontrado no histórico")
+      return []
+    }
+
+    const flashcardIds = [...new Set(historyData.map((h: any) => h.flashcard_id))]
+    
+    const { data: flashcards, error: flashcardsError } = await supabase
+      .from("flashcards")
+      .select("*")
+      .in("id", flashcardIds)
+
+    if (flashcardsError) {
+      console.error("[v0] Erro ao buscar flashcards:", flashcardsError)
+      return []
+    }
+
+    return flashcards || []
+  } catch (error) {
+    console.error("[v0] Erro em getAllWrongFlashcards:", error)
     return []
   }
-
-  const flashcardsMap = new Map<string, Flashcard>()
-  data?.forEach((item: any) => {
-    if (item.flashcards) {
-      flashcardsMap.set(item.flashcard_id, item.flashcards)
-    }
-  })
-
-  return Array.from(flashcardsMap.values())
 }
 
 export const getWrongFlashcards = getAllWrongFlashcards
