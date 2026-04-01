@@ -51,10 +51,10 @@ export function getRemainingQuestions(questionsToday: number, plan: UserPlan): n
   return Math.max(0, limits.dailyQuestionsTotal - questionsToday)
 }
 
-export const CAKTO_PAYMENT_URL = "https://pay.cakto.com.br/upkbydv_655583"
-export const MERCADOPAGO_PAYMENT_URL = "https://mpago.li/1ztGbRx"
+export const CAKTO_PAYMENT_URL = "https://wa.me/554588052041"
+export const MERCADOPAGO_PAYMENT_URL = "https://wa.me/554588052041"
 
 export const PAYMENT_URLS = {
-  lifetime: "https://pay.cakto.com.br/upkbydv_655583", // PIX/Boleto - R$ 247,00
-  installment: "https://mpago.li/1ztGbRx", // Cartão/Parcelado - R$ 247,00
+  lifetime: "https://wa.me/554588052041", // PIX/Boleto - R$ 347,00
+  installment: "https://wa.me/554588052041", // Cartão/Parcelado - R$ 347,00
 }

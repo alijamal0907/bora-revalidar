@@ -1,5 +1,118 @@
 import { createClient } from "@/lib/supabase/client"
 import { getGroupStudyQuestions } from "./smart-questions"
+import { getSubtemasByTema, getQuestionsByTemaAndSubtemas } from "./storage-supabase"
+
+// Re-exportar funções para uso externo
+export { getSubtemasByTema }
+
+// Tipo para seleção de área/subtemas
+export type AreaSubtemaSelection = {
+  tema: string
+  subtemas: string[] // Array de textos de subtemas selecionados
+}
+
+/**
+ * Busca questões filtradas por múltiplas áreas e seus subtemas
+ * @param selections - Array de seleções de área/subtemas
+ * @param count - Quantidade de questões desejada
+ * @param participantIds - IDs dos participantes para priorização inteligente
+ * @returns Array de questões embaralhadas
+ */
+export async function getQuestionsByFilters(
+  selections: AreaSubtemaSelection[],
+  count: number,
+  participantIds?: string[]
+): Promise<any[]> {
+  if (!selections || selections.length === 0) {
+    // Sem filtros, usar busca padrão
+    return getRandomQuestions(count, participantIds)
+  }
+
+  const allQuestions: any[] = []
+  
+  // Buscar questões de cada área selecionada
+  for (const selection of selections) {
+    const questions = await getQuestionsByTemaAndSubtemas(
+      selection.tema,
+      selection.subtemas // Se vazio, retorna todas as questões da área
+    )
+    allQuestions.push(...questions)
+  }
+
+  // Deduplicar por pk/id
+  const seen = new Set<string>()
+  const uniqueQuestions = allQuestions.filter(q => {
+    const key = q.pk || q.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  // Se temos participantes, priorizar questões não respondidas
+  if (participantIds && participantIds.length > 0) {
+    const supabase = createClient()
+    
+    const { data: historico } = await supabase
+      .from("hist_questoes")
+      .select("questao_id, correta")
+      .in("user_id", participantIds)
+
+    const questionCorrectCount = new Map<string, number>()
+    for (const h of historico || []) {
+      const qId = String(h.questao_id)
+      if (h.correta) {
+        questionCorrectCount.set(qId, (questionCorrectCount.get(qId) || 0) + 1)
+      }
+    }
+
+    // Ordenar por menos acertos primeiro (priorizar questões inéditas/erradas)
+    uniqueQuestions.sort((a, b) => {
+      const aId = String(a.pk || a.id)
+      const bId = String(b.pk || b.id)
+      const aCorrect = questionCorrectCount.get(aId) || 0
+      const bCorrect = questionCorrectCount.get(bId) || 0
+      return aCorrect - bCorrect
+    })
+  }
+
+  // Embaralhar e retornar quantidade desejada
+  const shuffled = [...uniqueQuestions].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, count)
+}
+
+/**
+ * Conta quantas questões estão disponíveis para os filtros selecionados
+ */
+export async function countQuestionsByFilters(
+  selections: AreaSubtemaSelection[]
+): Promise<number> {
+  if (!selections || selections.length === 0) {
+    const supabase = createClient()
+    const { count } = await supabase
+      .from("questoes")
+      .select("*", { count: "exact", head: true })
+    return count || 0
+  }
+
+  const allQuestions: any[] = []
+  
+  for (const selection of selections) {
+    const questions = await getQuestionsByTemaAndSubtemas(
+      selection.tema,
+      selection.subtemas
+    )
+    allQuestions.push(...questions)
+  }
+
+  // Deduplicar
+  const seen = new Set<string>()
+  return allQuestions.filter(q => {
+    const key = q.pk || q.id
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).length
+}
 
 export type GroupRoom = {
   id: string
@@ -9,6 +122,7 @@ export type GroupRoom = {
   status: "open" | "closed" | "finished"
   created_at: string
   updated_at: string
+  filter_selections?: string // JSON string dos filtros de área/subtema
 }
 
 export type RoomParticipant = {
@@ -45,24 +159,33 @@ function generateRoomCode(): string {
 export async function createGroupRoom(
   userId: string,
   questionCount: number,
+  filterSelections?: AreaSubtemaSelection[],
 ): Promise<{ room: GroupRoom; code: string } | null> {
   const supabase = createClient()
 
-  console.log("[v0] Iniciando criação da sala:", { userId, questionCount })
+  console.log("[v0] Iniciando criação da sala:", { userId, questionCount, filterSelections })
 
   // Gerar código único de 6 caracteres
   const roomCode = generateRoomCode()
 
   console.log("[v0] Código gerado:", roomCode)
 
+  // Preparar dados da sala
+  const roomData: any = {
+    room_code: roomCode,
+    host_user_id: userId,
+    question_count: questionCount,
+    status: "open",
+  }
+
+  // Adicionar filtros se existirem
+  if (filterSelections && filterSelections.length > 0) {
+    roomData.filter_selections = JSON.stringify(filterSelections)
+  }
+
   const { data: room, error } = await supabase
     .from("group_study_rooms")
-    .insert({
-      room_code: roomCode,
-      host_user_id: userId,
-      question_count: questionCount,
-      status: "open",
-    })
+    .insert(roomData)
     .select()
     .single()
 
