@@ -349,13 +349,13 @@ export default function GrupoPage() {
                 <label className="block text-sm font-medium mb-2">Quantidade de Questões</label>
                 <Input
                   type="number"
-                  min="25"
+                  min="10"
                   max="100"
                   value={questionCount}
                   onChange={(e) => setQuestionCount(Number(e.target.value))}
                   className="w-full"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Entre 25 e 100 questões</p>
+                <p className="text-xs text-muted-foreground mt-1">Entre 10 e 100 questões</p>
               </div>
 
               {/* Toggle para filtro por área */}
