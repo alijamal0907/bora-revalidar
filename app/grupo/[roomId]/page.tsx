@@ -17,6 +17,8 @@ import {
   getRoomRanking,
   getUserWrongAnswers,
   getRandomQuestions,
+  getQuestionsByFilters,
+  type AreaSubtemaSelection,
 } from "@/lib/group-study"
 import { MessageCircle } from "lucide-react"
 
@@ -72,6 +74,7 @@ export default function GroupRoomPage() {
   const [reviewWrong, setReviewWrong] = useState(0)
   const [reviewFinished, setReviewFinished] = useState(false)
   const [isLoadingReview, setIsLoadingReview] = useState(false)
+  const [filterSelections, setFilterSelections] = useState<AreaSubtemaSelection[] | null>(null)
 
   const isHost = useMemo(() => {
     return userId && hostUserId && userId === hostUserId
@@ -102,7 +105,7 @@ export default function GroupRoomPage() {
 
       const { data: roomData, error: roomError } = await supabase
         .from("group_study_rooms")
-        .select("status, host_user_id, question_count, room_code")
+        .select("status, host_user_id, question_count, room_code, filter_selections")
         .eq("id", roomId)
         .single()
 
@@ -115,6 +118,17 @@ export default function GroupRoomPage() {
       setHostUserId(roomData.host_user_id)
       setRoomQuestionCount(roomData.question_count || 10)
       setRoomCode(roomData.room_code || roomId)
+      
+      // Carregar filtros se existirem
+      if (roomData.filter_selections) {
+        try {
+          const selections = JSON.parse(roomData.filter_selections)
+          setFilterSelections(selections)
+          console.log("[v0] Filtros carregados:", selections)
+        } catch (e) {
+          console.error("[v0] Erro ao parsear filtros:", e)
+        }
+      }
 
       const roomParticipants = await getRoomParticipants(roomId)
       setParticipants(roomParticipants)
@@ -380,14 +394,27 @@ export default function GroupRoomPage() {
     }
 
     setIsStarting(true)
-    console.log("[v0] Iniciando sala:", roomId, "com", roomQuestionCount, "questões")
+    console.log("[v0] Iniciando sala:", roomId, "com", roomQuestionCount, "questões", "filtros:", filterSelections)
 
     try {
-      const randomQuestions = await getRandomQuestions(roomQuestionCount)
+      // Buscar IDs dos participantes para priorização inteligente
+      const participantIds = participants.map(p => p.user_id)
+      
+      // Usar filtros se existirem, senão buscar aleatoriamente
+      let randomQuestions
+      if (filterSelections && filterSelections.length > 0) {
+        console.log("[v0] Usando filtros de área/subtema")
+        randomQuestions = await getQuestionsByFilters(filterSelections, roomQuestionCount, participantIds)
+      } else {
+        console.log("[v0] Usando busca aleatória padrão")
+        randomQuestions = await getRandomQuestions(roomQuestionCount, participantIds)
+      }
 
       if (!randomQuestions || randomQuestions.length === 0) {
-        throw new Error("Não foi possível buscar questões")
+        throw new Error("Não foi possível buscar questões para os filtros selecionados")
       }
+
+      console.log("[v0] Questões encontradas:", randomQuestions.length)
 
       const questionIds = randomQuestions.map((q) => q.pk)
       await startGroupRoom(roomId, userId, questionIds)
@@ -637,6 +664,30 @@ export default function GroupRoomPage() {
                   Copiar Código
                 </Button>
               </div>
+
+              {/* Filtros Selecionados */}
+              {filterSelections && filterSelections.length > 0 && (
+                <div className="bg-card border border-border rounded-xl p-4 sm:p-6">
+                  <h3 className="font-semibold mb-3 text-sm text-muted-foreground uppercase tracking-wide">
+                    Filtros do Simulado
+                  </h3>
+                  <div className="space-y-2">
+                    {filterSelections.map((selection, idx) => (
+                      <div key={idx} className="bg-muted/30 rounded-lg p-3">
+                        <div className="font-medium text-foreground">{selection.tema}</div>
+                        {selection.subtemas && selection.subtemas.length > 0 ? (
+                          <div className="text-sm text-muted-foreground mt-1">
+                            {selection.subtemas.length} subtema{selection.subtemas.length > 1 ? 's' : ''}: {selection.subtemas.slice(0, 3).join(', ')}
+                            {selection.subtemas.length > 3 && ` e mais ${selection.subtemas.length - 3}`}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground mt-1">Todos os subtemas</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Botão Iniciar Simulado */}
               {isHost ? (
