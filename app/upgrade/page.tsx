@@ -13,9 +13,9 @@ import type { UserPlan } from "@/lib/plan-utils"
 
 const PREMIUM_PLAN = {
   name: "Acesso Vitalício Premium",
-  price: "R$ 297,00",
-  paymentUrl: "https://pay.cakto.com.br/upkbydv_655583",
-  installmentUrl: "https://mpago.li/33Sj8Eq",
+  price: "R$ 347,00",
+  paymentUrl: "https://wa.me/554588052041",
+  installmentUrl: "https://wa.me/554588052041",
   benefits: [
     "Acesso ilimitado VITALÍCIO ao Bora Revalidar",
     "Questões ilimitadas por dia",

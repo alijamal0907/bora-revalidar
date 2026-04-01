@@ -10,9 +10,9 @@ interface UpgradeModalProps {
 
 const PREMIUM_PLAN = {
   name: "Acesso Vitalício Premium",
-  price: "R$ 297,00",
-  link: "https://pay.cakto.com.br/upkbydv_655583",
-  installmentLink: "https://mpago.li/33Sj8Eq",
+  price: "R$ 347,00",
+  link: "https://wa.me/554588052041",
+  installmentLink: "https://wa.me/554588052041",
   benefits: [
     "Acesso ilimitado VITALÍCIO",
     "Questões ilimitadas por dia",
